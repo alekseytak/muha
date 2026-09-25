@@ -1,0 +1,51 @@
+{
+  "manifest_version": "1.0.0",
+  "experiment_id": "fly-snn-mvp1-2026-09-22-001",
+  "created_at": "2026-09-22T10:00:00Z",
+  "connectome_manifest_ref": "connectome.janelia.male_cns_v1.mushroom_body_subgraph",
+  "claims_allowed": ["simulation_result", "engineering_performance"],
+  "dynamics": {
+    "model": "current_based_lif",
+    "dt_ms": 1.0,
+    "synapse_tau_ms": 5.0,
+    "delay_model": "per_edge"
+  },
+  "plasticity": {
+    "rule": "edge_sparse_reward_modulated_stdp",
+    "plastic_edge_subset": "kenyon_cell_output",
+    "simultaneous_spike_convention": "zero",
+    "modulator_profile_id": "modulator_v1",
+    "homeostasis_profile_id": "homeostasis_v1"
+  },
+  "weight_mapping": {
+    "profile_id": "log_quantile_v1",
+    "transform": "log_quantile",
+    "quantiles": {"low": 0.05, "high": 0.95},
+    "w_exc_max": 1.0,
+    "w_inh_max": 0.5
+  },
+  "spike_rate_target": {
+    "default_operating_rate_range_hz": [1.0, 20.0],
+    "status": "engineering_target_not_biological_claim"
+  },
+  "baselines": [
+    {
+      "baseline_id": "directed_in_out_degree_preserving_rewire",
+      "seed": 42,
+      "accepted_swaps": 120000,
+      "max_attempts": 1000000
+    },
+    {"baseline_id": "weight_shuffle", "seed": 43},
+    {"baseline_id": "density_matched_random_sparse", "seed": 44},
+    {"baseline_id": "no_plasticity"},
+    {"baseline_id": "no_modulator"},
+    {"baseline_id": "constant_positive_modulator_control"}
+  ],
+  "seeds": {
+    "master": 20260922,
+    "membrane_noise": 1,
+    "weight_init": 2,
+    "baseline": 42
+  },
+  "exploratory_modules_active": []
+}

@@ -1,0 +1,38 @@
+version: os-glagolov/1.0
+project: anuclear-rhizome
+comment: >
+  Политика ризомного роя. Единственная вертикаль — Registrar.
+  Всё остальное — горизонтальные gossip-связи.
+
+rhizome:
+  max_neighbors: 5
+  min_neighbors: 2
+  heal_on_node_loss: true        # принцип разрыва: сеть восстанавливается
+  consensus:
+    protocol: gossip
+    quorum: 0.66
+    max_rounds: 10
+
+aura_transfer:
+  signer_role: Registrar
+  signer_verb: версирует          # L5, с аттестацией
+  capability_rule: subset_of_teacher
+  never_transfer: [WR]
+  require_signature: true
+  on_invalid_signature:
+    verb: блокирует
+    role: Guardian
+
+anuclear_shells:
+  description: >
+    Анаклеарные агенты-оболочки: функционируют без постоянного ядра,
+    принимают ауру выпускника-Учителя.
+  idle_mode: Observer             # пустая оболочка только наблюдает
+  max_shells_per_swarm: 32
+
+arfa_sensory_pipeline:
+  cascade: [csc, harp, royal_mole, apfa]
+  brain_temperature_k: 310.15
+  fs_hz: 200
+  domain: atqec
+  final_commit: false             # фильтры не публикуют решения

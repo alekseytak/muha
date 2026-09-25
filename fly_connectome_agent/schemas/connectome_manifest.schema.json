@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConnectomeManifest",
+  "type": "object",
+  "required": [
+    "manifest_version", "dataset_id", "dataset_version", "species",
+    "sex", "cns_scope", "subgraph_rule", "node_count", "edge_count",
+    "edge_semantics", "edge_policy", "unknown_annotation_policy",
+    "node_classes", "edge_classes", "provenance"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "manifest_version": {"type": "string", "const": "1.0.0"},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "dataset_version": {"type": "string"},
+    "species": {"type": "string", "const": "Drosophila melanogaster"},
+    "sex": {"type": "string", "enum": ["male", "female", "mixed"]},
+    "cns_scope": {"type": "string", "enum": ["brain_only", "brain_and_vnc"]},
+    "subgraph_rule": {"type": "object",
+      "required": ["rule_id", "description"],
+      "properties": {
+        "rule_id": {"type": "string"},
+        "description": {"type": "string"},
+        "region_filter": {"type": "array", "items": {"type": "string"}},
+        "neuron_class_filter": {"type": "array", "items": {"type": "string"}},
+        "target_node_count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "node_count": {"type": "integer", "minimum": 1},
+    "edge_count": {"type": "integer", "minimum": 0},
+    "edge_semantics": {"type": "string", "const": "pre_to_post"},
+    "edge_policy": {
+      "type": "object",
+      "required": ["allow_self_loops", "merge_parallel"],
+      "properties": {
+        "allow_self_loops": {"type": "boolean"},
+        "merge_parallel": {"type": "boolean"},
+        "merge_method": {"type": "string", "enum": ["sum", "max", "reject"]}
+      }
+    },
+    "unknown_annotation_policy": {
+      "type": "string",
+      "enum": ["excitatory_default", "inhibitory_default", "exclude", "separate_class"]
+    },
+    "node_classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["class_id", "sign"],
+        "properties": {
+          "class_id": {"type": "string"},
+          "sign": {"type": "string", "enum": ["excitatory", "inhibitory", "unknown"]},
+          "count": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "edge_classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["class_id", "structural", "plastic", "sign_constraint"],
+        "properties": {
+          "class_id": {"type": "string"},
+          "structural": {"type": "boolean"},
+          "plastic": {"type": "boolean"},
+          "sign_constraint": {"type": "string", "enum": ["positive", "negative", "free"]}
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source_url", "retrieved_at", "license"],
+      "properties": {
+        "source_url": {"type": "string", "format": "uri"},
+        "retrieved_at": {"type": "string", "format": "date-time"},
+        "license": {"type": "string"},
+        "reconstruction_confidence_threshold": {"type": "number"}
+      }
+    }
+  }
+}

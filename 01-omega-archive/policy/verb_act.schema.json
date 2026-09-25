@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "verb-act",
+  "description": "Базовая единица действия OS Глаголов (OS-Glagolov-Charter.md п.3, os-glagolov-theory-ru.md п.9)",
+  "type": "object",
+  "required": ["subject", "role", "verb", "object", "domain"],
+  "properties": {
+    "subject": { "type": "string", "description": "агент, модуль или связка" },
+    "role": {
+      "type": "string",
+      "enum": ["Observer", "Analyst", "Synthesizer", "Decider", "Guardian", "Registrar"]
+    },
+    "verb": { "type": "string", "description": "глагол из словаря verbs.json (L0-L5)" },
+    "object": { "type": "string", "description": "ресурс, над которым совершается действие" },
+    "domain": {
+      "type": "string",
+      "enum": ["medical", "legal", "registry", "atqec", "memory", "hardware", "education", "finance"]
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string" },
+        "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+        "human_in_loop": { "type": "boolean" },
+        "swarm_id": { "type": "string" },
+        "is_commit_action": { "type": "boolean" },
+        "overwrites_canonical": { "type": "boolean" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "allow": { "type": "boolean" },
+        "write_local": { "type": "boolean" },
+        "write_registry": { "type": "boolean" },
+        "requires_attestation": { "type": "boolean" },
+        "requires_escalation": { "type": "boolean" }
+      }
+    },
+    "result": { "type": "object" },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "why": { "type": "string" },
+        "model_version": { "type": "string" },
+        "policy_version": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    }
+  }
+}

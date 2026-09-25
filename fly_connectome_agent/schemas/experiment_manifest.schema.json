@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExperimentManifest",
+  "type": "object",
+  "required": [
+    "manifest_version",
+    "experiment_id",
+    "created_at",
+    "connectome_manifest_ref",
+    "claims_allowed",
+    "dynamics",
+    "plasticity",
+    "weight_mapping",
+    "spike_rate_target",
+    "baselines",
+    "seeds",
+    "exploratory_modules_active"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "experiment_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9\\-]{3,64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "connectome_manifest_ref": {
+      "type": "string"
+    },
+    "claims_allowed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "simulation_result",
+          "engineering_performance",
+          "structural_effect"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "dynamics": {
+      "type": "object",
+      "required": [
+        "model",
+        "dt_ms"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "enum": [
+            "current_based_lif"
+          ]
+        },
+        "dt_ms": {
+          "type": "number",
+          "enum": [
+            0.1,
+            0.5,
+            1.0
+          ]
+        },
+        "synapse_tau_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "delay_model": {
+          "type": "string",
+          "enum": [
+            "none",
+            "fixed",
+            "per_edge"
+          ]
+        }
+      }
+    },
+    "plasticity": {
+      "type": "object",
+      "required": [
+        "rule",
+        "plastic_edge_subset",
+        "simultaneous_spike_convention"
+      ],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "const": "edge_sparse_reward_modulated_stdp"
+        },
+        "plastic_edge_subset": {
+          "type": "string"
+        },
+        "simultaneous_spike_convention": {
+          "type": "string",
+          "enum": [
+            "zero",
+            "ltd_dominant",
+            "ltp_dominant"
+          ]
+        },
+        "modulator_profile_id": {
+          "type": "string"
+        },
+        "homeostasis_profile_id": {
+          "type": "string"
+        }
+      }
+    },
+    "weight_mapping": {
+      "type": "object",
+      "required": [
+        "profile_id",
+        "transform",
+        "quantiles",
+        "w_exc_max",
+        "w_inh_max"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "log_quantile",
+            "rank_quantile",
+            "identity"
+          ]
+        },
+        "quantiles": {
+          "type": "object",
+          "required": [
+            "low",
+            "high"
+          ],
+          "properties": {
+            "low": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "high": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "w_exc_max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "w_inh_max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "spike_rate_target": {
+      "type": "object",
+      "required": [
+        "default_operating_rate_range_hz",
+        "status"
+      ],
+      "properties": {
+        "default_operating_rate_range_hz": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "status": {
+          "type": "string",
+          "const": "engineering_target_not_biological_claim"
+        }
+      }
+    },
+    "baselines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "baseline_id"
+        ],
+        "properties": {
+          "baseline_id": {
+            "type": "string",
+            "enum": [
+              "directed_in_out_degree_preserving_rewire",
+              "weight_shuffle",
+              "density_matched_random_sparse",
+              "no_plasticity",
+              "no_modulator",
+              "constant_positive_modulator_control"
+            ],
+            "description": "Базлайны со случайностью: directed_in_out_degree_preserving_rewire, weight_shuffle, density_matched_random_sparse. Контрольные (no_plasticity, no_modulator, constant_positive_modulator_control) seed не несут."
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Обязателен для базлайнов со случайностью; у контрольных отсутствует."
+          },
+          "accepted_swaps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "edge_policy": {
+            "type": "object"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "baseline_id": {
+                  "enum": [
+                    "directed_in_out_degree_preserving_rewire",
+                    "weight_shuffle",
+                    "density_matched_random_sparse"
+                  ]
+                }
+              },
+              "required": [
+                "baseline_id"
+              ]
+            },
+            "then": {
+              "required": [
+                "seed"
+              ],
+              "description": "Рандомизирующий базлайн обязан нести seed: контракт §5 требует детерминированного повтора."
+            }
+          }
+        ]
+      }
+    },
+    "seeds": {
+      "type": "object",
+      "required": [
+        "master"
+      ],
+      "properties": {
+        "master": {
+          "type": "integer"
+        },
+        "membrane_noise": {
+          "type": "integer"
+        },
+        "weight_init": {
+          "type": "integer"
+        },
+        "baseline": {
+          "type": "integer"
+        }
+      }
+    },
+    "exploratory_modules_active": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "module_id",
+          "status",
+          "biological_interpretation"
+        ],
+        "properties": {
+          "module_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "HYPOTHETICAL",
+              "VALIDATED"
+            ]
+          },
+          "policy_eligible": {
+            "type": "boolean"
+          },
+          "biological_interpretation": {
+            "type": "string"
+          },
+          "required_baseline_comparison": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

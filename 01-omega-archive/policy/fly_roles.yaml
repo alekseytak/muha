@@ -1,0 +1,59 @@
+version: os-glagolov/1.0
+project: omega-archive
+comment: >
+  Машиночитаемая политика (Layer B) для роя «Архив Омеги».
+  WR принадлежит только Registrar (OS-Glagolov-Charter.md, п.6).
+
+roles:
+  FlyObserver:
+    capabilities: [R, WL]
+    allowed_verbs: [наблюдает, считывает, ищет, читает]
+    forbidden_verbs: [публикует, подписывает, якорит, назначает, диагностирует]
+
+  FlyAnalyst:
+    capabilities: [R, WL]
+    allowed_verbs: [извлекает, сопоставляет, классифицирует, оценивает,
+                    объясняет, предсказывает, маркирует, ранжирует]
+    forbidden_verbs: [публикует, подписывает, хэширует, якорит]
+
+  FlySynthesizer:
+    capabilities: [R, WL]
+    allowed_verbs: [фильтрует, нормализует, агрегирует, синтезирует,
+                    декомпозирует, кэширует, архивирует, маршрутизирует]
+    forbidden_verbs: [публикует, подписывает]
+
+  FlyDecider:
+    capabilities: [R, WL, X, E]
+    allowed_verbs: [рекомендует, приоритизирует, выбирает, эскалирует, отклоняет]
+    forbidden_verbs: [публикует, подписывает, хэширует, якорит]
+
+  FlyGuardian:
+    capabilities: [R, WL, X, E]
+    allowed_verbs: [блокирует, останавливает, ограничивает, разрешает,
+                    эскалирует, переключает]
+    forbidden_verbs: [публикует, подписывает]
+
+  Registrar:
+    capabilities: [R, WL, WE, WR, A]
+    allowed_verbs: [сериализует, экспортирует, хэширует, аттестует,
+                    якорит, версирует, публикует]
+    forbidden_verbs: [назначает, диагностирует]
+
+domains:
+  hardware:
+    max_autonomous_risk: medium
+    irreversible_requires_human: true
+  memory:
+    search_summarize_archive: true
+    overwrite_canonical_precedent: false
+  registry:
+    write_only_via: Registrar
+  atqec:
+    may_filter_mark_evaluate: true
+    final_commit: false
+  medical:
+    analytics_allowed: true
+    commit_requires_human: true
+  legal:
+    reading_and_risk_analysis: true
+    signing_requires_external_subject: true

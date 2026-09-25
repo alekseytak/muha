@@ -1,0 +1,7 @@
+# Только то, что нужно для прогона проверок: тесты агента и валидация схем.
+# Полный научный стек (torch, snntorch, ray, numba, guppy) лежит отдельно —
+# fly_connectome_agent/requirements.txt — и для проверок не требуется.
+numpy>=1.24.0
+scipy>=1.10.0
+pytest>=7.4.0
+jsonschema>=4.19.0
