@@ -507,7 +507,7 @@ def test_require_frozen_accepts_the_pin_and_refuses_everything_else():
 @pytest.mark.parametrize("mutate", EDITS, ids=EDIT_IDS)
 def test_the_edit_survives_the_schema_so_digest_is_the_only_defence(mutate, tmp_path):
     """Без этого теста три отказа ниже бесполезны: если бы правку ломала сама
-    схема, reject ничего не доказывал бы про якорь."""
+    схема, отказ ничего не доказывал бы про якорь."""
     m = proto.load(_edited_manifest(tmp_path, mutate))
     assert m["_digest"] != FROZEN
 
@@ -618,21 +618,29 @@ def test_confirmatory_sidecar_would_carry_the_frozen_digest(manifest):
 
     Для замороженного файла это ровно якорь, значит confirmatory-sidecar обязан
     нести FROZEN_PROTOCOL_DIGEST. Сам запись файла покрывает experimental-тест
-    ниже: она гоняет настоящий writer, а не её пересказ.
+    ниже: она гоняет настоящую запись файла, а не её пересказ.
     """
     assert manifest["_digest"] == proto.digest_of_file(proto.DEFAULT_MANIFEST) == FROZEN
 
 
 def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
-    """Настоящий writer, три эпизода: non_confirmatory попадает в файл прогона."""
+    """Настоящая запись sidecar: три эпизода, non_confirmatory попадает в файл прогона."""
     m = copy.deepcopy(proto.load())
     m.pop("_digest")
     _widen_seeds(m)
     m["seed_sets"]["confirmatory"]["range"] = [60, 60]
     m["seed_sets"]["confirmatory"]["count"] = 1
     m["episodes_per_seed"] = 1
+    # episodes живёт в двух местах сразу: episodes_per_seed обязан совпасть с
+    # operating_point.values.episodes, а отклонение от дефолта кода должно быть
+    # объявлено в overrides с обоснованием. Иначе отказ раннера был бы про формат,
+    # а не про якорь.
+    op = m["operating_point"]
+    op["values"]["episodes"] = 1
+    op["overrides"]["episodes"] = 1
+    op["override_rationale"]["episodes"] = "1 эпизод: проверка записи sidecar, не прогон"
     m["run_budget"]["cells"] = len(m["arms"]) * 1 * len(m["task_streams"])
-    m["run_budget"]["episodes"] = m["run_budget"]["cells"]
+    m["run_budget"]["episodes"] = m["run_budget"]["cells"] * 1
     p = tmp_path / "expl.json"
     p.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
     out_csv = tmp_path / "expl.csv"
@@ -647,7 +655,11 @@ def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
     with pytest.raises(gate.Refused, match="не по замороженному протоколу"):
         gate.check_sidecars([str(out_csv)], [str(tmp_path / "expl.csv.meta.json")],
                             side["manifest_digest"])
-    with pytest.raises(gate.Refused, match="non_confirmatory"):
+    # Порядок проверок: сначала якорь, потом содержимое sidecar. Если гейт вызван
+    # по замороженному протоколу, а в sidecar лежит другой digest, срабатывает
+    # именно эта ветка — метка non_confirmatory приходит следующей (её собственный
+    # случай покрыт test_non_confirmatory_sidecar_cannot_pass_the_gate).
+    with pytest.raises(gate.Refused, match="другому протоколу"):
         gate.check_sidecars([str(out_csv)], [str(tmp_path / "expl.csv.meta.json")], FROZEN)
 
 # --- 5. арифметика гейта --------------------------------------------------

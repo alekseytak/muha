@@ -52,7 +52,7 @@ def sidecar_path_for(csv_path: pathlib.Path) -> pathlib.Path:
 def check_sidecars(csv_paths: list[str], sidecar_paths: list[str], digest: str) -> list[dict]:
     """Каждый shard обязан иметь свой sidecar, с замороженным digest и partial=false.
 
-    Первым делом проверяется сам anchor: если гейт вызван по манифесту, которого нет
+    Первым делом проверяется якорь: если гейт вызван по манифесту, которого нет
     в замороженной pre-registration, сравнивать sidecar с его digest бессмысленно —
     подделка совпадёт сама с собой.
     """
