@@ -131,7 +131,8 @@ P4.2 отвечает на вопрос о величине эффекта от�
 
 Гейт **не выносит** научного вердикта, если:
 
-- digest манифеста не совпал со sidecar прогона (протокол правили после запуска);
+- гейт вызван по манифесту, чей digest не равен `FROZEN_PROTOCOL_DIGEST` из `scripts/p4_2_protocol.py` — якорь живёт в коде, а не в проверяемом файле (см. «Якорь pre-registration» ниже);
+- sidecar прогона помечен `non_confirmatory` (прогон делался по не-замороженному манифесту через `--experimental-manifest`);
 - sidecar помечен `partial` (подрезка seed или arms);
 - в матрице не хватает хотя бы одной ячейки `arm × stream × seed` или есть лишняя;
 - в прогоне есть seed вне 60–119 или пересекающийся с множествами P4.1;
@@ -148,6 +149,43 @@ P4.2 отвечает на вопрос о величине эффекта от�
 
 Отдельные коды возврата нужны затем, чтобы «проверки не было» нельзя было прочитать как
 «проверка не прошла».
+
+## Якорь pre-registration: digest заморожен в коде (P4.2a)
+
+До P4.2a гейт сверял digest файла манифеста с `_digest` того же манифеста, который
+сам из этого файла и загрузил. Две величины, посчитанные от одних байт, совпадают
+всегда, поэтому подмена работала:
+
+```bash
+.venv/bin/python scripts/run_p4_2_oracle.py --manifest /tmp/edited_protocol.json ...
+.venv/bin/python scripts/check_p4_2_oracle_gate.py --manifest /tmp/edited_protocol.json ...
+```
+
+Runner записывал в sidecar digest подменённого манифеста, гейт пересчитывал digest
+того же подменённого манифеста — и принимал прогон. Заморозка, которую можно
+переопределить аргументом командной строки, не заморозка.
+
+Сейчас якорь — константа `FROZEN_PROTOCOL_DIGEST` в `scripts/p4_2_protocol.py`, и
+она обязана совпасть с digest'ом того единственного манифеста, по которому идёт
+confirmatory-прогон:
+
+- `scripts/check_p4_2_oracle_gate.py` refuse'ит до чтения любых CSV (`require_frozen`),
+  а `check_sidecars` дополнительно требует `manifest_digest ==` этого же якоря;
+- `scripts/run_p4_2_oracle.py` refuse'ит до первого смоделированного эпизода
+  (`freeze_guard`), а в sidecar и provenance пишет `manifest_digest`,
+  `frozen_protocol_digest` и `non_confirmatory`;
+- ловится не только правка чисел: правка **формулировки гипотезы**, не портящая
+  схему, тоже меняет digest и тоже отклоняется (`test_..._текст-гипотезы`).
+
+`--manifest` сохранён, но не как лазейка: другой манифест принимается только вместе
+с `--experimental-manifest`, который (а) запрещает писать в confirmatory путь
+`var/p4_2_oracle.csv` и (б) помечает прогон `non_confirmatory=true` — такой CSV гейт
+не примет никогда. На замороженном манифесте этот флаг тоже отказывает: кнопка,
+которую жмут «на всякий случай», перестаёт значить что-либо.
+
+Digest: `sha256:6e343c298c5367ad1cc713db8a8d4e1f981467432a6536120286305476de6f62`
+(canonical JSON; raw SHA-256 файла `1bfb03db…` — другой, тоже легитимный якорь, но
+сравнивается в коде именно canonical).
 
 ## Решение после P4.2 (объявлено до запуска)
 
@@ -242,7 +280,8 @@ confirmatory seed'ы: там, где нужно что-то прогнать, б
     --arms weight_shuffled_frozen,direction_shuffled_frozen,oracle_reflex \
     --out var/p4_2_oracle_b.csv --provenance var/p4_2_oracle_b.prov.jsonl
 
-# вердикт (sidecar каждого шарда обязателен)
+# вердикт (sidecar каждого шарда обязателен; --manifest указывать не нужно,
+#  он и так обязан совпасть с FROZEN_PROTOCOL_DIGEST)
 .venv/bin/python scripts/check_p4_2_oracle_gate.py \
     --csv var/p4_2_oracle_a.csv var/p4_2_oracle_b.csv \
     --sidecar var/p4_2_oracle_a.csv.meta.json var/p4_2_oracle_b.csv.meta.json \

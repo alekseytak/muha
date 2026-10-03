@@ -45,6 +45,11 @@ import run_p4_validation as p4  # noqa: E402
 DEFAULT_OUT = REPO / "var" / "p4_2_oracle.csv"
 DEFAULT_PROV = REPO / "var" / "p4_2_oracle.prov.jsonl"
 PROBE_EPISODES = 8
+REFUSE = 2          # «прогона по этому протоколу не будет», тот же смысл, что у гейта
+
+
+class Refused(Exception):
+    """Право считать отсутствует: прогон не по замороженному pre-registration."""
 
 
 def git_state() -> dict[str, str]:
@@ -107,9 +112,40 @@ def summarise(rows: list[dict], manifest: dict, arm_ids: list[str], streams: lis
           f"(бюджет протокола: {manifest['provenance']['violation_budget']})")
 
 
+def freeze_guard(manifest: dict, experimental: bool, out_path: str) -> bool:
+    """True если прогон явно объявлен experimental (не замороженный протокол).
+
+    Правила, без которых pre-registration ничего не стоит:
+    - не-замороженный манифест без --experimental-manifest — отказ;
+    - --experimental-manifest на замороженном манифесте — отказ: флаг не должен
+      становиться «ритуальной» кнопкой, иначе по нему нельзя судить о прогоне;
+    - experimental не имеет права писать в confirmatory путь: такой CSV потом
+      неотличим от настоящего прогона глазами.
+    """
+    digest = manifest["_digest"]
+    frozen = digest == proto.FROZEN_PROTOCOL_DIGEST
+    if frozen:
+        if experimental:
+            raise Refused("--experimental-manifest не нужен: digest совпадает с замороженным "
+                          "протоколом. Флаг без правки только размывает границу.")
+        return False
+    if not experimental:
+        raise Refused(
+            f"digest манифеста {digest} не равен замороженному "
+            f"{proto.FROZEN_PROTOCOL_DIGEST}. Правка протокола после заморозки — это уже "
+            "не P4.2; для отладочного прогона нужны --experimental-manifest и другой --out.")
+    if pathlib.Path(out_path).resolve() == pathlib.Path(DEFAULT_OUT).resolve():
+        raise Refused(f"experimental-прогон не может писать в confirmatory путь {DEFAULT_OUT}")
+    return True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--manifest", default=str(proto.DEFAULT_MANIFEST))
+    ap.add_argument("--experimental-manifest", action="store_true",
+                    help="разрешить прогон по НЕ замороженному манифесту: в sidecar и "
+                         "provenance пишется non_confirmatory=true, а в confirmatory путь "
+                         "(var/p4_2_oracle.csv) писать запрещено — гейт такой CSV не примет")
     ap.add_argument("--out", default=str(DEFAULT_OUT))
     ap.add_argument("--provenance", default=str(DEFAULT_PROV))
     ap.add_argument("--seeds", help="подрезка объявленного множества для шарда (напр. 60-89)")
@@ -120,10 +156,26 @@ def main() -> int:
     ap.add_argument("--verbose", action="store_true")
     a = ap.parse_args()
 
-    manifest = proto.load(pathlib.Path(a.manifest))
+    try:
+        manifest = proto.load(pathlib.Path(a.manifest))
+    except proto.ProtocolError as exc:
+        # «проверки не было» = exit 2, а не трейсбек с exit 1.
+        print(f"ЗАПУСК ОТКЛОНЁН: манифест не проходит замороженный протокол: {exc}",
+              file=sys.stderr)
+        return REFUSE
+    try:
+        experimental = freeze_guard(manifest, a.experimental_manifest, a.out)
+    except Refused as exc:
+        print(f"ЗАПУСК ОТКЛОНЁН: {exc}", file=sys.stderr)
+        return REFUSE
+
     codes = proto.code_arms(manifest)
 
     print(proto.describe(manifest))
+    if experimental:
+        print("\nNON-CONFIRMATORY: манифест не равен замороженному протоколу "
+              f"({proto.FROZEN_PROTOCOL_DIGEST}); прогон помечен non_confirmatory=true "
+              "и не может быть принят гейтом.")
 
     if a.describe:
         print("\n--describe: ни одного эпизода не симулировано.")
@@ -163,6 +215,8 @@ def main() -> int:
             "kind": "p4_2_protocol",
             "protocol_id": manifest["protocol_id"],
             "manifest_digest": manifest["_digest"],
+            "frozen_protocol_digest": proto.FROZEN_PROTOCOL_DIGEST,
+            "non_confirmatory": experimental,
             "seeds": [seeds[0], seeds[-1]] if seeds else [],
             "n_seeds": len(seeds),
             "episodes_per_seed": manifest["episodes_per_seed"],
@@ -191,6 +245,8 @@ def main() -> int:
     sidecar.write_text(json.dumps({
         "protocol_id": manifest["protocol_id"],
         "manifest_digest": manifest["_digest"],
+        "frozen_protocol_digest": proto.FROZEN_PROTOCOL_DIGEST,
+        "non_confirmatory": experimental,
         "manifest_path": str(pathlib.Path(a.manifest)),
         "partial": partial,
         "seeds_run": len(seeds),
@@ -209,7 +265,8 @@ def main() -> int:
         "numpy": np.__version__,
         "scipy_available": p4._HAVE_SCIPY,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"sidecar → {sidecar.name} (digest {manifest['_digest'][:19]}…, partial={partial})")
+    print(f"sidecar → {sidecar.name} (digest {manifest['_digest'][:19]}…, partial={partial}, "
+          f"non_confirmatory={experimental})")
 
     if prov is not None:
         intact = prov.verify_chain()

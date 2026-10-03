@@ -192,7 +192,8 @@ def c6_oracle(manifest, settings, tmp) -> str:
 
 # --- 7. у раннера нет способа расширить или перенастроить прогон --------------
 
-ALLOWED_CLI = {"manifest", "out", "provenance", "seeds", "arms", "probe", "describe", "verbose"}
+ALLOWED_CLI = {"manifest", "out", "provenance", "seeds", "arms", "probe", "describe", "verbose",
+               "experimental_manifest"}
 
 
 def c7_runner_cli(manifest, settings, tmp) -> str:
@@ -212,14 +213,37 @@ def c7_runner_cli(manifest, settings, tmp) -> str:
     else:
         raise Fail("check_subset пропустил seed 120 вне замороженного множества")
     runner.check_subset([60, 89], declared, "seeds")   # подрезка разрешена
+    # Якорь pre-registration: он в коде, а не в проверяемом файле, иначе
+    # --manifest указывает на правленый протокол и само сравнение digest'ов
+    # становится тавтологией.
+    if proto.digest_of_file(proto.DEFAULT_MANIFEST) != proto.FROZEN_PROTOCOL_DIGEST:
+        raise Fail("манифест в репозитории разошёлся с замороженным digest в коде")
+    try:
+        runner.freeze_guard({"_digest": "sha256:" + "0" * 64}, False, str(runner.DEFAULT_OUT))
+    except runner.Refused:
+        pass
+    else:
+        raise Fail("runner принимает не-замороженный манифест без флага")
+    if runner.freeze_guard({"_digest": proto.FROZEN_PROTOCOL_DIGEST}, False,
+                           str(runner.DEFAULT_OUT)) is not False:
+        raise Fail("замороженный манифест помечен как experimental")
+    try:
+        gate.check_sidecars([], [], "sha256:" + "0" * 64)
+    except gate.Refused:
+        pass
+    else:
+        raise Fail("гейт принимает не-замороженный digest")
     return ok(f"флагов ровно {len(flags)}: {sorted(flags)}; расширение seed/arm — SystemExit; "
-              "эпизоды/веса/пороги из CLI не задаются")
+              "эпизоды/веса/пороги из CLI не задаются; digest заморожен в коде, runner и "
+              "gate отказывают не-замороженному")
 
 
 # --- 8. partial-прогон не принимается ----------------------------------------
 
 def c8_partial_refused(manifest, settings, tmp) -> str:
     digest = manifest["_digest"]
+    if digest != proto.FROZEN_PROTOCOL_DIGEST:
+        raise Fail("манифест расходится с якорем в коде — проверять нечего")
     csv_path = tmp / "shard.csv"
     csv_path.write_text("arm,task,seed\n", encoding="utf-8")
     side = tmp / (csv_path.name + ".meta.json")

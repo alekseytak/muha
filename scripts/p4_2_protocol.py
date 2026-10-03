@@ -42,6 +42,17 @@ from fly_connectome_agent.src.engineering.harness.symmetric_toy import (  # noqa
 DEFAULT_MANIFEST = REPO / "fly_connectome_agent" / "manifests" / "p4_2_oracle_confirmatory.json"
 SCHEMA_PATH = REPO / "fly_connectome_agent" / "schemas" / "p4_protocol_manifest.schema.json"
 
+# Digest замороженной pre-registration (commit 58de288) как константа в коде.
+# Зачем именно константа: сравнение «digest файла» с «digest'ом загруженного
+# манифеста» — тавтология, обе величины считаются из одних байт, и подмена
+# манифеста через --manifest её бы не заметила. Якорь обязан жить вне
+# проверяемого файла; тогда правка протокола после заморозки ловится всегда,
+# включая edits, которые остаются валидными по схеме (например правка текста
+# гипотезы).
+FROZEN_PROTOCOL_DIGEST = (
+    "sha256:6e343c298c5367ad1cc713db8a8d4e1f981467432a6536120286305476de6f62"
+)
+
 TASK_STREAM_TO_CODE = {"left_target": "left", "right_target": "right", "mixed": MIXED}
 PRIMARY_METRIC_TO_COLUMN = {
     "mixed_min_half_success": "success_mirror_min",
@@ -51,6 +62,16 @@ PRIMARY_METRIC_TO_COLUMN = {
 
 class ProtocolError(ValueError):
     """Протокол полезен только тогда, когда его можно отклонить."""
+
+
+def require_frozen(digest: str, *, where: str) -> str:
+    """Отклонить любой манифест, которого нет в замороженной pre-registration."""
+    if digest != FROZEN_PROTOCOL_DIGEST:
+        raise ProtocolError(
+            f"{where}: digest {digest} не совпадает с замороженным протоколом "
+            f"{FROZEN_PROTOCOL_DIGEST}. Протокол после заморозки не правится: либо это "
+            "тот же манифест, либо прогон не confirmatory и не может быть принят гейтом.")
+    return digest
 
 
 def _eq(a: Any, b: Any) -> bool:

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -33,6 +34,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 import p4_2_protocol as proto  # noqa: E402
 import check_p4_2_oracle_gate as gate  # noqa: E402
+import run_p4_2_oracle as runner  # noqa: E402
 
 from fly_connectome_agent.src.engineering.harness import symmetric_toy as toy  # noqa: E402
 from fly_connectome_agent.src.engineering.harness.symmetric_toy import (  # noqa: E402
@@ -52,6 +54,9 @@ from fly_connectome_agent.src.engineering.harness.symmetric_toy import (  # noqa
 # "самосогласоваться". Если вектор весов инвариантен этой перестановке, у
 # проводки нет встроенного предпочтения направления.
 EXPECTED_MIRROR_PERM = [2, 3, 0, 1, 5, 4, 7, 6, 9, 8]
+
+# Якорь pre-registration: digest замороженного манифеста, зашитый в код.
+FROZEN = proto.FROZEN_PROTOCOL_DIGEST
 
 PROBE_SEEDS = [900, 901]  # вне всех гейтов
 
@@ -384,7 +389,7 @@ def _write_pair(tmp_path, digest, partial=False, arm="plastic"):
 
 
 def test_sidecar_bound_by_name_not_by_order(tmp_path):
-    digest = "sha256:" + "a" * 64
+    digest = FROZEN
     a = _write_pair(tmp_path, digest, arm="a")
     b = _write_pair(tmp_path, digest, arm="b")
     csvs = [str(a[0]), str(b[0])]
@@ -395,7 +400,7 @@ def test_sidecar_bound_by_name_not_by_order(tmp_path):
 
 def test_missing_sidecar_is_refused(tmp_path):
     # Прогон без sidecar нельзя отличить от прогона по правленному протоколу.
-    digest = "sha256:" + "a" * 64
+    digest = FROZEN
     a, _ = _write_pair(tmp_path, digest, arm="a")
     b, _ = _write_pair(tmp_path, digest, arm="b")
     with pytest.raises(gate.Refused, match="не хватает sidecar"):
@@ -403,26 +408,247 @@ def test_missing_sidecar_is_refused(tmp_path):
 
 
 def test_partial_sidecar_is_refused(tmp_path):
-    digest = "sha256:" + "a" * 64
+    digest = FROZEN
     csv_path, side = _write_pair(tmp_path, digest, partial=True)
     with pytest.raises(gate.Refused, match="partial"):
         gate.check_sidecars([str(csv_path)], [str(side)], digest)
 
 
 def test_stale_digest_sidecar_is_refused(tmp_path):
-    csv_path, side = _write_pair(tmp_path, "sha256:" + "a" * 64)
+    """Прогон по старому протоколу: гейт заморожен, sidecar нет.
+
+    Замороженный digest здесь — «текущий», а в sidecar лежит другой: ветку
+    «по другому протоколу» надо отличать от ветки «гейт идёт не по протоколу».
+    """
+    csv_path, side = _write_pair(tmp_path, "sha256:" + "b" * 64)
     with pytest.raises(gate.Refused, match="другому протоколу"):
-        gate.check_sidecars([str(csv_path)], [str(side)], "sha256:" + "b" * 64)
+        gate.check_sidecars([str(csv_path)], [str(side)], FROZEN)
 
 
 def test_orphan_sidecar_is_refused(tmp_path):
-    digest = "sha256:" + "a" * 64
+    digest = FROZEN
     csv_path, side = _write_pair(tmp_path, digest)
     other = tmp_path / "p4_2_gone.csv.meta.json"
     other.write_text(json.dumps({"manifest_digest": digest, "partial": False}), encoding="utf-8")
     with pytest.raises(gate.Refused, match="без своего CSV"):
         gate.check_sidecars([str(csv_path)], [str(side), str(other)], digest)
 
+
+# --- 4b. якорь pre-registration: digest заморожен в коде, а не в файле ----
+#
+# До P4.2a гейт сверял digest файла прогона с digest'ом манифеста, который сам
+# же из этого файла и загрузил. Две величины из одних байт совпадают всегда,
+# поэтому подмена манифеста (`--manifest /tmp/edited.json`) проходила и runner,
+# и gate, не оставив следа: sidecar был согласован с подделкой. Якорь обязан
+# жить вне проверяемого файла — тогда ловится любая правка, включая ту, которая
+# остаётся валидной по схеме.
+
+def _edited_manifest(tmp_path, mutate, name="edited.json"):
+    """Копия замороженного манифеста с одной точечной правкой.
+
+    Правки подбираются так, чтобы схема и cross-field проверки их НЕ отклоняли:
+    иначе тест доказывал бы формат, а не силу якоря.
+    """
+    m = copy.deepcopy(proto.load())
+    m.pop("_digest")
+    mutate(m)
+    p = tmp_path / name
+    p.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
+    assert proto.digest_of_file(p) != FROZEN
+    return p
+
+
+def _shift_eta(m):
+    m["operating_point"]["values"]["eta"] = 1.6
+    m["operating_point"]["overrides"]["eta"] = 1.6
+
+
+def _widen_seeds(m):
+    """Confirmatory-множество расширено вдвое; run_budget пересчитан, чтобы
+    правка осталась валидной — ловить её должен только якорь."""
+    m["seed_sets"]["confirmatory"]["range"] = [60, 179]
+    m["seed_sets"]["confirmatory"]["count"] = 120
+    rb = m.get("run_budget")
+    if rb:
+        cells = len(m["arms"]) * 120 * len(m["task_streams"])
+        rb["cells"] = cells
+        rb["episodes"] = cells * m["episodes_per_seed"]
+
+
+def _reword_hypothesis(m):
+    m["hypotheses"][0]["statement"] += " (переформулировано после заморозки)"
+
+
+EDITS = [_shift_eta, _widen_seeds, _reword_hypothesis]
+EDIT_IDS = ["eta=1.6", "seeds-60-179", "текст-гипотезы"]
+
+
+def _run_cli(script, *args):
+    """Вызов через CLI, потому что коды возврата — часть контракта: 2 значит
+    «проверки не было», 1 — «не прошло». Прямой вызов функций этого не ловит."""
+    res = subprocess.run([sys.executable, str(REPO / "scripts" / script), *map(str, args)],
+                         capture_output=True, text=True, timeout=120)
+    return res.returncode, res.stdout + res.stderr
+
+
+def test_frozen_digest_is_pinned_in_code_not_derived_from_the_file():
+    assert proto.digest_of_file(proto.DEFAULT_MANIFEST) == FROZEN
+    assert FROZEN == ("sha256:6e343c298c5367ad1cc713db8a8d4e1f981467432a65361"
+                      "20286305476de6f62")
+
+
+def test_require_frozen_accepts_the_pin_and_refuses_everything_else():
+    assert proto.require_frozen(FROZEN, where="тест") == FROZEN
+    for bogus in ("sha256:" + "f" * 64, "", FROZEN[:-4] + "aaaa"):
+        with pytest.raises(proto.ProtocolError, match="не совпадает с замороженным"):
+            proto.require_frozen(bogus, where="тест")
+
+
+@pytest.mark.parametrize("mutate", EDITS, ids=EDIT_IDS)
+def test_the_edit_survives_the_schema_so_digest_is_the_only_defence(mutate, tmp_path):
+    """Без этого теста три отказа ниже бесполезны: если бы правку ломала сама
+    схема, reject ничего не доказывал бы про якорь."""
+    m = proto.load(_edited_manifest(tmp_path, mutate))
+    assert m["_digest"] != FROZEN
+
+
+@pytest.mark.parametrize("mutate", EDITS, ids=EDIT_IDS)
+def test_gate_refuses_edited_manifest_even_when_sidecar_agrees(mutate, tmp_path):
+    """Ровно та атака, которую принимал старый гейт: подменённый манифест и
+    sidecar, согласованный с подменой."""
+    edited = proto.digest_of_file(_edited_manifest(tmp_path, mutate))
+    a, b = (_write_pair(tmp_path, edited, arm=x) for x in ("a", "b"))
+    with pytest.raises(gate.Refused, match="не по замороженному протоколу"):
+        gate.check_sidecars([str(a[0]), str(b[0])], [str(a[1]), str(b[1])], edited)
+
+
+def test_gate_still_accepts_the_frozen_pair(tmp_path):
+    """Позитивный контроль: якорь не должен превращаться в «отказывать всегда»."""
+    a, b = (_write_pair(tmp_path, FROZEN, arm=x) for x in ("a", "b"))
+    got = gate.check_sidecars([str(a[0]), str(b[0])], [str(a[1]), str(b[1])], FROZEN)
+    assert sorted(name for name, _ in got) == sorted(x[1].name for x in (a, b))
+
+
+@pytest.mark.parametrize("mutate", EDITS, ids=EDIT_IDS)
+def test_gate_cli_exits_2_for_edited_manifest(mutate, tmp_path):
+    p = _edited_manifest(tmp_path, mutate)
+    missing = tmp_path / "nope.csv"
+    rc, out = _run_cli("check_p4_2_oracle_gate.py", "--manifest", p, "--csv", missing,
+                       "--sidecar", str(missing) + ".meta.json")
+    assert rc == gate.REFUSE, out[-500:]
+    assert "НЕ СЧИТАЕТСЯ" in out, out[-500:]
+def test_original_manifest_is_accepted_by_runner_cli(tmp_path):
+    p = tmp_path / "frozen_copy.json"
+    p.write_bytes(proto.DEFAULT_MANIFEST.read_bytes())
+    assert proto.digest_of_file(p) == FROZEN
+    rc, out = _run_cli("run_p4_2_oracle.py", "--manifest", p, "--describe")
+    assert rc == 0, out[-500:]
+    assert "NON-CONFIRMATORY" not in out, out[-500:]
+
+
+def test_non_confirmatory_sidecar_cannot_pass_the_gate(tmp_path):
+    a = _write_pair(tmp_path, FROZEN, arm="a")
+    b = _write_pair(tmp_path, FROZEN, arm="b")
+    b[1].write_text(json.dumps({"manifest_digest": FROZEN, "partial": False,
+                                "non_confirmatory": True}), encoding="utf-8")
+    with pytest.raises(gate.Refused, match="non_confirmatory"):
+        gate.check_sidecars([str(a[0]), str(b[0])], [str(a[1]), str(b[1])], FROZEN)
+
+
+# --- 4b. runner: якорь проверяется до первого смоделированного эпизода -----
+
+def test_freeze_guard_accepts_frozen_without_the_flag():
+    assert runner.freeze_guard({"_digest": FROZEN}, False, str(runner.DEFAULT_OUT)) is False
+
+
+def test_freeze_guard_refuses_unfrozen_without_the_flag():
+    with pytest.raises(runner.Refused, match="не равен замороженному"):
+        runner.freeze_guard({"_digest": "sha256:" + "1" * 64}, False, str(runner.DEFAULT_OUT))
+
+
+def test_freeze_guard_refuses_the_flag_on_frozen_manifest():
+    """Флаг не должен становиться ритуальной кнопкой: по нему нельзя судить о
+    прогоне, если его жмут «на всякий случай»."""
+    with pytest.raises(runner.Refused, match="не нужен"):
+        runner.freeze_guard({"_digest": FROZEN}, True, "var/debug.csv")
+
+
+def test_freeze_guard_refuses_experimental_in_the_confirmatory_path():
+    with pytest.raises(runner.Refused, match="confirmatory путь"):
+        runner.freeze_guard({"_digest": "sha256:" + "1" * 64}, True, str(runner.DEFAULT_OUT))
+
+
+def test_freeze_guard_allows_experimental_into_a_separate_out():
+    assert runner.freeze_guard({"_digest": "sha256:" + "1" * 64}, True, "var/expl.csv") is True
+
+
+@pytest.mark.parametrize("mutate", EDITS, ids=EDIT_IDS)
+def test_runner_cli_exits_2_for_edited_manifest(mutate, tmp_path):
+    rc, out = _run_cli("run_p4_2_oracle.py", "--manifest", _edited_manifest(tmp_path, mutate),
+                       "--describe")
+    assert rc == runner.REFUSE, out[-500:]
+    assert "ЗАПУСК ОТКЛОНЁН" in out, out[-500:]
+
+
+def test_runner_cli_experimental_writes_elsewhere_and_announces_it(tmp_path):
+    p = _edited_manifest(tmp_path, _shift_eta, name="eta.json")
+    out_csv = tmp_path / "expl.csv"
+    rc, out = _run_cli("run_p4_2_oracle.py", "--manifest", p, "--experimental-manifest",
+                       "--describe", "--out", out_csv)
+    assert rc == 0, out[-500:]
+    assert "NON-CONFIRMATORY" in out, out[-500:]
+
+def test_the_old_self_comparison_could_not_catch_the_swap(tmp_path):
+    """Противотест: ровно эта подмена удовлетворяла OLD-проверке.
+
+    Старый гейт сравнивал digest файла с `_digest` манифеста, загруженного из
+    этого же файла, — совпадение гарантировано по построению. Если это перестанет
+    быть правдой, изменилась канонизация digest, и вся секция 4b проверяет уже
+    другое.
+    """
+    p = _edited_manifest(tmp_path, _shift_eta)
+    loaded = proto.load(p)
+    assert proto.digest_of_file(p) == loaded["_digest"]
+    with pytest.raises(proto.ProtocolError, match="не совпадает с замороженным"):
+        proto.require_frozen(proto.digest_of_file(p), where="тест")
+
+
+def test_confirmatory_sidecar_would_carry_the_frozen_digest(manifest):
+    """Цепочка, которую пишет runner: sidecar.manifest_digest = manifest["_digest"].
+
+    Для замороженного файла это ровно якорь, значит confirmatory-sidecar обязан
+    нести FROZEN_PROTOCOL_DIGEST. Сам запись файла покрывает experimental-тест
+    ниже: она гоняет настоящий writer, а не её пересказ.
+    """
+    assert manifest["_digest"] == proto.digest_of_file(proto.DEFAULT_MANIFEST) == FROZEN
+
+
+def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
+    """Настоящий writer, три эпизода: non_confirmatory попадает в файл прогона."""
+    m = copy.deepcopy(proto.load())
+    m.pop("_digest")
+    _widen_seeds(m)
+    m["seed_sets"]["confirmatory"]["range"] = [60, 60]
+    m["seed_sets"]["confirmatory"]["count"] = 1
+    m["episodes_per_seed"] = 1
+    m["run_budget"]["cells"] = len(m["arms"]) * 1 * len(m["task_streams"])
+    m["run_budget"]["episodes"] = m["run_budget"]["cells"]
+    p = tmp_path / "expl.json"
+    p.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
+    out_csv = tmp_path / "expl.csv"
+    rc, log = _run_cli("run_p4_2_oracle.py", "--manifest", p, "--experimental-manifest",
+                       "--seeds", "60", "--arms", "oracle_reflex", "--out", out_csv,
+                       "--provenance", tmp_path / "expl.prov.jsonl")
+    assert rc == 0, log[-800:]
+    side = json.loads((tmp_path / "expl.csv.meta.json").read_text(encoding="utf-8"))
+    assert side["non_confirmatory"] is True
+    assert side["frozen_protocol_digest"] == FROZEN
+    assert side["manifest_digest"] != FROZEN
+    with pytest.raises(gate.Refused, match="не по замороженному протоколу"):
+        gate.check_sidecars([str(out_csv)], [str(tmp_path / "expl.csv.meta.json")],
+                            side["manifest_digest"])
+    with pytest.raises(gate.Refused, match="non_confirmatory"):
+        gate.check_sidecars([str(out_csv)], [str(tmp_path / "expl.csv.meta.json")], FROZEN)
 
 # --- 5. арифметика гейта --------------------------------------------------
 

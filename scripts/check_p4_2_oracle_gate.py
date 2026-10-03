@@ -50,7 +50,17 @@ def sidecar_path_for(csv_path: pathlib.Path) -> pathlib.Path:
 
 
 def check_sidecars(csv_paths: list[str], sidecar_paths: list[str], digest: str) -> list[dict]:
-    """Каждый shard обязан иметь свой sidecar, с текущим digest и partial=false."""
+    """Каждый shard обязан иметь свой sidecar, с замороженным digest и partial=false.
+
+    Первым делом проверяется сам anchor: если гейт вызван по манифесту, которого нет
+    в замороженной pre-registration, сравнивать sidecar с его digest бессмысленно —
+    подделка совпадёт сама с собой.
+    """
+    if digest != proto.FROZEN_PROTOCOL_DIGEST:
+        raise Refused(
+            f"гейт идёт не по замороженному протоколу: digest {digest} против "
+            f"{proto.FROZEN_PROTOCOL_DIGEST}. Проверять прогон по правленному протоколу "
+            "нельзя, даже если sidecar с ним согласован.")
     want = {sidecar_path_for(pathlib.Path(c)) for c in csv_paths}
     got = {pathlib.Path(x) for x in sidecar_paths}
     if want - got:
@@ -69,6 +79,9 @@ def check_sidecars(csv_paths: list[str], sidecar_paths: list[str], digest: str) 
         if side.get("partial"):
             raise Refused(f"{path.name} помечен partial (подрезка seed/arms) — "
                           "полный гейт по нему не считается")
+        if side.get("non_confirmatory"):
+            raise Refused(f"{path.name} помечен non_confirmatory (прогон по не-замороженному "
+                          "манифесту) — confirmatory-вердикт по нему не выносится")
         sides.append((path.name, side))
     return sides
 
@@ -246,7 +259,11 @@ def main() -> int:
     a = ap.parse_args()
 
     manifest_path = pathlib.Path(a.manifest)
-    manifest = proto.load(manifest_path)
+    try:
+        manifest = proto.load(manifest_path)
+    except proto.ProtocolError as exc:
+        print(f"\nГЕЙТ НЕ СЧИТАЕТСЯ: манифест не проходит замороженный протокол: {exc}")
+        return REFUSE
     digest_file = proto.digest_of_file(manifest_path)
     codes = proto.code_arms(manifest)
     streams = proto.task_streams(manifest)
@@ -255,8 +272,14 @@ def main() -> int:
 
     print(proto.describe(manifest))
     print(f"\n  digest файла: {digest_file}")
-    if digest_file != manifest["_digest"]:
-        print("  ВНИМАНИЕ: digest файла не равен digest загруженного манифеста")
+    print(f"  замороженный протокол: {proto.FROZEN_PROTOCOL_DIGEST}")
+    # Раньше здесь стояло сравнение digest_file с manifest["_digest"] — тавтология:
+    # обе величины считаются из одних байт, и подмена манифеста через --manifest
+    # проходила бы мимо. Якорь обязан жить вне проверяемого файла.
+    try:
+        proto.require_frozen(digest_file, where="гейт")
+    except proto.ProtocolError as exc:
+        print(f"\nГЕЙТ НЕ СЧИТАЕТСЯ: {exc}")
         return REFUSE
 
     try:
