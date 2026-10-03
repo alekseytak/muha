@@ -72,6 +72,14 @@ def check_sidecars(csv_paths: list[str], sidecar_paths: list[str], digest: str) 
         raise Refused(f"sidecar без своего CSV: {sorted(str(g) for g in got - want)}")
     sides: list[tuple[str, dict]] = []
     for path in sorted(got):
+        if not path.exists():
+            # Названный sidecar мог пройти сверку имён (она сравнивает множества), а
+            # потом исчезнуть: раньше это было FileNotFoundError с трейсбеком и rc=1,
+            # то есть «проверки не было» выглядело как «прогон не прошёл».
+            raise Refused(
+                f"названный sidecar отсутствует на диске: {path} — проверка целостности "
+                "не выполнена. Это отказ (rc=2), а не научный результат:"
+                " отсутствие файла ничего не утверждает о прогоне")
         side = json.loads(path.read_text(encoding="utf-8"))
         if side.get("manifest_digest") != digest:
             raise Refused(f"прогон сделан по другому протоколу: sidecar "

@@ -407,6 +407,35 @@ def test_missing_sidecar_is_refused(tmp_path):
         gate.check_sidecars([str(a), str(b)], [str(a.with_suffix(a.suffix + ".meta.json"))], digest)
 
 
+def test_named_but_absent_sidecar_is_refused(tmp_path):
+    """Отсутствующий sidecar — отказ, а не трейсбек.
+
+    Сверка имён сравнивает множества, поэтому имя, которое просто не существует на
+    диске, проходит её незаметно. Дальше шёл json.loads(read_text()) на отсутствующем
+    пути: FileNotFoundError, rc=1 и трейсбек — то есть «проверки не было» выводилось
+    как «прогон не прошёл». На этот путь наткнулся бы разбор прерванного P4.2.v1:
+    ни CSV, ни sidecar'а у него на диске нет.
+    """
+    csv_path = tmp_path / "p4_2_a.csv"
+    csv_path.write_text("arm,task,seed\n", encoding="utf-8")
+    absent = tmp_path / "p4_2_a.csv.meta.json"
+    assert not absent.exists()
+    with pytest.raises(gate.Refused, match="отсутствует на диске"):
+        gate.check_sidecars([str(csv_path)], [str(absent)], FROZEN)
+
+
+def test_gate_cli_exits_2_for_absent_named_sidecar(tmp_path):
+    """Тот же случай на уровне CLI: коды возврата — часть контракта."""
+    csv_path = tmp_path / "p4_2_a.csv"
+    csv_path.write_text("arm,task,seed\n", encoding="utf-8")
+    rc, out = _run_cli("check_p4_2_oracle_gate.py", "--manifest", proto.DEFAULT_MANIFEST,
+                       "--csv", csv_path, "--sidecar", tmp_path / "p4_2_a.csv.meta.json")
+    assert rc == gate.REFUSE == 2, out[-500:]
+    assert "НЕ СЧИТАЕТСЯ" in out, out[-500:]
+    assert "отсутствует на диске" in out, out[-500:]
+    assert "Traceback" not in out, out[-500:]
+
+
 def test_partial_sidecar_is_refused(tmp_path):
     digest = FROZEN
     csv_path, side = _write_pair(tmp_path, digest, partial=True)
