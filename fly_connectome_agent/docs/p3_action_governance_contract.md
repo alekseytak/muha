@@ -105,18 +105,77 @@ class ProvenanceEvent:
 Rules:
 - Frozen dataclass, JSON-serializable.
 - Canonical JSON: `sort_keys=True`, compact `","`, `":"` separators.
-- `verify_chain()` re-reads the file from disk (never trusts the memory cache)
-  and checks payload hash, entry hash and chain linkage.
+- `append()` is **O(1) in the length of the log**. The chain tail comes from a
+  compact head witness (`<log>.head.json`: `entry_count`, `last_hash`,
+  `log_byte_offset`); only bytes written past the witnessed offset are re-read,
+  which is nothing unless another process appended in the meantime. The file is
+  never parsed whole per append, and events are not retained in memory between
+  appends (`get_events()` / `verify_chain()` opt into the full scan).
+- Ordering inside `append()`: take `threading.Lock` + `fcntl.flock`, resync from
+  the witness, write one canonical line, `fsync` the log, atomically replace the
+  witness (`tmp` + `os.replace`), `fsync` the directory. A crash between the two
+  durability points leaves the log *ahead* of its witness, and the next append
+  reconciles that tail; the witness never runs ahead of the log.
+- `append()` raises `ProvenanceIntegrityError` and writes nothing when the log is
+  shorter than the witness claims, when bytes past the witnessed offset do not
+  continue the chain, or when the tail ends mid-line.
 - Appends are serialized by `threading.Lock` **and** `fcntl.flock` (POSIX), so
-  two processes writing the same file cannot fork the chain; the chain tail is
-  read under the lock and the line is `fsync`-ed before release.
-- Also fails when the log shrank below what this instance wrote, or when a
-  cached event no longer matches its stored bytes.
+  two processes writing the same file cannot fork the chain: both resync and
+  update the witness under that lock.
+- `verify_chain()` is the O(N) audit, for startups, recovery and reporting. It
+  re-reads the file from disk (never trusts the memory cache), recomputes payload
+  and entry hashes, checks linkage, and cross-checks the witness (count, tail
+  hash, byte offset). It also fails when the log shrank below what this instance
+  wrote, or when a cached event no longer matches its stored bytes.
 - Threat model is *tamper-evident, single-host*: no external anchoring/Registry.
-  A fresh reader cannot detect a truncation that is itself a valid shorter
-  chain — it needs a writer that witnessed the longer log. Full-file rewrite by
-  someone who can recompute hashes is out of scope.
+  With a witness present, truncation of a log is detectable even by a fresh
+  reader. Delete the witness and the old limitation returns: a shorter, internally
+  valid chain is indistinguishable from a truncated one. Rewriting the log and
+  recomputing a matching witness is out of scope, and always was.
 - No blockchain claims.
+
+### Why the writer was rewritten (P4.2.v1 abort)
+
+The previous `append()` re-read and re-parsed the whole JSONL on every call to find
+the chain tail: O(n) per append, therefore O(N²) per run. Measured median cost of a
+single append, old versus fixed implementation (`.venv/bin/python
+scripts/bench_provenance_append.py`, JSON lands in `var/provenance_append_benchmark.json`):
+
+| prior entries | old append (median) | fixed append (median) |
+|---|---|---|
+| 0 | 4.19 ms | 2.09 ms |
+| 1 000 | 30.40 ms | 2.15 ms |
+| 10 000 | 200.54 ms | 2.25 ms |
+| 50 000 | 1 192.45 ms | 1.90 ms |
+
+The table is one run; it reproduces. Three consecutive runs gave a growth of the fixed
+path of ×0.91, ×0.95 and ×1.0 between an empty log and a 50k log — flat, within noise —
+while the old path over the same distance grew ×285, ×224 and ×210. Absolute milliseconds
+wander with disk and payload size; the only stable fact is the slope, and the old slope was
+linear in `n` while the new one is not a slope at all.
+
+The honest trade: an append now costs ~2 ms even on a short log, because every write pays
+one extra `fsync` plus an atomic witness replace. The old code could be cheaper per append
+while the log was small (a direct probe on an empty file once measured 0.7 ms) — which is
+exactly the regime where nobody noticed anything was wrong.
+
+Acceptance gates, both satisfied by the shipped artifact: median at 50k entries ≤ 3× the
+empty-log median (measured ×0.91, gate ×3.0), and provenance share of a full
+86 400-episode confirmatory run < 15% of runtime (measured 165 s against ≈ 14 570 s of
+simulation, i.e. 1.1%; across the three runs 1.1–1.2%). The same run on the old path
+projects to 25–40 hours of provenance alone — the linear coefficient measured on a
+synthetic 100-byte payload gives ~27 h, the live P4.2.v1 log with ~700-byte episode
+payloads gives ~42 h.
+
+`scripts/bench_provenance_append.py` pins the pre-fix revision it compares against
+(`OLD_REV`), and refuses to run if asked to load a revision that already contains the
+fixed writer — otherwise, once the fix is committed, the benchmark would silently measure
+the new path against itself and report a win with no competitor.
+
+P4.2.v1 was aborted for this defect before completion (240/1080 cells, no CSV, no
+sidecar, frozen gate never invoked). Its artifacts live apart from any future result,
+under `var/aborted/p4_2_v1_infrastructure_abort/`. Seeds 60–119 were exercised by that
+run and are not reusable in the replacement protocol.
 
 ## Environment: simple_navigation
 
