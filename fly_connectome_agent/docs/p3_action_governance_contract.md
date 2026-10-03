@@ -107,18 +107,42 @@ Rules:
 - Canonical JSON: `sort_keys=True`, compact `","`, `":"` separators.
 - `append()` is **O(1) in the length of the log**. The chain tail comes from a
   compact head witness (`<log>.head.json`: `entry_count`, `last_hash`,
-  `log_byte_offset`); only bytes written past the witnessed offset are re-read,
-  which is nothing unless another process appended in the meantime. The file is
-  never parsed whole per append, and events are not retained in memory between
-  appends (`get_events()` / `verify_chain()` opt into the full scan).
+  `log_byte_offset`, plus `version` and a `head_digest` over those fields); only
+  bytes written past the witnessed offset are re-read, which is nothing unless
+  another process appended in the meantime. The file is never parsed whole per
+  append, and events are not retained in memory between appends
+  (`get_events()` / `verify_chain()` opt into the full scan).
+- **The log and its witness are one provenance artifact.** `<log>.head.json` is not
+  a disposable cache and the JSONL is not a standalone record: an archive holding
+  only one of the two is an invalid state, not a smaller version of the valid one.
+  A result bundle for any confirmatory run must preserve *both* files and carry the
+  SHA-256 of *both*. This is not bookkeeping: the witness is what makes a shortened
+  log detectable, so a bundle that hashes only the JSONL silently gives up the one
+  property the fast writer was allowed to keep.
 - Ordering inside `append()`: take `threading.Lock` + `fcntl.flock`, resync from
   the witness, write one canonical line, `fsync` the log, atomically replace the
   witness (`tmp` + `os.replace`), `fsync` the directory. A crash between the two
   durability points leaves the log *ahead* of its witness, and the next append
   reconciles that tail; the witness never runs ahead of the log.
-- `append()` raises `ProvenanceIntegrityError` and writes nothing when the log is
-  shorter than the witness claims, when bytes past the witnessed offset do not
-  continue the chain, or when the tail ends mid-line.
+- `append()` raises `ProvenanceIntegrityError` and writes nothing whenever the
+  witness and the log disagree: the log is shorter than the witnessed byte offset
+  (truncated, or a witness pointing past EOF); the record that actually ends at the
+  witnessed offset re-hashes to something other than `last_hash` — this catches a
+  witness edited together with a recomputed `head_digest`, and equally a log edited
+  under an honest witness; the witness promises a non-empty chain at
+  `log_byte_offset = 0`; bytes past the witnessed offset do not parse as JSONL, do
+  not continue the chain, or end mid-line; the log is non-empty and has no witness.
+- A non-empty log without a witness is never adopted silently.
+  `recover_head(reason)` is the only way to continue one: a single full scan, refusal
+  if the chain does not close, the witness written, and a
+  `provenance_head_recovered` event — reason, number of adopted entries, adopted tail
+  hash, log size — appended into the chain itself, outside the lock. The adoption is
+  then visible to every later reader of the record it created, instead of being an
+  unlogged repair. A confirmatory runner refuses to start on such a log until that
+  call has been made deliberately (`scripts/run_p4_2_oracle.py` exits before the first
+  episode rather than burning a confirmatory budget). `count` is the one read-only
+  escape hatch: it reports the truth about the bytes even when the witness is
+  unusable, and it does not write.
 - Appends are serialized by `threading.Lock` **and** `fcntl.flock` (POSIX), so
   two processes writing the same file cannot fork the chain: both resync and
   update the witness under that lock.
@@ -130,8 +154,10 @@ Rules:
 - Threat model is *tamper-evident, single-host*: no external anchoring/Registry.
   With a witness present, truncation of a log is detectable even by a fresh
   reader. Delete the witness and the old limitation returns: a shorter, internally
-  valid chain is indistinguishable from a truncated one. Rewriting the log and
-  recomputing a matching witness is out of scope, and always was.
+  valid chain is indistinguishable from a truncated one — the writer now refuses to
+  append to it, but nothing on the log's side proves what is missing. Rewriting the
+  log and recomputing a matching witness is out of scope, and always was: the
+  `head_digest` is an inconsistency detector, not a signature.
 - No blockchain claims.
 
 ### Why the writer was rewritten (P4.2.v1 abort)

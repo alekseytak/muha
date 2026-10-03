@@ -209,23 +209,33 @@ def main() -> int:
     if a.probe:
         prov = None
     else:
-        from fly_connectome_agent.src.engineering.logging.provenance_log import ProvenanceLog
+        from fly_connectome_agent.src.engineering.logging.provenance_log import (
+            ProvenanceLog, ProvenanceIntegrityError)
         prov = ProvenanceLog(str(a.provenance))
-        prov.append({
-            "kind": "p4_2_protocol",
-            "protocol_id": manifest["protocol_id"],
-            "manifest_digest": manifest["_digest"],
-            "frozen_protocol_digest": proto.FROZEN_PROTOCOL_DIGEST,
-            "non_confirmatory": experimental,
-            "seeds": [seeds[0], seeds[-1]] if seeds else [],
-            "n_seeds": len(seeds),
-            "episodes_per_seed": manifest["episodes_per_seed"],
-            "arms": chosen_arms,
-            "task_streams": manifest["task_streams"],
-            "primary_metric": manifest["primary_metric"],
-            "operating_point": manifest["operating_point"]["values"],
-            "git": git_state(),
-        })
+        try:
+            prov.append({
+                "kind": "p4_2_protocol",
+                "protocol_id": manifest["protocol_id"],
+                "manifest_digest": manifest["_digest"],
+                "frozen_protocol_digest": proto.FROZEN_PROTOCOL_DIGEST,
+                "non_confirmatory": experimental,
+                "seeds": [seeds[0], seeds[-1]] if seeds else [],
+                "n_seeds": len(seeds),
+                "episodes_per_seed": manifest["episodes_per_seed"],
+                "arms": chosen_arms,
+                "task_streams": manifest["task_streams"],
+                "primary_metric": manifest["primary_metric"],
+                "operating_point": manifest["operating_point"]["values"],
+                "git": git_state(),
+            })
+        except ProvenanceIntegrityError as exc:
+            # Отказ до первого же эпизода, а не через десять часов: прожигать
+            # confirmatory-бюджет на журнале, который писатель продолжать не
+            # собирается, нельзя.
+            raise SystemExit(
+                f"provenance-файл {a.provenance} нельзя продолжить: {exc}\n"
+                "Для нового прогона укажите чистый путь, для осознанного "
+                "восстановления — вызовите recover_head(reason=...) и перезапустите.")
 
     code_arms = [codes[arm_id] for arm_id in chosen_arms]
     t0 = time.time()

@@ -12,6 +12,15 @@ Threat model (honest scope):
   is nothing, unless another process appended in the meantime). The whole file is
   never parsed per append — that version made an 86 400-episode confirmatory run
   quadratic and cost P4.2.v1 its abort (see var/aborted/p4_2_v1_infrastructure_abort);
+- THE LOG AND ITS WITNESS ARE ONE ARTIFACT. A JSONL without its `.head.json` (or the
+  reverse) is not a provenance record: bundles must carry and hash both. Because append
+  speed comes from trusting the witness, the trust is paid for twice — the witness
+  self-hashes its own fields, and its last_hash is re-derived from the log on disk
+  before anything is appended, so a witness edited in either file alone cannot steer an
+  append;
+- a non-empty log with no witness is never silently adopted: append() refuses and
+  recover_head(reason) has to be called explicitly, and it writes a marker event into
+  the chain so the adoption itself is auditable;
 - verify_chain() is the O(N) audit operation, meant for startups, recovery and
   reporting — never for the hot append path;
 - a fresh reader with no witness and no memory of having written cannot prove that
@@ -39,8 +48,11 @@ except ImportError:  # pragma: no cover - non-POSIX platforms
     fcntl = None
     _HAVE_FCNTL = False
 
-HEAD_VERSION = 1
+HEAD_VERSION = 2
 HEAD_SUFFIX = ".head.json"
+# Поля, попадающие под само-хэш witness. Состав фиксирован: правка любого из них
+# видна по digest до того, как к журналу вообще прикоснутся.
+HEAD_FIELDS = ("version", "log_file", "entry_count", "last_hash", "log_byte_offset")
 
 
 class ProvenanceIntegrityError(RuntimeError):
@@ -55,6 +67,15 @@ def _sha256(data: str | bytes) -> str:
     if isinstance(data, str):
         data = data.encode("utf-8")
     return hashlib.sha256(data).hexdigest()
+
+
+def _head_digest(head: dict) -> str:
+    """Digest witness'а против его же полей.
+
+    Это не подпись и не защита от того, кто может переписать оба файла целиком: это
+    детектор правки одного поля (счётчика, смещения, хэша) тем, кто в журнал не лез.
+    """
+    return _sha256(_canonical_json({key: head[key] for key in HEAD_FIELDS}))
 
 
 @dataclass(frozen=True)
@@ -143,7 +164,12 @@ class ProvenanceLog:
 
     # ---------------------------------------------------------------- head file
     def read_head(self) -> dict | None:
-        """Компактный witness цепи: {entry_count, last_hash, log_byte_offset}."""
+        """Компактный witness цепи: {entry_count, last_hash, log_byte_offset} + само-хэш.
+
+        Версия и digest проверяются здесь же: witness, у которого перебито любое поле,
+        не должен дойти до append. Witness без digest (версия 1) тоже отказывает —
+        продолжить такой журнал можно только явным recover_head().
+        """
         try:
             with open(self.head_path, encoding="utf-8") as fh:
                 head = json.load(fh)
@@ -151,9 +177,17 @@ class ProvenanceLog:
             return None
         except (json.JSONDecodeError, OSError) as exc:
             raise ProvenanceIntegrityError(f"witness {os.path.basename(self.head_path)} не читается: {exc}")
-        for key in ("entry_count", "last_hash", "log_byte_offset"):
+        for key in HEAD_FIELDS:
             if key not in head:
                 raise ProvenanceIntegrityError(f"witness без поля {key}: {head}")
+        if head["version"] != HEAD_VERSION:
+            raise ProvenanceIntegrityError(
+                f"witness версии {head['version']}, а писатель ожидает версию {HEAD_VERSION}: "
+                "молча продолжить журнал нельзя, нужен явный recover_head(reason=...)")
+        if head.get("head_digest") != _head_digest(head):
+            raise ProvenanceIntegrityError(
+                "witness противоречит собственному digest — одно из его полей "
+                "подправлено после записи")
         return head
 
     def _write_head(self, entry_count: int, last_hash: str, offset: int) -> None:
@@ -170,8 +204,9 @@ class ProvenanceLog:
             "entry_count": entry_count,
             "last_hash": last_hash,
             "log_byte_offset": offset,
-            "updated_utc": datetime.now(timezone.utc).isoformat(),
         }
+        payload["head_digest"] = _head_digest(payload)
+        payload["updated_utc"] = datetime.now(timezone.utc).isoformat()
         tmp = self.head_path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, sort_keys=True, separators=(",", ":"))
@@ -194,36 +229,139 @@ class ProvenanceLog:
     def _resync_locked(self, f) -> tuple[int, str]:
         """(entry_count, previous_hash) для следующего события. Ожидает лок.
 
-        С witness: дочитываются только байты после witnessed offset — обычно ноль
-        байт. Без witness (первый запуск или legacy-файл до P4.2a): один проход по
-        всему файлу, затем witness заводится.
+        Здесь работает только witness. Полный проход по журналу убран намеренно: он и
+        сделал append квадратичным. Если для непустого журнала witness не найден — это
+        не «дочитаем как-нибудь», а остановка: продолжение требует явного
+        recover_head(), чтобы adoption попал в протокол.
+
+        Перед тем как что-либо дописать, witness сверяется с самим журналом два раза:
+        его поля — со своим digest (в read_head), и его last_hash — с хэшем записи,
+        которая реально заканчивается на witnessed offset. Второй сверкой ловится
+        witness, аккуратно подправленный вручную вместе с пересчитанным digest.
         """
         size = f.seek(0, os.SEEK_END)
         head = self.read_head()
         if head is None:
             if size == 0:
                 return 0, ""
-            events = self._events_from(self._read_all(f))
-            return len(events), events[-1].entry_hash
-        if size < head["log_byte_offset"]:
             raise ProvenanceIntegrityError(
-                f"журнал укорочен ({size} байт) против witness ({head['log_byte_offset']}) — "
-                "записи удалены после того, как их видели; дописывать цепь нельзя")
-        f.seek(head["log_byte_offset"])
-        tail = f.read()
-        if tail and not tail.endswith(b"\n"):
+                f"журнал непуст ({size} байт), а witness отсутствует: молча дописать "
+                "такую цепь нельзя — нужен явный recover_head(reason=...)")
+        offset = head["log_byte_offset"]
+        if size < offset:
             raise ProvenanceIntegrityError(
-                "хвост журнала обрывается посреди строки (порванная запись) — "
-                "нужен осознанный ремонт, а не молчаливое дописывание")
-        last_hash = head["last_hash"]
-        count = head["entry_count"]
-        for event in self._events_from(tail):
-            if event.previous_hash != last_hash:
+                f"witness указывает за конец файла (offset {offset} > {size} байт) — "
+                "журнал укорочен после того, как его видели; дописывать цепь нельзя")
+        if offset:
+            witnessed_hash = self._entry_hash_ending_at(f, offset)
+            if witnessed_hash != head["last_hash"]:
                 raise ProvenanceIntegrityError(
-                    "события, дописанные после witness, не продолжаются от его last_hash — "
-                    "цепь уже сломана, дописывание её усугубит")
-            last_hash, count = event.entry_hash, count + 1
+                    "witness не сходится с фактическим хвостом журнала: last_hash "
+                    f"{head['last_hash'][:12]}… против {witnessed_hash[:12]}… на смещении "
+                    f"{offset} — подправлен либо witness, либо журнал")
+        elif head["last_hash"]:
+            raise ProvenanceIntegrityError(
+                "witness обещает непустую цепь при log_byte_offset = 0")
+        count, last_hash = head["entry_count"], head["last_hash"]
+        if size > offset:
+            if f.tell() != offset:
+                f.seek(offset)
+            tail = f.read()
+            if not tail.endswith(b"\n"):
+                raise ProvenanceIntegrityError(
+                    "хвост журнала обрывается посреди строки (порванная запись) — "
+                    "нужен осознанный ремонт, а не молчаливое дописывание")
+            for event in self._tail_events(tail):
+                if event.previous_hash != last_hash:
+                    raise ProvenanceIntegrityError(
+                        "события, дописанные после witness, не продолжаются от его "
+                        "last_hash — цепь уже сломана, дописывание её усугубит")
+                last_hash, count = event.entry_hash, count + 1
         return count, last_hash
+
+    def _tail_events(self, tail: bytes) -> list[ProvenanceEvent]:
+        """Разбор хвоста после witness: мусорные байты — это integrity error, а не трейсбек."""
+        try:
+            return self._events_from(tail)
+        except (json.JSONDecodeError, KeyError, UnicodeDecodeError) as exc:
+            raise ProvenanceIntegrityError(
+                f"байты после witnessed offset не разбираются как JSONL ({exc}) — "
+                "в журнал что-то дописали мимо писателя")
+
+    def _line_ending_at(self, f, offset: int) -> bytes:
+        """Байты записи, которая заканчивается ровно на `offset` (там обязан быть '\n')."""
+        f.seek(offset - 1)
+        if f.read(1) != b"\n":
+            raise ProvenanceIntegrityError(
+                f"witness стоит на смещении {offset}, а там не конец строки — "
+                "смещение не по границе записи")
+        pos, start = offset - 1, 0
+        while pos > 0:
+            step = min(65536, pos)
+            pos -= step
+            f.seek(pos)
+            chunk = f.read(step)
+            index = chunk.rfind(b"\n")
+            if index != -1:
+                start = pos + index + 1
+                break
+        f.seek(start)
+        return f.read(offset - start - 1)
+
+    def _entry_hash_ending_at(self, f, offset: int) -> str:
+        """Хэш последней записи журнала, пересчитанный с диска, а не взятый из файла."""
+        raw = self._line_ending_at(f, offset)
+        try:
+            event = self._parse_entry(json.loads(raw))
+        except (json.JSONDecodeError, KeyError, UnicodeDecodeError) as exc:
+            raise ProvenanceIntegrityError(
+                f"запись на смещении {offset} не разбирается ({exc}) — witness стоит "
+                "не на той границе или журнал испорчен")
+        payload_hash = _sha256(_canonical_json(event.payload))
+        entry_hash = _sha256(event.previous_hash + ":" + payload_hash)
+        if payload_hash != event.payload_hash or entry_hash != event.entry_hash:
+            raise ProvenanceIntegrityError(
+                "последняя запись журнала невалидна сама по себе — её хэши не "
+                "сходятся с её же payload; дело в журнале, не в witness")
+        return entry_hash
+
+    def recover_head(self, reason: str = "журнал принят без witness") -> dict:
+        """Единственный способ продолжить журнал, у которого нет witness.
+
+        Делает ровно то, что раньше молча делал append: один полный проход, сверка
+        цепи, завод witness. Отличие — явность: вызов обязан стоять в коде, который
+        восстанавливают прогон, а в саму цепь попадает событие-маркер с причиной. Так
+        adoption перестаёт быть боковой дверью, через которую можно подсунуть журналу
+        чужой хвост, и остаётся задокументированной операцией.
+        """
+        with self._lock:
+            with self._file_lock("a+b") as f:
+                size = f.seek(0, os.SEEK_END)
+                if self.read_head() is not None:
+                    raise ProvenanceIntegrityError(
+                        "witness уже есть — восстанавливать нечего; если он кажется "
+                        "неверным, журнал чинят не этим методом")
+                events = []
+                if size:
+                    f.seek(0)
+                    events = self._tail_events(f.read())
+                expected = ""
+                for position, event in enumerate(events, 1):
+                    if event.previous_hash != expected:
+                        raise ProvenanceIntegrityError(
+                            f"цепь в журнале разорвана на записи {position}: adoption "
+                            "невозможен, восстанавливать не от чего")
+                    expected = event.entry_hash
+                last_hash = events[-1].entry_hash if events else ""
+                self._write_head(len(events), last_hash, size)
+        if events:
+            self.append({"provenance_head_recovered": {
+                "reason": reason,
+                "adopted_entries": len(events),
+                "adopted_last_hash": last_hash,
+                "log_bytes": size,
+            }})
+        return self.read_head()
 
     @staticmethod
     def _read_all(f) -> bytes:
@@ -232,6 +370,7 @@ class ProvenanceLog:
 
     # ------------------------------------------------------------------ public
     def append(self, payload: dict) -> ProvenanceEvent:
+        """Одна каноническая строка JSONL + fsync + атомарная замена witness. O(1) к длине журнала."""
         with self._lock, self._file_lock("a+b") as f:
             count, previous_hash = self._resync_locked(f)
             event = ProvenanceEvent(
@@ -261,11 +400,20 @@ class ProvenanceLog:
 
     @property
     def count(self) -> int:
+        """Сколько записей в журнале. Смотрит на файл, а не на witness.
+
+        Если witness нет, он нечитаем или противоречит себе, счётчик всё равно отвечает
+        правду о байтах журнала (O(N) проход только чтения). Это не лазейка в
+        «никогда не дописывать молча»: дописывает append, и он отказывает; за
+        целостность отвечают append и verify_chain, а не арифметика для отчёта.
+        """
         if not os.path.exists(self.path):
             return 0
         with self._file_lock("rb") as f:
-            count, _ = self._resync_locked(f)
-        return count
+            try:
+                return self._resync_locked(f)[0]
+            except ProvenanceIntegrityError:
+                return len(self._events_from(self._read_all(f)))
 
     def get_events(self) -> list[ProvenanceEvent]:
         events = self._read_disk_events()

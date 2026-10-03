@@ -1,7 +1,24 @@
 """Tests for ProvenanceLog."""
 from __future__ import annotations
 import os, tempfile, json, time, pytest
-from fly_connectome_agent.src.engineering.logging.provenance_log import ProvenanceLog, _canonical_json, _sha256
+from fly_connectome_agent.src.engineering.logging.provenance_log import (
+    ProvenanceLog, ProvenanceIntegrityError, _canonical_json, _head_digest, _sha256,
+)
+
+
+def _forge_head(head_path, **changes):
+    """Переписать witness с новым набором полей И честным digest.
+
+    Без пересчёта digest подделка ловилась бы само-хэшем witness'а — это отдельный
+    (лёгкий) случай. Здесь же проверяется то, что должно ловиться независимо: witness,
+    внутренне согласованный, но не согласованный с журналом.
+    """
+    head = json.loads(open(head_path, encoding="utf-8").read())
+    head.update(changes)
+    head["head_digest"] = _head_digest(head)
+    with open(head_path, "w", encoding="utf-8") as f:
+        json.dump(head, f, sort_keys=True, separators=(",", ":"))
+    return head
 
 
 @pytest.fixture
@@ -163,18 +180,16 @@ class TestOnDiskTamperDetection:
 
         Строка оказалась в журнале, а witness — нет. Восстановление обязано
         довести witness до правды и продолжить цепь от фактического хвоста, а не
-        от сброшенного значения и не «с нуля».
+        от сброшенного значения и не «с нуля». Откатанный witness остаётся
+        внутренне валидным (digest пересчитан) — ловить его должен не само-хэш,
+        а сверка с журналом.
         """
         log.append({"event": "a"})
         e2 = log.append({"event": "b"})
-        line = _canonical_json(e2.to_log_entry()) + "\n"
         # моделируем crash: witness откатывается на одну запись назад
-        head = json.loads(open(log.head_path, encoding="utf-8").read())
-        head["entry_count"] = 1
-        head["last_hash"] = e2.previous_hash
-        head["log_byte_offset"] = len(open(log.path, encoding="utf-8").read().splitlines()[0]) + 1
-        with open(log.head_path, "w", encoding="utf-8") as f:
-            json.dump(head, f, sort_keys=True)
+        data = open(log.path, "rb").read()
+        _forge_head(log.head_path, entry_count=1, last_hash=e2.previous_hash,
+                    log_byte_offset=data.index(b"\n") + 1)
         reopened = ProvenanceLog(path=log.path)
         assert reopened.count == 2                      # хвост дочитан
         e3 = reopened.append({"event": "c"})
@@ -186,12 +201,112 @@ class TestOnDiskTamperDetection:
         """Старый путь O(n) на append обязан отсутствовать в коде, а не только в замерах."""
         import inspect
 
-        append_src = inspect.getsource(ProvenanceLog.append)
-        resync_src = inspect.getsource(ProvenanceLog._resync_locked)
-        assert "_read_disk_events" not in append_src + resync_src
-        # единственный допустимый полный проход — legacy-ветка без witness
-        assert "_events_from(self._read_all(f))" in resync_src
-        assert 'f.seek(head["log_byte_offset"])' in resync_src
+        hot_src = inspect.getsource(ProvenanceLog.append) + inspect.getsource(ProvenanceLog._resync_locked)
+        for forbidden in ("_read_disk_events", "_read_all", "self.recover_head("):
+            assert forbidden not in hot_src, f"горячий путь снова зовёт {forbidden}"
+        assert 'f.seek(offset)' in hot_src or 'log_byte_offset' in hot_src
+        # единственный полный проход в писателе — явный adoption и read-only счётчик
+        assert "self._tail_events(f.read())" in inspect.getsource(ProvenanceLog.recover_head)
+        assert "_read_all" in inspect.getsource(ProvenanceLog.count.fget)
+
+    # --- witness как единый артефакт с журналом -------------------------------
+
+    def test_modified_head_hash_refuses_append_even_with_a_valid_digest(self, log):
+        """(а) подправленный last_hash → append отказывает, а не продолжает воздух.
+
+        Witness с пересчитанным digest выглядит самодостаточным, поэтому его поля
+        обязаны сверяться с фактическим хвостом журнала перед каждой записью.
+        """
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        _forge_head(log.head_path, last_hash="0" * 64)
+        before = open(log.path, "rb").read()
+        with pytest.raises(ProvenanceIntegrityError, match="не сходится с фактическим хвостом"):
+            ProvenanceLog(path=log.path).append({"event": "c"})
+        assert open(log.path, "rb").read() == before      # отказ ничего не дописал
+        assert ProvenanceLog(path=log.path).verify_chain() is False
+
+    def test_head_pointing_past_eof_refuses_append(self, log):
+        """(б) offset за концом файла → append отказывает."""
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        _forge_head(log.head_path, log_byte_offset=os.path.getsize(log.path) + 4096)
+        with pytest.raises(ProvenanceIntegrityError, match="за конец файла"):
+            ProvenanceLog(path=log.path).append({"event": "c"})
+        assert ProvenanceLog(path=log.path).verify_chain() is False
+
+    def test_head_with_true_hash_but_wrong_offset_refuses_append(self, log):
+        """(в) хэш настоящий, смещение нет: на указанном месте лежит другая запись."""
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        data = open(log.path, "rb").read()
+        boundary_of_first = data.index(b"\n") + 1       # конец первой записи
+        _forge_head(log.head_path, log_byte_offset=boundary_of_first)
+        with pytest.raises(ProvenanceIntegrityError, match="не сходится с фактическим хвостом"):
+            ProvenanceLog(path=log.path).append({"event": "c"})
+
+    def test_missing_head_never_appends_silently(self, log):
+        """(г) witness удалён: append отказывает, adoption обязан быть явным.
+
+        Раньше на этом месте писатель молча перечитывал весь журнал — ровно тот
+        путь, который стоил P4.2.v1 его abort, и который к тому же позволял
+        подсунуть цепь, отличную от лежащей на диске.
+        """
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        os.remove(log.head_path)
+        fresh = ProvenanceLog(path=log.path)
+        assert fresh.count == 2                         # посмотреть можно
+        before = open(log.path, "rb").read()
+        with pytest.raises(ProvenanceIntegrityError, match="recover_head"):
+            fresh.append({"event": "c"})                 # дописать молча — нельзя
+        assert open(log.path, "rb").read() == before
+
+    def test_recover_head_adopts_the_log_and_marks_the_adoption_in_the_chain(self, log):
+        """Явный adoption: один полный проход, witness заводится, событие-маркер в цепи."""
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        os.remove(log.head_path)
+        fresh = ProvenanceLog(path=log.path)
+        head = fresh.recover_head(reason="потерян при переносе каталога")
+        events = fresh.get_events()
+        marker = events[-1].payload["provenance_head_recovered"]
+        assert marker["adopted_entries"] == 2 and "переносе" in marker["reason"]
+        # вернувшийся witness уже включает маркер: два принятых события плюс он сам
+        assert head["entry_count"] == 3 and head["last_hash"] == events[-1].entry_hash
+        assert fresh.count == 3                          # маркер — часть журнала
+        assert fresh.verify_chain() is True
+        e4 = fresh.append({"event": "c"})                # дальше цепь идёт как обычно
+        assert e4.previous_hash == events[-1].entry_hash
+        assert fresh.verify_chain() is True
+
+    def test_recover_head_refuses_a_log_whose_chain_does_not_close(self, log):
+        """Adoption не обязан принимать мусор: разорванную цепь чинят не этим путём."""
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        os.remove(log.head_path)
+        lines = open(log.path, encoding="utf-8").read().splitlines(True)
+        forged = json.loads(lines[1])
+        forged["previous_hash"] = "f" * 64
+        lines[1] = json.dumps(forged, sort_keys=True, separators=(",", ":")) + "\n"
+        with open(log.path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        with pytest.raises(ProvenanceIntegrityError, match="разорвана"):
+            ProvenanceLog(path=log.path).recover_head()
+        assert not os.path.exists(log.head_path)          # refuse = не заводить witness
+
+    def test_lie_in_entry_count_alone_survives_append_but_not_verification(self, log):
+        """Честная граница: счётчик witness'а на цепь не влияет, и потому ловится аудитом.
+
+        Смещение и хэш сверяются с журналом на каждом append, entry_count — нет: он
+        нужен для отчёта, а не для продолжения цепи. Поэтому враньё в нём сходит
+        писателю, но не проходит verify_chain().
+        """
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        _forge_head(log.head_path, entry_count=99)
+        ProvenanceLog(path=log.path).append({"event": "c"})   # цепь продолжается верно
+        assert ProvenanceLog(path=log.path).verify_chain() is False
 
     def test_append_cost_stays_bounded_as_the_log_grows(self, tmp_path):
         """10 000 append'ов: стоимость одной записи не должна расти с длиной журнала.
