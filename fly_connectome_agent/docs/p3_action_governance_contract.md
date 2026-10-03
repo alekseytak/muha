@@ -139,10 +139,11 @@ Rules:
   hash, log size — appended into the chain itself, outside the lock. The adoption is
   then visible to every later reader of the record it created, instead of being an
   unlogged repair. A confirmatory runner refuses to start on such a log until that
-  call has been made deliberately (`scripts/run_p4_2_oracle.py` exits before the first
-  episode rather than burning a confirmatory budget). `count` is the one read-only
-  escape hatch: it reports the truth about the bytes even when the witness is
-  unusable, and it does not write.
+  call has been made deliberately: `scripts/run_p4_2_oracle.py` exits with rc=2
+  before the first episode rather than burning a confirmatory budget on a journal the
+  writer will not accept (`test_runner_refuses_a_provenance_log_it_cannot_trust`).
+  `count` is the one read-only escape hatch: it reports the truth about the bytes
+  even when the witness is unusable, and it does not write.
 - Appends are serialized by `threading.Lock` **and** `fcntl.flock` (POSIX), so
   two processes writing the same file cannot fork the chain: both resync and
   update the witness under that lock.
@@ -163,41 +164,54 @@ Rules:
 ### Why the writer was rewritten (P4.2.v1 abort)
 
 The previous `append()` re-read and re-parsed the whole JSONL on every call to find
-the chain tail: O(n) per append, therefore O(N²) per run. Measured median cost of a
-single append, old versus fixed implementation (`.venv/bin/python
-scripts/bench_provenance_append.py`, JSON lands in `var/provenance_append_benchmark.json`):
+the chain tail: O(n) per append, therefore O(N²) per run. Median cost of one append,
+old versus fixed implementation, measured on the writer that ships now
+(`.venv/bin/python scripts/bench_provenance_append.py`). The table is runs 1–2 of
+`fly_connectome_agent/docs/benchmarks/provenance_writer_p4_2a.json` — the versioned
+record of this acceptance, committed on purpose; the raw per-run JSON in `var/` is
+machine-local and gitignored, and an acceptance that lives only there cannot be
+re-checked after the machine changes.
 
 | prior entries | old append (median) | fixed append (median) |
 |---|---|---|
-| 0 | 7.39 ms | 2.88 ms |
-| 1 000 | 62.71 ms | 3.07 ms |
-| 10 000 | 276.36 ms | 3.07 ms |
-| 50 000 | 2 617.75 ms | 3.55 ms |
+| 0 | 3.63 ms | 1.99 ms |
+| 1 000 | 23.84 ms | 2.09 ms |
+| 10 000 | 150.71 ms | 1.96 ms |
+| 50 000 | 749.42 ms | 2.33 ms |
 
-This table is `var/provenance_append_benchmark.json` as it stands on the writer commit.
-It is the fourth run; the three earlier runs on the same code gave 1.90–2.26 ms for the
-fixed path at every log length, and an empty-log old-path median between 4.19 and 5.80 ms.
-Absolute milliseconds wander with the host, the disk cache and the payload size, so the
-doc does not treat them as the finding. What reproduced across all four runs:
+Absolute milliseconds do not reproduce — not between machines, and barely between
+runs on one machine. The old path measured 2 617 ms at 50k entries when this
+benchmark was first run, and 749 ms / 928 ms now. What does reproduce, and what the
+acceptance is stated in terms of, is the slope and the fractions:
 
-- fixed path, growth from an empty log to a 50k log: ×0.91, ×0.95, ×1.0, ×1.23 — a slope
-  indistinguishable from zero, against the gate of ×3.0;
-- old path over the same distance: ×210, ×224, ×285, ×354 — linear in `n`, as advertised
-  by the code that re-parsed the file per append;
-- projected provenance share of a full 86 400-episode confirmatory run: 1.1%, 1.1%, 1.2%,
-  2.1% — against the gate of 15%. On the old path the same run projects to 25–40 hours of
-  logging alone: the linear coefficient measured on synthetic ~100-byte payloads gives
-  ~27 h, the live P4.2.v1 log with ~700-byte episode payloads gives ~42 h.
+- fixed path, growth from an empty log to a 50k log: ×1.17 and ×1.03 on the two
+  recorded runs, against the gate of ×3.0. Four earlier runs on the pre-review writer
+  (`8c90ba9`, before the witness self-hash and the append-time cross-check existed)
+  gave ×0.91, ×0.95, ×1.0, ×1.23 — the review added per-append work and the slope
+  stayed where it was;
+- old path over the same distance: ×206 and ×189 here, ×210…×354 there — linear in
+  `n`, as advertised by the code that re-parsed the file per append;
+- projected provenance share of a full 86 400-episode confirmatory run: 1.4% and
+  1.2% here (1.1–2.1% across the earlier four) — against the gate of 15%. On the old
+  path the same run projects to 25–40 hours of logging alone: the linear coefficient
+  measured on synthetic ~100-byte payloads gives ~27 h, the live P4.2.v1 log with
+  ~700-byte episode payloads gives ~42 h.
 
-The honest trade: an append now costs a few milliseconds even on a short log, because
-every write pays one extra `fsync` plus an atomic witness replace. The old code could be
-cheaper per append while the log was small (a direct probe on an empty file once measured
-0.7 ms) — which is exactly the regime where nobody noticed anything was wrong.
+The honest trade: an append now costs a couple of milliseconds even on a short log,
+because every write pays one extra `fsync`, an atomic witness replace, and — since the
+review — a re-hash of the witnessed tail line. The old code could be cheaper per
+append while the log was small (a direct probe on an empty file once measured 0.7 ms)
+— which is exactly the regime where nobody noticed anything was wrong.
 
 `scripts/bench_provenance_append.py` pins the pre-fix revision it compares against
 (`OLD_REV`), and refuses to run if asked to load a revision that already contains the
-fixed writer — otherwise, once the fix is committed, the benchmark would silently measure
-the new path against itself and report a win with no competitor.
+fixed writer — otherwise, once the fix is committed, the benchmark would silently
+measure the new path against itself and report a win with no competitor. Every full
+run appends one entry to `runs_detail` in the summary and recomputes the aggregates
+over all recorded runs taking worst values (max growth, max share), not averages: an
+acceptance that averages away a single bad run is not an acceptance. A `--quick` run
+is refused entry — the gate is defined at 50k entries, and a half-populated summary
+would be a different benchmark protocol wearing the same name.
 
 P4.2.v1 was aborted for this defect before completion: 305 of 1080 cells, 24 421
 episodes written, chain intact, no CSV, no sidecar, frozen gate never invoked, no partial
@@ -248,7 +262,7 @@ be used to audit governance.
 | ActionDecoder | determinism, winner L/R, tie→stay, confidence [0,1], invalid shape→ValueError |
 | GateKeeper | Decider+выбирает→ALLOW, Decider+якорит→DENY, forbidden verb→DENY, high-risk→ESCALATE, ALLOW passes proposal through for L/R/stay, decision invariants unconstructable, `from_proposal` copy + rejection |
 | SimpleNavigation | reset deterministic, boundaries, target termination, max_steps truncation, invalid action→ValueError, stable info shape |
-| Provenance | append/verify, on-disk payload tamper, bad entry hash, truncation seen by writer, two-process flock chain of 50 events |
+| Provenance | append/verify, on-disk payload tamper, bad entry hash, truncation seen by writer, two-process flock chain of 50 events; head witness: modified head / offset past EOF / true-hash-with-wrong-offset → append refuses and the log bytes are untouched; missing head → no silent adoption (only `recover_head`, which marks the chain and refuses a broken one); a lie confined to `entry_count` survives append but fails `verify_chain`; structurally, no whole-file scan on the append path |
 | Closed Loop | left/right/stay proposal executed in env, DENY/ESCALATE→stay with movement blocked, proposal/decision/action recorded apart, forged ALLOW rejected |
 
 ## Acceptance Criteria

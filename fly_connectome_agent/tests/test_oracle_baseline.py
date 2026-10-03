@@ -652,8 +652,11 @@ def test_confirmatory_sidecar_would_carry_the_frozen_digest(manifest):
     assert manifest["_digest"] == proto.digest_of_file(proto.DEFAULT_MANIFEST) == FROZEN
 
 
-def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
-    """Настоящая запись sidecar: три эпизода, non_confirmatory попадает в файл прогона."""
+def _one_episode_experimental_manifest(tmp_path, name="expl.json"):
+    """Манифест-малютка: 1 seed × 1 episode. Настоящий прогон, который успевает
+    закончиться внутри теста, — на нём можно проверять и успех раннера, и его
+    отказ, что на замороженном бюджете в 86 400 эпизодов недоступно.
+    """
     m = copy.deepcopy(proto.load())
     m.pop("_digest")
     _widen_seeds(m)
@@ -667,11 +670,17 @@ def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
     op = m["operating_point"]
     op["values"]["episodes"] = 1
     op["overrides"]["episodes"] = 1
-    op["override_rationale"]["episodes"] = "1 эпизод: проверка записи sidecar, не прогон"
+    op["override_rationale"]["episodes"] = "1 эпизод: проверка записи, не прогон"
     m["run_budget"]["cells"] = len(m["arms"]) * 1 * len(m["task_streams"])
     m["run_budget"]["episodes"] = m["run_budget"]["cells"] * 1
-    p = tmp_path / "expl.json"
+    p = tmp_path / name
     p.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
+
+
+def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
+    """Настоящая запись sidecar: один эпизод, non_confirmatory попадает в файл прогона."""
+    p = _one_episode_experimental_manifest(tmp_path)
     out_csv = tmp_path / "expl.csv"
     rc, log = _run_cli("run_p4_2_oracle.py", "--manifest", p, "--experimental-manifest",
                        "--seeds", "60", "--arms", "oracle_reflex", "--out", out_csv,
@@ -690,6 +699,48 @@ def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
     # случай покрыт test_non_confirmatory_sidecar_cannot_pass_the_gate).
     with pytest.raises(gate.Refused, match="другому протоколу"):
         gate.check_sidecars([str(out_csv)], [str(tmp_path / "expl.csv.meta.json")], FROZEN)
+
+
+def test_runner_refuses_a_provenance_log_it_cannot_trust(tmp_path):
+    """Журнал без witness — отказ до первого эпизода, и продолжение только со следом.
+
+    Для confirmatory-прогона это разница между «потратили час на отказ» и
+    «потратили 40 часов на отказ». Раннер обязан встать на той же проверке,
+    на которой встанет писатель, и пустить прогон дальше только после явного
+    recover_head(), которое записывает adoption в саму цепь.
+    """
+    from fly_connectome_agent.src.engineering.logging.provenance_log import ProvenanceLog
+    m = _one_episode_experimental_manifest(tmp_path)
+    prov_path = tmp_path / "expl.prov.jsonl"
+    seed_log = ProvenanceLog(str(prov_path))
+    seed_log.append({"kind": "осталось от другого прогона"})
+    seed_log.append({"kind": "осталось от другого прогона"})
+    Path(seed_log.head_path).unlink()      # журнал без witness — состояние abort-архива
+    before = prov_path.read_bytes()
+    args = ("run_p4_2_oracle.py", "--manifest", m, "--experimental-manifest",
+            "--seeds", "60", "--arms", "oracle_reflex",
+            "--out", tmp_path / "expl.csv", "--provenance", prov_path)
+
+    rc, out = _run_cli(*args)
+    assert rc == runner.REFUSE, out[-800:]      # «прогона не было», а не «не прошло»
+    assert "recover_head" in out, out[-800:]
+    assert prov_path.read_bytes() == before, "отказ не должен дописывать ни байта"
+
+    head = seed_log.recover_head(reason="тест: adoption после потери witness")
+    lines = [json.loads(line) for line in prov_path.read_text(encoding="utf-8").splitlines()]
+    assert lines[2]["payload"]["provenance_head_recovered"]["adopted_entries"] == 2
+    assert head["entry_count"] == 3            # два принятых + маркер уже в цепи
+    assert ProvenanceLog(str(prov_path)).verify_chain() is True
+
+    rc, out = _run_cli(*args)
+    assert rc == 0, out[-800:]
+    after = [json.loads(line) for line in prov_path.read_text(encoding="utf-8").splitlines()]
+    assert after[:3] == lines[:3], "прогон не должен переписывать ни старые записи, ни маркер"
+    assert len(after) > 3, "прогон ничего не дописал — тест пустой"
+    assert after[3]["previous_hash"] == lines[2]["entry_hash"], \
+        "прогон продолжается за маркером, а не в обход него"
+    assert ProvenanceLog(str(prov_path)).verify_chain() is True
+
 
 # --- 5. арифметика гейта --------------------------------------------------
 

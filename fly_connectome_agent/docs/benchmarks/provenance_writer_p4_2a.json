@@ -1,0 +1,101 @@
+{
+  "benchmark_protocol_version": "1.0",
+  "what_this_proves": "append() в журнале провенанса стоит O(1) по длине журнала: медиана одной записи на 50 000 записей не дороже медианы на пустом журнале более чем втрое, а спроецированные накладные расходы провенанса на полный confirmatory-прогон меньше 15% времени симуляции",
+  "old_revision": "c54e8be63896826fe265ef928cd940bdc7689a26",
+  "fixed_revision": "d181c314d9b6a59da8bb10aa10fa45e7ff0d7d85",
+  "writer_revisions": [
+    "d181c314d9b6a59da8bb10aa10fa45e7ff0d7d85"
+  ],
+  "runs": 2,
+  "prior_entry_counts": [
+    0,
+    1000,
+    10000,
+    50000
+  ],
+  "new_growth_ratio_max": 1.17,
+  "old_growth_ratio_range": [
+    188.79,
+    206.46
+  ],
+  "acceptance_max_new_growth_ratio": 3.0,
+  "provenance_runtime_fraction": 0.0136,
+  "acceptance_max_fraction": 0.15,
+  "result": "pass",
+  "raw_local_artifact": "var/provenance_append_benchmark.json — сырые медианы/p95 этого запуска, в .gitignore; воспроизводится этим скриптом",
+  "how_to_refresh": ".venv/bin/python scripts/bench_provenance_append.py (дописывает runs_detail и пересчитывает агрегаты)",
+  "runs_detail": [
+    {
+      "run": 1,
+      "measured_utc": "2026-10-03T20:55:26Z",
+      "machine": "macOS-12.7.4-x86_64-i386-64bit-Mach-O",
+      "python": "3.13.0",
+      "writer_revision": {
+        "head": "d181c314d9b6a59da8bb10aa10fa45e7ff0d7d85",
+        "writer_matches_committed_source": true
+      },
+      "old_revision": "c54e8be63896826fe265ef928cd940bdc7689a26",
+      "prior_entry_counts": [
+        0,
+        1000,
+        10000,
+        50000
+      ],
+      "new_median_ms_by_level": [
+        1.9875,
+        2.0869,
+        1.9629,
+        2.3315
+      ],
+      "old_median_ms_by_level": [
+        3.6299,
+        23.8354,
+        150.7064,
+        749.4207
+      ],
+      "new_growth_ratio": 1.17,
+      "old_growth_ratio": 206.46,
+      "provenance_runtime_fraction": 0.0136,
+      "sim_only_seconds_per_episode": 0.1686,
+      "samples_new_path": 200,
+      "samples_old_path": 5,
+      "result": "pass"
+    },
+    {
+      "run": 2,
+      "measured_utc": "2026-10-03T20:58:20Z",
+      "machine": "macOS-12.7.4-x86_64-i386-64bit-Mach-O",
+      "python": "3.13.0",
+      "writer_revision": {
+        "head": "d181c314d9b6a59da8bb10aa10fa45e7ff0d7d85",
+        "writer_matches_committed_source": true
+      },
+      "old_revision": "c54e8be63896826fe265ef928cd940bdc7689a26",
+      "prior_entry_counts": [
+        0,
+        1000,
+        10000,
+        50000
+      ],
+      "new_median_ms_by_level": [
+        1.9159,
+        2.0641,
+        2.0527,
+        1.9705
+      ],
+      "old_median_ms_by_level": [
+        4.918,
+        18.2873,
+        136.7741,
+        928.4636
+      ],
+      "new_growth_ratio": 1.03,
+      "old_growth_ratio": 188.79,
+      "provenance_runtime_fraction": 0.0116,
+      "sim_only_seconds_per_episode": 0.1686,
+      "samples_new_path": 200,
+      "samples_old_path": 5,
+      "result": "pass"
+    }
+  ]
+}
