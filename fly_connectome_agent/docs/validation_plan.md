@@ -12,6 +12,9 @@
 
 ## 2. Scientific baselines (P4)
 
+Implemented on the symmetric 5-neuron toy network; protocol, pass criteria and
+measured results: [p4_validation.md](p4_validation.md).
+
 | Baseline | Method | Manifest fields |
 |---|---|---|
 | `directed_in_out_degree_preserving_rewire` | Maslov–Sneppen edge swaps preserving in- and out-degree separately; no self-loops; no parallel edges unless source graph has them | `baselines[].seed`, `accepted_swaps`, `max_attempts`, `edge_policy` |

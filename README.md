@@ -44,12 +44,19 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 
 ./scripts/check.sh          # всё сразу: синтаксис + тесты + схемы манифестов
+.venv/bin/python scripts/run_p4_validation.py --quick   # быстрый прогон 7 условий × 2 зеркальные задачи
+.venv/bin/python scripts/run_p4_validation.py --seeds 20 --probe   # полная матрица P4/P4.1, ~20 мин
+.venv/bin/python scripts/run_p4_validation.py --tasks mixed --seeds 20 --episodes 40   # смешанный поток
+# подтверждающий прогон (60 seeds × 80 эпизодов, ~45 мин на двух шардах):
+.venv/bin/python scripts/run_p4_validation.py --tasks mixed --seeds 60 --episodes 80 --eta 1.5 \
+    --arms plastic,weight_shuffled_frozen --out var/p4_conf60_a.csv
+.venv/bin/python var/p4_conf60_report.py var/p4_conf60_a.csv --min-seed=20   # гейт по свежим seed'ам
 ```
 
 Отдельные шаги:
 
 ```bash
-.venv/bin/python -m pytest fly_connectome_agent/tests -q          # тесты агента (122)
+.venv/bin/python -m pytest fly_connectome_agent/tests -q          # тесты агента (174)
 .venv/bin/python -m pytest fly_connectome_agent/tests -q -k lif   # только LIF
 .venv/bin/python -m pytest fly_connectome_agent/tests -q -k stdp  # только обучение
 .venv/bin/python scripts/check_schemas.py                         # схемы манифестов
@@ -61,12 +68,29 @@ python3 -m venv .venv
 
 ## Состояние
 
-- Тесты агента: **122 зелёных**, пропущенных нет. Проверка схем — 5 проб,
+- Тесты агента: **174 зелёных**, пропущенных нет. Проверка схем — 5 проб,
   проверка синтаксиса — весь python, включая код внутри документации.
 - Реализовано: граф коннектома с валидацией и подграфами, разреженный LIF
   (рефрактерность, шум, задержки, детерминированный повтор), разреженный
-  reward-modulated STDP с модулятором, декодер действий, verb-act и gatekeeper,
-  provenance-лог с проверкой целостности на диске, схемы и примеры манифестов.
+  reward-modulated STDP с модулятором, декодер действий, verb-act и gatekeeper
+  (ALLOW исполняет именно proposal, DENY/ESCALATE — только stay), provenance-лог
+  с flock и проверкой цепочки по диску, схемы и примеры манифестов.
+- Научная валидация MVP: `fly_connectome_agent/docs/p4_validation.md` — 7 условий
+  × 2 зеркальные задачи × 20 seeds на симметричной 5-нейронной toy-сети,
+  скрипт `scripts/run_p4_validation.py`. Итог: **P4.1 (зеркальный тест обучения
+  направлению) выполнен** — 19/20 и 18/20 seeds при p<0.0005, специфичность 20/20,
+  у всех замороженных условий Δw≡0. Критерий «лучше всех baseline» по
+  `success_rate` одиночной задачи **не выполнен**: случайно асимметричная заморозка
+  набирает 0.50–0.64 против 0.42, потому что на одной задаче ей достаточно угадать
+  направление. Для этого добавлен поток `mixed` (оба зеркала в одном обучении,
+  метрика — худшая половина потока): на 80 эпизодах × 60 seeds обучение даёт 0.66
+  (обе половины 0.66/0.66) против 0.48 у счастливой заморозки, 0.21 у
+  `no_plasticity`/`m_zero` и 0.00 у `direction_shuffled_frozen`; на 40 СВЕЖИХ seed'ах
+  заранее объявленный гейт даёт 31/38 seed, p=0.0001 — **критерий выполнен**.
+  Потолок честный: проводка, которой повезло в обе стороны, решает оба зеркала
+  идеально чаще (10/60 против 4/60 при обеих половинах ≥0.8), чем 80 эпизодов
+  обучения. Реальный коннектм (CSV) не подключается — решение о его подключении
+  за пользователем, а не за прогоном.
 - Замысел (01/02/03) — проектная документация и наброски: самостоятельных
   запускаемых систем этих трёх проектов пока нет.
 

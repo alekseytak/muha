@@ -1,0 +1,255 @@
+{
+  "manifest_version": "1.0.0",
+  "protocol_id": "p4.2.oracle-baseline.v1",
+  "created_at": "2026-10-03T09:40:00Z",
+  "pre_registered": true,
+  "claims_allowed": [
+    "simulation_result",
+    "engineering_performance"
+  ],
+  "question": "Даёт ли reward-modulated STDP преимущество над заранее правильно заданной, но не обучающейся проводкой на тех же задачах и при том же бюджете эпизодов?",
+  "seed_sets": {
+    "confirmatory": {
+      "id": "p4_2_confirmatory",
+      "range": [
+        60,
+        119
+      ],
+      "count": 60
+    },
+    "fixture_probe": {
+      "id": "p4_2_fixture_probe",
+      "range": [
+        900,
+        903
+      ],
+      "count": 4
+    },
+    "disjoint_from": [
+      {
+        "id": "p4_1_exploratory",
+        "range": [
+          0,
+          19
+        ],
+        "count": 20
+      },
+      {
+        "id": "p4_1_confirmatory",
+        "range": [
+          20,
+          59
+        ],
+        "count": 40
+      }
+    ]
+  },
+  "episodes_per_seed": 80,
+  "task_streams": [
+    "left_target",
+    "right_target",
+    "mixed"
+  ],
+  "operating_point": {
+    "settings_source": "ToySettings_defaults_with_declared_overrides",
+    "overrides": {
+      "eta": 1.5,
+      "episodes": 80
+    },
+    "values": {
+      "eta": 1.5,
+      "episodes": 80,
+      "window_steps": 60,
+      "sigma": 3.5,
+      "alpha": 1.0,
+      "sym_weight": 45.0,
+      "inh_weight": -45.0,
+      "sensor_inh_weight": 40.0,
+      "i_drive": 35.0,
+      "strong": 70.0,
+      "weak": 12.0,
+      "track_length": 17,
+      "cell_distance": 6,
+      "edge_margin": 2,
+      "max_steps": 25,
+      "step_cost": 0.0,
+      "target_reward": 10.0,
+      "boundary_penalty": -1.0,
+      "tau_eligibility": 80.0,
+      "command_inh_weight": -40.0,
+      "plastic_slots": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "override_rationale": {
+      "eta": "P4.1 confirmatory verdict считался при eta=1.5; брать для P4.2 другое значение означало бы менять рабочую точку вместе с выводом.",
+      "episodes": "80 эпизодов — бюджет, на котором P4.1 mixed-гейт уже стал разрешимым; меньший бюджет сравнивал бы скорость обучения, а не способность."
+    }
+  },
+  "arms": [
+    {
+      "arm_id": "rstdp_mixed",
+      "code_arm": "plastic",
+      "learner": "stdp",
+      "init_regime": "symmetric",
+      "reward_coupled": true,
+      "role": "treatment",
+      "gate": "required"
+    },
+    {
+      "arm_id": "no_plasticity",
+      "code_arm": "no_plasticity",
+      "learner": "none",
+      "init_regime": "symmetric",
+      "reward_coupled": true,
+      "role": "topology_control",
+      "gate": "required"
+    },
+    {
+      "arm_id": "m_zero",
+      "code_arm": "m_zero",
+      "learner": "stdp",
+      "init_regime": "symmetric",
+      "reward_coupled": false,
+      "role": "reward_control",
+      "gate": "required"
+    },
+    {
+      "arm_id": "weight_shuffled_frozen",
+      "code_arm": "weight_shuffled_frozen",
+      "learner": "none",
+      "init_regime": "shuffle",
+      "reward_coupled": true,
+      "role": "structural_control",
+      "gate": "desirable"
+    },
+    {
+      "arm_id": "direction_shuffled_frozen",
+      "code_arm": "direction_shuffled_frozen",
+      "learner": "none",
+      "init_regime": "anti",
+      "reward_coupled": true,
+      "role": "direction_control",
+      "gate": "desirable"
+    },
+    {
+      "arm_id": "oracle_reflex",
+      "code_arm": "oracle_reflex",
+      "learner": "none",
+      "init_regime": "oracle",
+      "reward_coupled": false,
+      "role": "upper_bound_characterization",
+      "gate": "none"
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "kind": "required",
+      "treatment": "rstdp_mixed",
+      "comparator": "no_plasticity",
+      "direction": "greater",
+      "statement": "Обучение превосходит ту же симметричную проводку без пластичности: эффект не объясняется одной топологией."
+    },
+    {
+      "id": "H2",
+      "kind": "required",
+      "treatment": "rstdp_mixed",
+      "comparator": "m_zero",
+      "direction": "greater",
+      "statement": "Обучение превосходит тот же eligibility-след при M=0: эффект объясняется наградой, а не таймингом."
+    },
+    {
+      "id": "H3",
+      "kind": "desirable",
+      "treatment": "rstdp_mixed",
+      "comparator": "weight_shuffled_frozen",
+      "direction": "greater",
+      "statement": "Обучение превосходит случайно-асимметричную заморозку на смешанном зеркальном потоке."
+    },
+    {
+      "id": "H4",
+      "kind": "desirable",
+      "treatment": "rstdp_mixed",
+      "comparator": "direction_shuffled_frozen",
+      "direction": "greater",
+      "statement": "Обучение превосходит замороженный анти-рефлекс."
+    },
+    {
+      "id": "H5",
+      "kind": "characterization",
+      "treatment": "rstdp_mixed",
+      "comparator": "oracle_reflex",
+      "direction": "difference",
+      "statement": "Насколько R-STDP отличается от фиксированной симметричной проводки, которая знает оба ответа. Это описание величины эффекта, а не условие прохода: проигрыш oracle — ожидаемый и публикуемый результат, а не повод править learning rule."
+    }
+  ],
+  "primary_metric": "mixed_min_half_success",
+  "primary_metric_definition": "Для mixed-потока по seed: минимум из доли успешных эпизодов на правом зеркале и на левом. Фиксированная асимметрия не может удовлетворить метрику на обеих половинах, поэтому только она делает критерий «лучше всех baseline» фальсифицируемым.",
+  "secondary_metrics": [
+    "mixed_success_rate",
+    "cumulative_reward",
+    "steps_to_target",
+    "per_seed_left_right_gap",
+    "seeds_both_halves_ge_0_8",
+    "mean_abs_dw",
+    "fraction_weights_at_bound",
+    "governance_violations"
+  ],
+  "statistical_test": {
+    "unit_of_analysis": "seed",
+    "method": "paired_exact_sign_test",
+    "alternative": "two_sided",
+    "alpha": 0.05,
+    "tie_handling": "excluded_and_disclosed",
+    "multiple_comparison_policy": "Holm",
+    "family": [
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "family_note": "H5 в поправку не входит: characterization-сравнение не имеет порога прохода, поэтому и корректировать нечего. Число проверок в family (4) зафиксировано до запуска.",
+    "paired_on": "identical seed id, identical task stream, identical episode budget",
+    "reported_per_comparison": [
+      "wins",
+      "losses",
+      "ties",
+      "n_informative",
+      "raw_p",
+      "adjusted_p",
+      "mean_difference",
+      "per_seed_outcomes"
+    ],
+    "pass_rule": "Для required-гипотез: wins > losses И Holm-скорректированная p < alpha. Большинство без значимости — не проход (это отдельный ярлык, а не «почти прошло»)."
+  },
+  "provenance": {
+    "required": true,
+    "chain": "sha256",
+    "violation_budget": 0,
+    "manifest_digest": "sha256 of canonical JSON of this file, computed by scripts/p4_2_protocol.py; run sidecar and gate must agree on it"
+  },
+  "run_budget": {
+    "cells": 1080,
+    "episodes": 86400,
+    "cell_formula": "6 arms x 60 confirmatory seeds x 3 task streams",
+    "measured_throughput_eps": 15.0,
+    "estimated_wall_clock_hours": 1.6,
+    "sharding": "разрешена только нарезка по объявленным seeds; гейт считается исключительно по полному множеству 60-119"
+  },
+  "decision_rule_after_p42": {
+    "beats_all_and_comparable_to_oracle": "P5 (real connectome ingestion) с осторожным оптимизмом",
+    "beats_weak_but_below_oracle": "P5 допускается как исследование механизма обучения, не как доказательство превосходства",
+    "fails_h1_or_h2": "к real connectome не идти; чинить toy-задачу и learning rule",
+    "oracle_and_frozen_stably_above_rstdp": "сначала P4.3 (усложнить credit assignment), масштабирование запрещено"
+  },
+  "not_in_scope": [
+    "Реальный connectome CSV: подключается только после вердикта P4.2.",
+    "Toy-сеть из 20 нейронов: P4.3, не сейчас.",
+    "Любые формулировки про биологию: прогон на 5-нейронной toy-сети.",
+    "Изменение learning rule, метрик или порога после просмотра результата."
+  ]
+}

@@ -75,7 +75,8 @@ class TestOnDiskTamperDetection:
         new_log = ProvenanceLog(path=path)
         assert new_log.verify_chain() is False
 
-    def test_missing_entry_fails_new_log(self, log):
+    def test_missing_entry_fails_writer_log(self, log):
+        """A writer that already recorded 2 events must notice the file shrinking."""
         log.append({"event": "a"})
         log.append({"event": "b"})
         path = log.path
@@ -83,5 +84,40 @@ class TestOnDiskTamperDetection:
             lines = f.readlines()
         with open(path, "w") as f:
             f.write(lines[0])
-        new_log = ProvenanceLog(path=path)
-        assert new_log.verify_chain() is True
+        assert log.verify_chain() is False
+
+    def test_truncation_needs_a_witness_not_a_fresh_reader(self, log):
+        """Honest limit: a fresh reader has no anchor, so a shorter valid chain
+        looks fine to it. Detection requires a writer that saw the longer log
+        (previous test) or external anchoring, which P3.1 does not provide."""
+        log.append({"event": "a"})
+        log.append({"event": "b"})
+        path = log.path
+        with open(path, "r") as f:
+            lines = f.readlines()
+        with open(path, "w") as f:
+            f.write(lines[0])
+        assert ProvenanceLog(path=path).verify_chain() is True
+
+    def test_two_processes_append_without_forking_the_chain(self, log):
+        """Inter-process flock: concurrent appenders converge to one chain."""
+        import subprocess, sys, textwrap
+
+        child = textwrap.dedent(
+            """
+            import sys
+            sys.path.insert(0, {root!r})
+            from fly_connectome_agent.src.engineering.logging.provenance_log import ProvenanceLog
+            log = ProvenanceLog(path=sys.argv[1])
+            for i in range(25):
+                log.append({{"pid": __import__('os').getpid(), "n": i}})
+            """
+        ).format(root=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        path = log.path
+        procs = [subprocess.Popen([sys.executable, "-c", child, path]) for _ in range(2)]
+        for p in procs:
+            assert p.wait() == 0
+        # The parent never wrote to this file; both children appended to it.
+        witness = ProvenanceLog(path=path)
+        assert witness.count == 50
+        assert witness.verify_chain() is True

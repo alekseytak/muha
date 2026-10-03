@@ -48,3 +48,19 @@ with unit tests.
 
 Coefficients are profile parameters recorded in the manifest.
 `V_policy` is a hard penalty for GateKeeper violations.
+
+## 7. Reward delivery (`apply_modulator`)
+
+Spike timing and reward delivery are separate operations:
+
+- `update(pre, post, modulator=0.0)` on every simulation timestep accumulates
+  eligibility with correct pre/post timing and leaves weights unchanged
+  (the `M = 0` invariant from section 4).
+- `apply_modulator(M)` delivers a delayed reward in one call:
+  `dw = eta * clip(M, -M_max, M_max) * eligibility`, then weights are updated
+  with sign constraints. It does **not** decay eligibility, does not touch
+  pre/post traces, and does not advance `step_count`. Rewards must not be
+  smuggled through a fake `update(silent, silent, M)` call: that conflates
+  learning timing with the absence of spikes.
+- Non-finite `M` raises `ValueError`; `NoPlasticityBaseline.apply_modulator`
+  returns zero `dw` of shape `(E_plastic,)` for interface compatibility.

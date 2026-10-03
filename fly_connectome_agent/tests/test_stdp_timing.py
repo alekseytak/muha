@@ -482,3 +482,77 @@ class TestUnknownNeurotransmitterFailsFast:
         params = _make_exc_params()
         stdp = EdgeSparseSTDP(graph, np.array([], dtype=np.int64), params, dt_ms=1.0)
         assert stdp.n_plastic == 0
+
+
+# ---------------------------------------------------------------------------
+# apply_modulator: reward delivery as a separate API (no fake spike step)
+# ---------------------------------------------------------------------------
+
+class TestApplyModulator:
+    """apply_modulator() applies eta * clip(M) * eligibility without touching timing."""
+
+    def _primed_stdp(self, eta: float = 1.0) -> EdgeSparseSTDP:
+        graph = _make_graph(n=2, edges=[(0, 1, 0.5)])
+        params = STDPParams(
+            tau_plus=20.0, tau_minus=20.0, tau_eligibility=20.0,
+            A_plus=0.1, A_minus=0.1, eta=eta, w_exc_max=10.0, w_inh_max=10.0, M_max=10.0,
+        )
+        stdp = EdgeSparseSTDP(graph, np.array([0]), params, dt_ms=1.0)
+        # causal pairing: pre @ t0, post @ t2, M=0 — eligibility накапливается, веса не трогаются
+        stdp.update(np.array([True, False]), np.array([True, False]), modulator=0.0)
+        stdp.update(np.array([False, False]), np.array([False, False]), modulator=0.0)
+        stdp.update(np.array([False, False]), np.array([False, True]), modulator=0.0)
+        return stdp
+
+    def test_matches_manual_formula(self):
+        stdp = self._primed_stdp()
+        elig_before = stdp.eligibility.copy()
+        weights_before = stdp.get_weights()
+        M = 3.0
+        dw = stdp.apply_modulator(M)
+        np.testing.assert_allclose(dw, stdp.params.eta * M * elig_before)
+        np.testing.assert_allclose(stdp.get_weights(), weights_before + dw)
+        assert dw[0] > 0, f"causal pairing + positive M must potentiate, got {dw[0]}"
+
+    def test_does_not_touch_timing_state(self):
+        stdp = self._primed_stdp()
+        elig_before = stdp.eligibility.copy()
+        pre_before = stdp.pre_trace.copy()
+        post_before = stdp.post_trace.copy()
+        steps_before = stdp.step_count
+        stdp.apply_modulator(5.0)
+        np.testing.assert_array_equal(stdp.eligibility, elig_before)
+        np.testing.assert_array_equal(stdp.pre_trace, pre_before)
+        np.testing.assert_array_equal(stdp.post_trace, post_before)
+        assert stdp.step_count == steps_before
+
+    def test_no_spikes_at_reward_time_still_learns(self):
+        """Награда без спайков в момент выдачи всё равно двигает веса — в этом смысл API."""
+        stdp = self._primed_stdp()
+        weights_before = stdp.get_weights().copy()
+        dw = stdp.apply_modulator(2.0)
+        assert abs(dw[0]) > 0
+        np.testing.assert_allclose(stdp.get_weights(), weights_before + dw)
+
+    def test_clipping_and_sign_constraints_respected(self):
+        stdp = self._primed_stdp(eta=1000.0)
+        dw = stdp.apply_modulator(1e6)  # M клипается до M_max=10
+        assert stdp.get_weights()[0] <= stdp.params.w_exc_max
+        stdp.apply_modulator(-1e6)
+        assert stdp.get_weights()[0] >= 0.0, "excitatory weight went negative"
+
+    def test_non_finite_rejected(self):
+        stdp = self._primed_stdp()
+        with pytest.raises(ValueError, match="not finite"):
+            stdp.apply_modulator(float("nan"))
+        with pytest.raises(ValueError, match="not finite"):
+            stdp.apply_modulator(float("inf"))
+
+    def test_baseline_interface_compat(self):
+        graph = _make_graph(n=2, edges=[(0, 1, 0.5)])
+        params = _make_exc_params()
+        baseline = NoPlasticityBaseline(graph, np.array([0]), params=params, dt_ms=1.0)
+        dw = baseline.apply_modulator(7.0)
+        assert dw.shape == (1,)
+        assert np.all(dw == 0.0)
+        np.testing.assert_allclose(baseline.get_weights(), np.array([0.5]))

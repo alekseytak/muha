@@ -43,7 +43,12 @@ class SimpleNavigation:
             raise ValueError(f"Invalid action: {action!r}. Valid: {self.ACTION_SPACE}")
         if self.terminated:
             obs = np.array([self.position], dtype=np.int64)
-            return obs, 0.0, self.terminated, True, {"reason": "already_terminated"}
+            # info keeps the same shape as a normal step so callers can always
+            # read info["position"], even after the episode ended.
+            return obs, 0.0, self.terminated, True, {
+                "position": self.position, "prev_position": self.position,
+                "step": self._steps_this_episode, "reason": "already_terminated",
+            }
         prev_position = self.position
         self._steps_this_episode += 1
         if action == "move_left":

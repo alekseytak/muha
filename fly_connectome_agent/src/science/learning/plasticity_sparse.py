@@ -208,6 +208,31 @@ class EdgeSparseSTDP:
 
         return dw
 
+    def apply_modulator(self, modulator: float) -> np.ndarray:
+        """Apply accumulated eligibility once with a reward signal M.
+
+        Separate from update(): spike timing (eligibility accumulation) belongs
+        to update(), reward delivery belongs here. This keeps learning timing
+        independent of whether spikes are present at the moment the reward
+        arrives.
+
+        Contract:
+        - dw = eta * clip(M, -M_max, M_max) * eligibility
+        - weights updated with sign constraints
+        - eligibility, traces and step_count are NOT modified: eligibility
+          keeps decaying only through update() calls.
+
+        Args:
+            modulator: scalar reward signal M (must be finite)
+
+        Returns:
+            Weight changes dw for plastic edges, shape (E_plastic,)
+        """
+        clipped_M = self._clip_modulator(modulator)
+        dw = self.params.eta * clipped_M * self.eligibility
+        self.edge_weights = self._apply_sign_constraints(self.edge_weights + dw)
+        return dw
+
     def update_with_diagnostics(
         self,
         pre_spikes: np.ndarray,
@@ -406,6 +431,10 @@ class NoPlasticityBaseline:
     ) -> np.ndarray:
         """Alias for update()."""
         return self.update(pre_spikes, post_spikes, modulator)
+
+    def apply_modulator(self, modulator: float) -> np.ndarray:
+        """Interface-compatible reward application: always zero dw."""
+        return np.zeros(self.n_plastic, dtype=np.float64)
 
     def get_weights(self) -> np.ndarray:
         """Return a copy of edge weights."""

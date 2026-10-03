@@ -1,0 +1,631 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muha.local/schemas/p4_protocol_manifest.schema.json",
+  "title": "P4ProtocolManifest",
+  "description": "Pre-registration манифест сравнительного прогона P4 (сейчас — P4.2 oracle baseline). Отличается от experiment_manifest тем, что описывает симметричную toy-сеть без коннектома: здесь предмет фиксации — статистический план и набор arms, а не граф. Смысл файла в том, что гейт нельзя переписать после того как увидят результат, поэтому shape проверяется схемой, а смысл (несечение seed-множеств, совпадение с дефолтами кода, роль oracle) — кодом.",
+  "type": "object",
+  "required": [
+    "manifest_version",
+    "protocol_id",
+    "created_at",
+    "pre_registered",
+    "claims_allowed",
+    "question",
+    "seed_sets",
+    "episodes_per_seed",
+    "task_streams",
+    "operating_point",
+    "arms",
+    "hypotheses",
+    "primary_metric",
+    "secondary_metrics",
+    "statistical_test",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.\\-]{2,63}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pre_registered": {
+      "type": "boolean",
+      "const": true,
+      "description": "Manifest freezes the plan before any gated episode is simulated. False is a schema error on purpose: a protocol that admits being written after the fact is not a pre-registration."
+    },
+    "claims_allowed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "simulation_result",
+          "engineering_performance"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "structural_effect и любые biologically-plausible формулировки здесь запрещены: прогон идёт на toy-сети."
+    },
+    "question": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Ровно один вопрос, на который отвечает протокол. Не «умеет ли сеть учиться» (это P4.1)."
+    },
+    "seed_sets": {
+      "type": "object",
+      "required": [
+        "confirmatory",
+        "disjoint_from"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "confirmatory": {
+          "$ref": "#/$defs/seedRange"
+        },
+        "fixture_probe": {
+          "$ref": "#/$defs/seedRange",
+          "description": "Seed'ы вне любых гейтов: нужны чтобы проверить работоспособность инструмента до запуска. Попасть в статистику они не могут."
+        },
+        "disjoint_from": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/seedRange"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9_\\-]{3,64}$"
+                  }
+                }
+              }
+            ]
+          },
+          "description": "Ранее использованные множества. Проверка несечения — код, не схема."
+        }
+      }
+    },
+    "episodes_per_seed": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Одинаковый бюджет для всех arms, включая oracle. Разные бюджеты сравнивать нельзя."
+    },
+    "task_streams": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "left_target",
+          "right_target",
+          "mixed"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "contains": {
+        "const": "mixed"
+      },
+      "description": "mixed обязателен: только на нём первичная метрика (min-half) не сводится к везению одной стороны."
+    },
+    "operating_point": {
+      "type": "object",
+      "required": [
+        "settings_source",
+        "values"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "settings_source": {
+          "type": "string",
+          "enum": [
+            "ToySettings_defaults",
+            "ToySettings_defaults_with_declared_overrides"
+          ],
+          "description": "Операционная точка наследуется от дефолтов кода. Отличаться могут только ключи, перечисленные в overrides. Runner обязан сверить это с фактическими дефолтами: молча сдвинуть eta после факта схема и код не дадут."
+        },
+        "overrides": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "enum": [
+              "eta",
+              "episodes",
+              "window_steps",
+              "sigma",
+              "alpha",
+              "sym_weight",
+              "inh_weight",
+              "sensor_inh_weight",
+              "i_drive",
+              "strong",
+              "weak",
+              "track_length",
+              "cell_distance",
+              "edge_margin",
+              "max_steps",
+              "step_cost",
+              "target_reward",
+              "boundary_penalty",
+              "tau_eligibility",
+              "command_inh_weight",
+              "plastic_slots"
+            ]
+          },
+          "description": "Заранее объявленные отступления от дефолтов. Ключи вне списка схема отвергает; сверка значений с values и с кодом — задача cross-field проверки."
+        },
+        "override_rationale": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Почему каждый override взят. Обязан покрывать все ключи overrides — это проверяется кодом: override без объяснения выглядит как подгонка."
+        },
+        "values": {
+          "type": "object",
+          "required": [
+            "eta",
+            "episodes",
+            "window_steps",
+            "sigma",
+            "alpha",
+            "sym_weight",
+            "inh_weight",
+            "sensor_inh_weight",
+            "i_drive",
+            "strong",
+            "weak",
+            "track_length",
+            "cell_distance",
+            "edge_margin",
+            "max_steps",
+            "step_cost",
+            "target_reward",
+            "boundary_penalty",
+            "tau_eligibility",
+            "command_inh_weight",
+            "plastic_slots"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "eta": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "episodes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "window_steps": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sigma": {
+              "type": "number",
+              "minimum": 0
+            },
+            "alpha": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "sym_weight": {
+              "type": "number"
+            },
+            "inh_weight": {
+              "type": "number",
+              "maximum": 0
+            },
+            "sensor_inh_weight": {
+              "type": "number",
+              "minimum": 0
+            },
+            "i_drive": {
+              "type": "number",
+              "minimum": 0
+            },
+            "strong": {
+              "type": "number"
+            },
+            "weak": {
+              "type": "number"
+            },
+            "track_length": {
+              "type": "integer",
+              "minimum": 3
+            },
+            "cell_distance": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "edge_margin": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_steps": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "step_cost": {
+              "type": "number",
+              "maximum": 0
+            },
+            "target_reward": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "boundary_penalty": {
+              "type": "number",
+              "maximum": 0
+            },
+            "tau_eligibility": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "command_inh_weight": {
+              "type": "number",
+              "maximum": 0
+            },
+            "plastic_slots": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "minItems": 4,
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": [
+          "arm_id",
+          "code_arm",
+          "learner",
+          "init_regime",
+          "reward_coupled",
+          "role"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "arm_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{3,64}$"
+          },
+          "code_arm": {
+            "type": "string",
+            "description": "Ключ в symmetric_toy.ARM_SPECS. Отдельное поле, чтобы имя в протоколе и имя в коде не разъезжались молча."
+          },
+          "learner": {
+            "type": "string",
+            "enum": [
+              "stdp",
+              "none"
+            ]
+          },
+          "init_regime": {
+            "type": "string",
+            "enum": [
+              "symmetric",
+              "shuffle",
+              "anti",
+              "right_bias",
+              "oracle"
+            ]
+          },
+          "reward_coupled": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "treatment",
+              "topology_control",
+              "reward_control",
+              "structural_control",
+              "direction_control",
+              "upper_bound_characterization"
+            ]
+          },
+          "gate": {
+            "type": "string",
+            "enum": [
+              "required",
+              "desirable",
+              "none"
+            ],
+            "description": "upper_bound_characterization обязан иметь gate=none: сравнение с oracle не может быть поводом переписать learning rule после факта."
+          }
+        }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "treatment",
+          "comparator",
+          "direction",
+          "statement"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^H[0-9]+$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "required",
+              "desirable",
+              "characterization"
+            ]
+          },
+          "treatment": {
+            "type": "string"
+          },
+          "comparator": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "greater",
+              "difference"
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "primary_metric": {
+      "type": "string",
+      "enum": [
+        "mixed_min_half_success",
+        "success_rate"
+      ]
+    },
+    "primary_metric_definition": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Метрика обязана быть записана словами: «лучшая половина» и «минимум из половин» — разные гейты, и на слух различимы плохо."
+    },
+    "secondary_metrics": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "mixed_success_rate",
+          "cumulative_reward",
+          "steps_to_target",
+          "per_seed_left_right_gap",
+          "seeds_both_halves_ge_0_8",
+          "mean_abs_dw",
+          "fraction_weights_at_bound",
+          "governance_violations"
+        ]
+      },
+      "description": "Вторичные метрики не спасают проваленный первичный гейт; они описывают чем и ценой получен результат."
+    },
+    "statistical_test": {
+      "type": "object",
+      "required": [
+        "unit_of_analysis",
+        "method",
+        "alternative",
+        "alpha",
+        "tie_handling",
+        "multiple_comparison_policy",
+        "family",
+        "reported_per_comparison"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "unit_of_analysis": {
+          "type": "string",
+          "const": "seed",
+          "description": "Единица статистики — seed. Эпизод и запись provenance единицей не являются: 60 seeds x 80 episodes это 60 наблюдений, а не 4800."
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "paired_exact_sign_test",
+            "paired_bootstrap_mean_difference"
+          ]
+        },
+        "alternative": {
+          "type": "string",
+          "const": "two_sided"
+        },
+        "alpha": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "tie_handling": {
+          "type": "string",
+          "enum": [
+            "excluded_and_disclosed",
+            "half_credit"
+          ],
+          "description": "Любой вариант обязан озвучить число исключённых ties рядом с p-value."
+        },
+        "multiple_comparison_policy": {
+          "type": "string",
+          "enum": [
+            "Holm",
+            "none"
+          ]
+        },
+        "family": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^H[0-9]+$"
+          },
+          "description": "Id гипотез, входящих в поправку. characterization-гипотезы в family не входят."
+        },
+        "reported_per_comparison": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "wins",
+              "losses",
+              "ties",
+              "n_informative",
+              "raw_p",
+              "adjusted_p",
+              "mean_difference",
+              "per_seed_outcomes"
+            ]
+          }
+        },
+        "family_note": {
+          "type": "string"
+        },
+        "paired_on": {
+          "type": "string",
+          "description": "На чём именно пары. Без этой строки «paired» можно прочитать как угодно."
+        },
+        "pass_rule": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "required",
+        "chain",
+        "violation_budget"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "const": true
+        },
+        "chain": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "violation_budget": {
+          "type": "integer",
+          "const": 0,
+          "description": "Гейт падает при любой governance-нарушении; ненулевой бюджет здесь означал бы «наружения допустимы»."
+        },
+        "manifest_digest": {
+          "type": "string",
+          "description": "Как digest вычисляется и где сверяется. Значения здесь нет: файл не может содержать хеш самого себя."
+        }
+      }
+    },
+    "run_budget": {
+      "type": "object",
+      "required": [
+        "cells",
+        "episodes",
+        "cell_formula"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "cells": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "episodes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cell_formula": {
+          "type": "string"
+        }
+      },
+      "description": "Заявленный объём прогона. Числа перепроверяются кодом против arms x seeds x streams: несопадение означает, что считали не ту матрицу."
+    },
+    "decision_rule_after_p42": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Что решает каждый исход — зафиксировано до запуска, чтобы интерпретация не подстраивалась под число."
+    },
+    "not_in_scope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 5
+      },
+      "description": "Что протокол сознательно не трогает. Без этого списка провал гейта легко «починить» новым экспериментом в том же файле."
+    }
+  },
+  "$defs": {
+    "seedRange": {
+      "type": "object",
+      "required": [
+        "range",
+        "count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "[lo, hi] включительно."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Дублирует длину диапазона нарочно: несопадение ловится кодом и означает, что протокол правили не сверяясь."
+        }
+      }
+    }
+  }
+}
