@@ -143,39 +143,47 @@ scripts/bench_provenance_append.py`, JSON lands in `var/provenance_append_benchm
 
 | prior entries | old append (median) | fixed append (median) |
 |---|---|---|
-| 0 | 4.19 ms | 2.09 ms |
-| 1 000 | 30.40 ms | 2.15 ms |
-| 10 000 | 200.54 ms | 2.25 ms |
-| 50 000 | 1 192.45 ms | 1.90 ms |
+| 0 | 7.39 ms | 2.88 ms |
+| 1 000 | 62.71 ms | 3.07 ms |
+| 10 000 | 276.36 ms | 3.07 ms |
+| 50 000 | 2 617.75 ms | 3.55 ms |
 
-The table is one run; it reproduces. Three consecutive runs gave a growth of the fixed
-path of ×0.91, ×0.95 and ×1.0 between an empty log and a 50k log — flat, within noise —
-while the old path over the same distance grew ×285, ×224 and ×210. Absolute milliseconds
-wander with disk and payload size; the only stable fact is the slope, and the old slope was
-linear in `n` while the new one is not a slope at all.
+This table is `var/provenance_append_benchmark.json` as it stands on the writer commit.
+It is the fourth run; the three earlier runs on the same code gave 1.90–2.26 ms for the
+fixed path at every log length, and an empty-log old-path median between 4.19 and 5.80 ms.
+Absolute milliseconds wander with the host, the disk cache and the payload size, so the
+doc does not treat them as the finding. What reproduced across all four runs:
 
-The honest trade: an append now costs ~2 ms even on a short log, because every write pays
-one extra `fsync` plus an atomic witness replace. The old code could be cheaper per append
-while the log was small (a direct probe on an empty file once measured 0.7 ms) — which is
-exactly the regime where nobody noticed anything was wrong.
+- fixed path, growth from an empty log to a 50k log: ×0.91, ×0.95, ×1.0, ×1.23 — a slope
+  indistinguishable from zero, against the gate of ×3.0;
+- old path over the same distance: ×210, ×224, ×285, ×354 — linear in `n`, as advertised
+  by the code that re-parsed the file per append;
+- projected provenance share of a full 86 400-episode confirmatory run: 1.1%, 1.1%, 1.2%,
+  2.1% — against the gate of 15%. On the old path the same run projects to 25–40 hours of
+  logging alone: the linear coefficient measured on synthetic ~100-byte payloads gives
+  ~27 h, the live P4.2.v1 log with ~700-byte episode payloads gives ~42 h.
 
-Acceptance gates, both satisfied by the shipped artifact: median at 50k entries ≤ 3× the
-empty-log median (measured ×0.91, gate ×3.0), and provenance share of a full
-86 400-episode confirmatory run < 15% of runtime (measured 165 s against ≈ 14 570 s of
-simulation, i.e. 1.1%; across the three runs 1.1–1.2%). The same run on the old path
-projects to 25–40 hours of provenance alone — the linear coefficient measured on a
-synthetic 100-byte payload gives ~27 h, the live P4.2.v1 log with ~700-byte episode
-payloads gives ~42 h.
+The honest trade: an append now costs a few milliseconds even on a short log, because
+every write pays one extra `fsync` plus an atomic witness replace. The old code could be
+cheaper per append while the log was small (a direct probe on an empty file once measured
+0.7 ms) — which is exactly the regime where nobody noticed anything was wrong.
 
 `scripts/bench_provenance_append.py` pins the pre-fix revision it compares against
 (`OLD_REV`), and refuses to run if asked to load a revision that already contains the
 fixed writer — otherwise, once the fix is committed, the benchmark would silently measure
 the new path against itself and report a win with no competitor.
 
-P4.2.v1 was aborted for this defect before completion (240/1080 cells, no CSV, no
-sidecar, frozen gate never invoked). Its artifacts live apart from any future result,
-under `var/aborted/p4_2_v1_infrastructure_abort/`. Seeds 60–119 were exercised by that
-run and are not reusable in the replacement protocol.
+P4.2.v1 was aborted for this defect before completion: 305 of 1080 cells, 24 421
+episodes written, chain intact, no CSV, no sidecar, frozen gate never invoked, no partial
+data interpreted. The abort needed correcting after the fact: the first stop (19:29) killed
+the shell wrapper while the worker process kept running for another 1.5 hours, so the
+archive holds both the 19:31 snapshot and the real final state (21:07), with
+`post_abort_correction.md` recording which number came from which. Seeds 60–119 were
+exercised by that run and are not reusable in the replacement protocol.
+
+Operational rule taken from it: stopping a background run means checking the worker, not
+the wrapper — `ps aux | grep run_p4_2` plus a size-sampling check that the provenance file
+stopped growing.
 
 ## Environment: simple_navigation
 
