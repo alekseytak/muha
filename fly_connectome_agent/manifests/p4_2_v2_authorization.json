@@ -1,0 +1,33 @@
+{
+  "record_type": "p4_2_v2_run_authorization",
+  "protocol_id": "p4.2.oracle-baseline.v2",
+  "manifest_digest": "sha256:5f5cae42a2f0373933ead1c61307eac97f6a864f25b0927dbda4643e94d75123",
+  "reviewed_pre_registration_sha": "25a92f354abcb9cce2eadeb8ce5cfbb2a955de5a",
+  "authorization_predecessor_sha": "d3c8ba6bd5bc9e6b0bf217f25b89e9eac17049fc",
+  "authorization_scope": "single_full_local_confirmatory_run",
+  "seed_range": [120, 179],
+  "seed_count": 60,
+  "execution_mode": "local_single_process",
+  "authorized_at_utc": "2026-10-04T12:00:00Z",
+  "reason": "Independent review completed; scientific protocol unchanged.",
+  "constraints": {
+    "only_run_flag_changed": true,
+    "manifest_content_modified": false,
+    "seeds_modified": false,
+    "arms_modified": false,
+    "operating_point_modified": false,
+    "hypothesis_family_modified": false,
+    "statistical_plan_modified": false,
+    "provenance_writer_modified": false,
+    "gate_modified": false,
+    "soup_boundary_modified": false
+  },
+  "what_this_authorizes": "Exactly one full confirmatory run on seeds 120-179 with 6 arms, 3 streams, 80 episodes per seed. No sharding, no restart on the same seeds.",
+  "what_this_does_not_authorize": [
+    "modifying the frozen manifest",
+    "re-running on the same seed set after a failure",
+    "creating new experiment versions under the same protocol_id",
+    "interpreting results as anything beyond simulation_result",
+    "installing or running Soup"
+  ]
+}

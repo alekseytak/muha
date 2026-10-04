@@ -76,7 +76,7 @@ FROZEN_PROTOCOLS: dict[str, dict[str, str]] = {
     "p4.2.oracle-baseline.v2": {
         "digest": "sha256:5f5cae42a2f0373933ead1c61307eac97f6a864f25b0927dbda4643e94d75123",
         "status": "frozen_pending_independent_review",
-        "run": "not_authorized",
+        "run": "authorized",
         "manifest": "fly_connectome_agent/manifests/p4_2_oracle_confirmatory_v2.json",
         "note": "Замена v1 на том же научном плане: disjoint seeds 120–179, контракт bundle из "
                 "девяти артефактов, свежий provenance-путь. Запуск запрещён до review этого "

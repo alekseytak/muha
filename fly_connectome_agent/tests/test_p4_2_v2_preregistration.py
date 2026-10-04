@@ -11,8 +11,9 @@ Review выдал шесть проверяемых пунктов (protocol_id,
 незамеченной — ровно та тавтология, из-за которой v1 получил отдельный якорь в
 коде.
 
-Ни один тест не запускает confirmatory-прогон: v2 создан, но ещё не авторизован,
-и проверка этого факта (run=not_authorized) здесь тоже есть.
+Ни один тест не запускает confirmatory-прогон: v2 авторизован, но сам прогон
+не стартует из тестов; проверяется целостность авторизации и неизменность
+научного протокола.
 """
 from __future__ import annotations
 
@@ -504,19 +505,22 @@ def test_the_v2_paths_are_the_declared_bundle_paths_and_not_the_v1_ones(manifest
     assert runner.ABORTED_ROOT == REPO / "var/aborted"
 
 
-def test_confirmatory_run_is_not_authorized_and_the_refusal_is_a_code_fact(manifest):
+def test_confirmatory_run_is_authorized_after_review_commit(manifest):
+    """Авторизующий коммит переключил run на authorized: раннер больше не
+    встаёт на authorize_run. Это административный permit-state, а не научная
+    правка: протокол, манифест и seed-множество не тронуты."""
     allowed, flag = proto.run_authorization(V2_ID)
-    assert allowed is False and flag == "not_authorized"
+    assert allowed is True and flag == "authorized"
+    runner.authorize_run(manifest)  # не бросает
+
+
+def test_revoking_authorization_closes_the_confirmatory_run(manifest, monkeypatch):
+    """Откат флага в «not_authorized» обязан вернуть отказ: право на запуск
+    держится в коде, а не в записанном где-то вердикте."""
+    monkeypatch.setitem(proto.FROZEN_PROTOCOLS[V2_ID], "run", "not_authorized")
+    assert proto.run_authorization(V2_ID) == (False, "not_authorized")
     with pytest.raises(runner.Refused, match="не авторизован"):
         runner.authorize_run(manifest)
-
-
-def test_authorization_opens_only_when_the_review_edits_the_registry(manifest, monkeypatch):
-    """Отказ обязан исчезать от одной правки в коде — иначе «запрет» живёт не в
-    реестре, а в тексте ошибки."""
-    monkeypatch.setitem(proto.FROZEN_PROTOCOLS[V2_ID], "run", proto.RUN_AUTHORIZED_VALUE)
-    assert proto.run_authorization(V2_ID) == (True, "authorized")
-    runner.authorize_run(manifest)
 
 
 def test_provenance_guard_refuses_the_v1_log_for_every_kind_of_run(manifest):
@@ -556,18 +560,20 @@ def test_bundle_guard_keeps_confirmatory_output_inside_the_declared_bundle(manif
         runner.bundle_guard(manifest, False, "var/p4_2_oracle.csv")
 
 
-def test_runner_cli_refuses_the_confirmatory_run_before_writing_anything(tmp_path):
-    """Контракт пункту 7 review: до авторизации прогон не начинается, и на диске не
-    остаётся ни одной части будущего bundle. Выход 2 — «проверки не было»."""
+def test_runner_cli_refuses_confirmatory_to_foreign_path_after_authorization(tmp_path):
+    """После авторизации CLI пропускает authorize_run, но bundle_guard всё ещё
+    запрещает писать confirmatory-артефакт вне var/p4_2_v2/. Выход 2 — «проверки
+    не было»."""
     out, prov = tmp_path / "run.csv", tmp_path / "provenance.jsonl"
     res = subprocess.run(
         [sys.executable, str(REPO / "scripts/run_p4_2_oracle.py"),
-         "--seeds", "120", "--arms", "oracle_reflex", "--out", out,
-         "--provenance", prov],
+         "--seeds", "120", "--arms", "oracle_reflex", "--out", str(out),
+         "--provenance", str(prov)],
         capture_output=True, text=True, timeout=180)
     combined = res.stdout + res.stderr
     assert res.returncode == runner.REFUSE, combined[-800:]
-    assert "не авторизован" in combined, combined[-800:]
+    # Причина отказа — bundle placement, а не authorization
+    assert "result_bundle" in combined or "bundle-каталог" in combined, combined[-800:]
     assert not out.exists() and not prov.exists()
 
 
@@ -595,3 +601,75 @@ def test_bundle_tool_refuses_an_unfrozen_manifest_and_reports_a_clean_v2_tree(tm
     res = run("--manifest", edited, "--mode", "check-empty")
     assert res.returncode == 2, (res.stdout + res.stderr)[-800:]
     assert "BUNDLE НЕ СОБИРАЕТСЯ" in res.stderr, res.stderr[-800:]
+
+
+# --- 7. authorization record integrity (P4.2.v2 run authorization commit) ----
+
+AUTH_RECORD_PATH = REPO / "fly_connectome_agent/manifests/p4_2_v2_authorization.json"
+
+
+@pytest.fixture(scope="module")
+def auth_record() -> dict:
+    return json.loads(AUTH_RECORD_PATH.read_text(encoding="utf-8"))
+
+
+def test_auth_record_digest_matches_frozen_manifest(auth_record):
+    """Авторизация выдаётся на конкретный digest. Если запись ссылается на
+    другой digest, она не имеет силы."""
+    expected = ("sha256:5f5cae42a2f0373933ead1c61307eac"
+                "97f6a864f25b0927dbda4643e94d75123")
+    assert auth_record["manifest_digest"] == proto.FROZEN_PROTOCOLS[V2_ID]["digest"]
+    assert auth_record["manifest_digest"] == expected
+
+
+def test_auth_record_seed_range_matches_confirmatory_set(auth_record):
+    """Авторизованы ровно 120–179; ни шире, ни уже."""
+    assert auth_record["seed_range"] == [120, 179]
+    assert auth_record["seed_count"] == 60
+    assert list(range(*[auth_record["seed_range"][0], auth_record["seed_range"][1] + 1])) == CONFIRMATORY
+
+
+def test_auth_record_protocol_id_is_v2(auth_record):
+    assert auth_record["protocol_id"] == V2_ID
+
+
+def test_auth_record_declares_authorized_run_in_code(auth_record):
+    """Запись и реестр кода обязаны совпадать: либо run=authorized, либо записи
+    не должно быть."""
+    allowed, flag = proto.run_authorization(V2_ID)
+    assert allowed and flag == "authorized", (
+        f"авторизация снята ({flag!r}), но p4_2_v2_authorization.json осталась — "
+        "это противоречие")
+
+
+def test_auth_record_does_not_claim_scientific_change(auth_record):
+    """Ни одно constraint-поле не разрешает менять научный протокол."""
+    constraints = auth_record["constraints"]
+    assert constraints["only_run_flag_changed"] is True
+    for key in ("manifest_content_modified", "seeds_modified", "arms_modified",
+                "operating_point_modified", "hypothesis_family_modified",
+                "statistical_plan_modified", "provenance_writer_modified",
+                "gate_modified"):
+        assert constraints[key] is False, f"{key}=true недопустимо в authorization record"
+
+
+def test_v2_manifest_digest_unchanged_by_authorization_commit():
+    """Главная проверка: authorization commit не тронул научный протокол.
+    Digest файла манифеста на диске обязан совпасть с frozen-якорем в коде."""
+    actual = proto.digest_of_file(proto.DEFAULT_MANIFEST)
+    assert actual == proto.FROZEN_PROTOCOLS[V2_ID]["digest"], (
+        f"digest манифеста изменился: {actual} vs {proto.FROZEN_PROTOCOLS[V2_ID]['digest']}")
+
+
+def test_v2_manifest_content_equals_pre_registration(
+        manifest, auth_record):
+    """Научные поля манифеста те же, что были на reviewed SHA. Правка любого
+    числа (arms, episodes, seeds, operating_point, hypotheses) после
+    авторизации — это другой протокол."""
+    assert len(manifest["arms"]) == 6
+    assert manifest["episodes_per_seed"] == 80
+    assert manifest["task_streams"] == ["left_target", "right_target", "mixed"]
+    assert manifest["primary_metric"] == "mixed_min_half_success"
+    assert manifest["statistical_test"]["family"] == ["H1", "H2", "H3", "H4"]
+    assert manifest["seed_sets"]["confirmatory"]["range"] == [120, 179]
+    assert manifest["protocol_id"] == V2_ID
