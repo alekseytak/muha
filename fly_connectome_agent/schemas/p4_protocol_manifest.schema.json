@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://muha.local/schemas/p4_protocol_manifest.schema.json",
   "title": "P4ProtocolManifest",
-  "description": "Pre-registration манифест сравнительного прогона P4 (сейчас — P4.2 oracle baseline). Отличается от experiment_manifest тем, что описывает симметричную toy-сеть без коннектома: здесь предмет фиксации — статистический план и набор arms, а не граф. Смысл файла в том, что гейт нельзя переписать после того как увидят результат, поэтому shape проверяется схемой, а смысл (несечение seed-множеств, совпадение с дефолтами кода, роль oracle) — кодом.",
+  "description": "Pre-registration манифест сравнительного прогона P4 (сейчас — P4.2 oracle baseline). Отличается от experiment_manifest тем, что описывает симметричную toy-сеть без коннектома: здесь предмет фиксации — статистический план и набор arms, а не граф. Смысл файла в том, что гейт нельзя переписать после того как увидят результат, поэтому shape проверяется схемой, а смысл (несечение seed-множеств, совпадение с дефолтами кода, роль oracle) — кодом. Начиная с v2 схема дополнительно требует lineage (какой протокол заменяется и почему) и контракта result bundle: без них «новый прогон» можно было бы объявить продолжением старого, а вердикт — собрать из половины артефактов.",
   "type": "object",
   "required": [
     "manifest_version",
@@ -31,6 +31,21 @@
     "protocol_id": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9.\\-]{2,63}$"
+    },
+    "supersedes_protocol_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.\\-]{2,63}$",
+      "description": "Какой протокол заменяет этот. Обязателен для любой версии выше v1 (проверяется условной правилкой ниже): без него преемство читается только из разговора, а разговор не заморожен."
+    },
+    "supersedes_status": {
+      "type": "string",
+      "enum": [
+        "aborted_infrastructure_performance_defect",
+        "aborted_scientific",
+        "superseded_by_protocol_change",
+        "completed"
+      ],
+      "description": "Почему предыдущий протокол закрыт. Формулировка «aborted» без причины здесь запрещена: причина входа в v2 — инфраструктурный дефект, и это должно быть написано в замороженном файле, а не в commit message."
     },
     "created_at": {
       "type": "string",
@@ -174,6 +189,11 @@
             "type": "string"
           },
           "description": "Почему каждый override взят. Обязан покрывать все ключи overrides — это проверяется кодом: override без объяснения выглядит как подгонка."
+        },
+        "note": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Комментарий к рабочей точке самого протокола (например, перенесена ли она из предыдущей версии и почему). Одно имя вместо версионных ключей: поле note не требует правки схемы при каждом новом протоколе, а additionalProperties:false иначе ловил бы каждую заметку как подделку."
         },
         "values": {
           "type": "object",
@@ -556,6 +576,83 @@
         }
       }
     },
+    "result_bundle": {
+      "type": "object",
+      "required": [
+        "directory",
+        "hashing",
+        "artifacts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "type": "string",
+          "pattern": "^var/",
+          "description": "Каталог артефактов одного прогона. Отдельный каталог на версию протокола нужен не для порядка: подтверждение «на этих путях ничего нет» должно быть проверяемым утверждением, а на общем var/ оно вечно ложно."
+        },
+        "hashing": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "hashes_manifest": {
+          "type": "string",
+          "description": "Имя файла внутри directory, куда collector пишет sha256 всех артефактов. Он сам тоже обязан быть в этом списке."
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "required": [
+              "role",
+              "filename",
+              "producer",
+              "hash",
+              "required"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "run_csv",
+                  "csv_sidecar",
+                  "provenance_jsonl",
+                  "provenance_head_witness",
+                  "gate_stdout",
+                  "gate_verdict_json",
+                  "per_seed_outcomes",
+                  "environment_fingerprint",
+                  "file_hashes_manifest"
+                ]
+              },
+              "filename": {
+                "type": "string",
+                "pattern": "^[a-z0-9_][a-z0-9_.\\-]*$"
+              },
+              "producer": {
+                "type": "string",
+                "description": "Какой скрипт создаёт артефакт. Без этого пункта контракт нельзя ни проверить, ни восстановить."
+              },
+              "hash": {
+                "type": "string",
+                "const": "sha256"
+              },
+              "required": {
+                "type": "boolean",
+                "const": true,
+                "description": "Необязательного артефакта в контракте не бывает: опция «можно не класть в bundle» — это дырка, через которую позже можно выкинуть самое неудобное."
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Что обязано лежать в bundle и быть захэшированным. provenance_head_witness стоит рядом с provenance_jsonl не для полноты списка: witness — часть единого provenance-артефакта, и bundle без него перестаёт замечать обрезку журнала."
+        }
+      }
+    },
     "run_budget": {
       "type": "object",
       "required": [
@@ -598,6 +695,28 @@
       "description": "Что протокол сознательно не трогает. Без этого списка провал гейта легко «починить» новым экспериментом в том же файле."
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "protocol_id"
+        ],
+        "properties": {
+          "protocol_id": {
+            "pattern": "\\.v([2-9]|[1-9][0-9]+)$"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "supersedes_protocol_id",
+          "supersedes_status",
+          "result_bundle"
+        ]
+      },
+      "description": "Любая версия протокола выше v1 обязана объявить, кого она заменяет, почему тот закрыт, и из каких артефактов состоит её bundle. v1 этих полей не имеет — он заморожен до этого правила, и требовать от него задним числом нечего."
+    }
+  ],
   "$defs": {
     "seedRange": {
       "type": "object",
@@ -609,6 +728,14 @@
       "properties": {
         "id": {
           "type": "string"
+        },
+        "note": {
+          "type": "string",
+          "description": "Почему это множество нельзя повторять. Поле текстом, но для disjoint_from оно обязательно по смыслу: без причины несечение неотличимо от совпадения."
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Путь (относительный репозитория) к записанной в git записи, из которой известно фактическое множество seed'ов. Если поле есть, код сверяет range/count с этой записью — иначе «несечение с журналом v1» остаётся строкой в комментарии."
         },
         "range": {
           "type": "array",

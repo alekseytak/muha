@@ -15,7 +15,7 @@
 это здесь ловится на синтетических данных, без единого смоделированного эпизода.
 
 Поведенческие тесты идут на seed'ах 900-901 (manifest seed_sets.fixture_probe) —
-вне confirmatory 60-119 и вне обоих множеств P4.1, так что ни один тест не
+вне confirmatory 120-179 и вне обоих множеств P4.1, так что ни один тест не
 засчитывается как наблюдение.
 """
 from __future__ import annotations
@@ -59,6 +59,9 @@ EXPECTED_MIRROR_PERM = [2, 3, 0, 1, 5, 4, 7, 6, 9, 8]
 FROZEN = proto.FROZEN_PROTOCOL_DIGEST
 
 PROBE_SEEDS = [900, 901]  # вне всех гейтов
+
+# Seed для отладочных прогонов внутри тестов: вне всех объявленных множеств.
+DEBUG_SEED = 500
 
 
 def _fast(**overrides) -> ToySettings:
@@ -184,7 +187,7 @@ def test_right_bias_is_one_sided_on_the_same_seeds(manifest):
 # --- 4. манифест: shape и cross-field ------------------------------------
 
 def test_manifest_loads(manifest):
-    assert manifest["protocol_id"] == "p4.2.oracle-baseline.v1"
+    assert manifest["protocol_id"] == "p4.2.oracle-baseline.v2"
     assert manifest["pre_registered"] is True
     assert "structural_effect" not in manifest["claims_allowed"]
     assert manifest["_digest"].startswith("sha256:")
@@ -193,7 +196,7 @@ def test_manifest_loads(manifest):
 def test_manifest_seed_sets_are_disjoint(manifest):
     conf = set(proto.confirmatory_seeds(manifest))
     probe = set(proto.probe_seeds(manifest))
-    assert conf == set(range(60, 120))
+    assert conf == set(range(120, 180))
     assert probe == set(range(900, 904))
     for other in manifest["seed_sets"]["disjoint_from"]:
         assert not conf & set(proto.expand_seed_range(other, other["id"]))
@@ -494,8 +497,13 @@ def _shift_eta(m):
 
 def _widen_seeds(m):
     """Confirmatory-множество расширено вдвое; run_budget пересчитан, чтобы
-    правка осталась валидной — ловить её должен только якорь."""
-    m["seed_sets"]["confirmatory"]["range"] = [60, 179]
+    правка осталась валидной — ловить её должен только якорь.
+
+    Расширение идёт вправо от объявленного диапазона: новая половина обязана
+    остаться disjoint со всеми сожжёнными множествами, иначе правку ловил бы
+    cross-field, а не якорь, и тест доказывал бы не то.
+    """
+    m["seed_sets"]["confirmatory"]["range"] = [120, 239]
     m["seed_sets"]["confirmatory"]["count"] = 120
     rb = m.get("run_budget")
     if rb:
@@ -509,7 +517,7 @@ def _reword_hypothesis(m):
 
 
 EDITS = [_shift_eta, _widen_seeds, _reword_hypothesis]
-EDIT_IDS = ["eta=1.6", "seeds-60-179", "текст-гипотезы"]
+EDIT_IDS = ["eta=1.6", "seeds-120-239", "текст-гипотезы"]
 
 
 def _run_cli(script, *args):
@@ -521,9 +529,19 @@ def _run_cli(script, *args):
 
 
 def test_frozen_digest_is_pinned_in_code_not_derived_from_the_file():
+    """Якорь сверяется с литералом, а не с самим собой через реестр.
+
+    Литерал ниже пережил бы случайную правку в FROZEN_PROTOCOLS, потому что
+    выводится из байтов заморозки, а не из кода. v1-якорь закреплён вторым
+    литералом: смена версии не должна иметь возможности незаметно стереть
+    историю прерванного протокола.
+    """
     assert proto.digest_of_file(proto.DEFAULT_MANIFEST) == FROZEN
-    assert FROZEN == ("sha256:6e343c298c5367ad1cc713db8a8d4e1f981467432a65361"
-                      "20286305476de6f62")
+    assert FROZEN == ("sha256:5f5cae42a2f0373933ead1c61307eac97f6a864f25b0927"
+                      "dbda4643e94d75123")
+    assert proto.FROZEN_PROTOCOLS["p4.2.oracle-baseline.v1"]["digest"] == (
+        "sha256:6e343c298c5367ad1cc713db8a8d4e1f981467432a65361"
+        "20286305476de6f62")
 
 
 def test_require_frozen_accepts_the_pin_and_refuses_everything_else():
@@ -656,11 +674,16 @@ def _one_episode_experimental_manifest(tmp_path, name="expl.json"):
     """Манифест-малютка: 1 seed × 1 episode. Настоящий прогон, который успевает
     закончиться внутри теста, — на нём можно проверять и успех раннера, и его
     отказ, что на замороженном бюджете в 86 400 эпизодов недоступно.
+
+    Seed'ом отладки взят 500: он вне confirmatory-множества 120–179, вне
+    fixture-проб 900–903 и вне всех сожжённых диапазонов — иначе отладочный
+    прогон сам начал бы засчитываться как наблюдение, и cross-field отклонял
+    бы манифест до того, как до него доедет раннер.
     """
     m = copy.deepcopy(proto.load())
     m.pop("_digest")
     _widen_seeds(m)
-    m["seed_sets"]["confirmatory"]["range"] = [60, 60]
+    m["seed_sets"]["confirmatory"]["range"] = [DEBUG_SEED, DEBUG_SEED]
     m["seed_sets"]["confirmatory"]["count"] = 1
     m["episodes_per_seed"] = 1
     # episodes живёт в двух местах сразу: episodes_per_seed обязан совпасть с
@@ -683,7 +706,7 @@ def test_experimental_run_writes_sidecar_the_gate_refuses(tmp_path):
     p = _one_episode_experimental_manifest(tmp_path)
     out_csv = tmp_path / "expl.csv"
     rc, log = _run_cli("run_p4_2_oracle.py", "--manifest", p, "--experimental-manifest",
-                       "--seeds", "60", "--arms", "oracle_reflex", "--out", out_csv,
+                       "--seeds", str(DEBUG_SEED), "--arms", "oracle_reflex", "--out", out_csv,
                        "--provenance", tmp_path / "expl.prov.jsonl")
     assert rc == 0, log[-800:]
     side = json.loads((tmp_path / "expl.csv.meta.json").read_text(encoding="utf-8"))
@@ -718,7 +741,7 @@ def test_runner_refuses_a_provenance_log_it_cannot_trust(tmp_path):
     Path(seed_log.head_path).unlink()      # журнал без witness — состояние abort-архива
     before = prov_path.read_bytes()
     args = ("run_p4_2_oracle.py", "--manifest", m, "--experimental-manifest",
-            "--seeds", "60", "--arms", "oracle_reflex",
+            "--seeds", str(DEBUG_SEED), "--arms", "oracle_reflex",
             "--out", tmp_path / "expl.csv", "--provenance", prov_path)
 
     rc, out = _run_cli(*args)
@@ -806,9 +829,12 @@ def test_coverage_gate_refuses_missing_seed(manifest):
 
 
 def test_coverage_gate_refuses_foreign_seed(manifest):
+    """Чужой seed — ровно на единицу меньше множества: 60 и 900 сюда принести
+    уже нельзя, они объявлены сожжёнными, и отказ был бы про другой причине."""
     codes = proto.code_arms(manifest)
     rows = _full_matrix(manifest, lambda a, s: 0.5)
-    rows.append(_row(codes["rstdp_mixed"], 120, 0.5))
+    foreign = min(proto.confirmatory_seeds(manifest)) - 1
+    rows.append(_row(codes["rstdp_mixed"], foreign, 0.5))
     with pytest.raises(gate.Refused, match="вне множества"):
         gate.coverage_gate(rows, manifest, codes, proto.task_streams(manifest))
 

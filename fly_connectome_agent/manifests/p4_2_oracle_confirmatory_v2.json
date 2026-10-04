@@ -1,0 +1,353 @@
+{
+  "manifest_version": "1.0.0",
+  "protocol_id": "p4.2.oracle-baseline.v2",
+  "supersedes_protocol_id": "p4.2.oracle-baseline.v1",
+  "supersedes_status": "aborted_infrastructure_performance_defect",
+  "created_at": "2026-10-04T07:46:42Z",
+  "pre_registered": true,
+  "claims_allowed": [
+    "simulation_result",
+    "engineering_performance"
+  ],
+  "question": "Даёт ли reward-modulated STDP преимущество над заранее правильно заданной, но не обучающейся проводкой на тех же задачах и при том же бюджете эпизодов?",
+  "seed_sets": {
+    "confirmatory": {
+      "id": "p4_2_v2_confirmatory",
+      "range": [
+        120,
+        179
+      ],
+      "count": 60
+    },
+    "fixture_probe": {
+      "id": "p4_2_fixture_probe",
+      "range": [
+        900,
+        903
+      ],
+      "count": 4
+    },
+    "disjoint_from": [
+      {
+        "id": "p4_1_exploratory",
+        "range": [
+          0,
+          19
+        ],
+        "count": 20,
+        "note": "Матрица P4.1 exploratory: те же seed'ы в confirmatory означали бы повторный анализ старых наблюдений под новым именем."
+      },
+      {
+        "id": "p4_1_confirmatory",
+        "range": [
+          20,
+          59
+        ],
+        "count": 40,
+        "note": "Матрица P4.1 confirmatory (verdict по 40 seed'ам)."
+      },
+      {
+        "id": "p4_2_v1_aborted_run",
+        "range": [
+          60,
+          119
+        ],
+        "count": 60,
+        "evidence": "fly_connectome_agent/manifests/p4_2_v1_burned_seeds.json",
+        "note": "Прерванный P4.2.v1: множество замороженного v1 и фактически сожжённое множество совпали — 24 421 событие эпизода, все 60 seed'ов тронуты (от 400 до 480 эпизодов на seed). Seed'а выше 119 в журнале нет; это проверено сканом всех provenance-журналов и CSV в var/ (объединённое множество всех когда-либо тронутых seed'ов = 0..119). Несечение сверяется кодом с приложенной записью, а не с этой строкой."
+      }
+    ]
+  },
+  "episodes_per_seed": 80,
+  "task_streams": [
+    "left_target",
+    "right_target",
+    "mixed"
+  ],
+  "operating_point": {
+    "settings_source": "ToySettings_defaults_with_declared_overrides",
+    "overrides": {
+      "eta": 1.5,
+      "episodes": 80
+    },
+    "values": {
+      "eta": 1.5,
+      "episodes": 80,
+      "window_steps": 60,
+      "sigma": 3.5,
+      "alpha": 1.0,
+      "sym_weight": 45.0,
+      "inh_weight": -45.0,
+      "sensor_inh_weight": 40.0,
+      "i_drive": 35.0,
+      "strong": 70.0,
+      "weak": 12.0,
+      "track_length": 17,
+      "cell_distance": 6,
+      "edge_margin": 2,
+      "max_steps": 25,
+      "step_cost": 0.0,
+      "target_reward": 10.0,
+      "boundary_penalty": -1.0,
+      "tau_eligibility": 80.0,
+      "command_inh_weight": -40.0,
+      "plastic_slots": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "override_rationale": {
+      "eta": "P4.1 confirmatory verdict считался при eta=1.5; брать для P4.2 другое значение означало бы менять рабочую точку вместе с выводом.",
+      "episodes": "80 эпизодов — бюджет, на котором P4.1 mixed-гейт уже стал разрешимым; меньший бюджет сравнивал бы скорость обучения, а не способность."
+    },
+    "note": "Рабочая точка перенесена из v1 без изменений: причина остановки v1 была инфраструктурной (O(n)-append в provenance-писателе), а не научной. Любое отличие рабочей точки от v2a-pseudo-прогонов требует явного override с обоснованием здесь же."
+  },
+  "arms": [
+    {
+      "arm_id": "rstdp_mixed",
+      "code_arm": "plastic",
+      "learner": "stdp",
+      "init_regime": "symmetric",
+      "reward_coupled": true,
+      "role": "treatment",
+      "gate": "required"
+    },
+    {
+      "arm_id": "no_plasticity",
+      "code_arm": "no_plasticity",
+      "learner": "none",
+      "init_regime": "symmetric",
+      "reward_coupled": true,
+      "role": "topology_control",
+      "gate": "required"
+    },
+    {
+      "arm_id": "m_zero",
+      "code_arm": "m_zero",
+      "learner": "stdp",
+      "init_regime": "symmetric",
+      "reward_coupled": false,
+      "role": "reward_control",
+      "gate": "required"
+    },
+    {
+      "arm_id": "weight_shuffled_frozen",
+      "code_arm": "weight_shuffled_frozen",
+      "learner": "none",
+      "init_regime": "shuffle",
+      "reward_coupled": true,
+      "role": "structural_control",
+      "gate": "desirable"
+    },
+    {
+      "arm_id": "direction_shuffled_frozen",
+      "code_arm": "direction_shuffled_frozen",
+      "learner": "none",
+      "init_regime": "anti",
+      "reward_coupled": true,
+      "role": "direction_control",
+      "gate": "desirable"
+    },
+    {
+      "arm_id": "oracle_reflex",
+      "code_arm": "oracle_reflex",
+      "learner": "none",
+      "init_regime": "oracle",
+      "reward_coupled": false,
+      "role": "upper_bound_characterization",
+      "gate": "none"
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "kind": "required",
+      "treatment": "rstdp_mixed",
+      "comparator": "no_plasticity",
+      "direction": "greater",
+      "statement": "Обучение превосходит ту же симметричную проводку без пластичности: эффект не объясняется одной топологией."
+    },
+    {
+      "id": "H2",
+      "kind": "required",
+      "treatment": "rstdp_mixed",
+      "comparator": "m_zero",
+      "direction": "greater",
+      "statement": "Обучение превосходит тот же eligibility-след при M=0: эффект объясняется наградой, а не таймингом."
+    },
+    {
+      "id": "H3",
+      "kind": "desirable",
+      "treatment": "rstdp_mixed",
+      "comparator": "weight_shuffled_frozen",
+      "direction": "greater",
+      "statement": "Обучение превосходит случайно-асимметричную заморозку на смешанном зеркальном потоке."
+    },
+    {
+      "id": "H4",
+      "kind": "desirable",
+      "treatment": "rstdp_mixed",
+      "comparator": "direction_shuffled_frozen",
+      "direction": "greater",
+      "statement": "Обучение превосходит замороженный анти-рефлекс."
+    },
+    {
+      "id": "H5",
+      "kind": "characterization",
+      "treatment": "rstdp_mixed",
+      "comparator": "oracle_reflex",
+      "direction": "difference",
+      "statement": "Насколько R-STDP отличается от фиксированной симметричной проводки, которая знает оба ответа. Это описание величины эффекта, а не условие прохода: проигрыш oracle — ожидаемый и публикуемый результат, а не повод править learning rule."
+    }
+  ],
+  "primary_metric": "mixed_min_half_success",
+  "primary_metric_definition": "Для mixed-потока по seed: минимум из доли успешных эпизодов на правом зеркале и на левом. Фиксированная асимметрия не может удовлетворить метрику на обеих половинах, поэтому только она делает критерий «лучше всех baseline» фальсифицируемым.",
+  "secondary_metrics": [
+    "mixed_success_rate",
+    "cumulative_reward",
+    "steps_to_target",
+    "per_seed_left_right_gap",
+    "seeds_both_halves_ge_0_8",
+    "mean_abs_dw",
+    "fraction_weights_at_bound",
+    "governance_violations"
+  ],
+  "statistical_test": {
+    "unit_of_analysis": "seed",
+    "method": "paired_exact_sign_test",
+    "alternative": "two_sided",
+    "alpha": 0.05,
+    "tie_handling": "excluded_and_disclosed",
+    "multiple_comparison_policy": "Holm",
+    "family": [
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "family_note": "H5 в поправку не входит: characterization-сравнение не имеет порога прохода, поэтому и корректировать нечего. Число проверок в family (4) зафиксировано до запуска.",
+    "paired_on": "identical seed id, identical task stream, identical episode budget",
+    "reported_per_comparison": [
+      "wins",
+      "losses",
+      "ties",
+      "n_informative",
+      "raw_p",
+      "adjusted_p",
+      "mean_difference",
+      "per_seed_outcomes"
+    ],
+    "pass_rule": "Для required-гипотез: wins > losses И Holm-скорректированная p < alpha. Большинство без значимости — не проход (это отдельный ярлык, а не «почти прошло»)."
+  },
+  "provenance": {
+    "required": true,
+    "chain": "sha256",
+    "violation_budget": 0,
+    "manifest_digest": "sha256 of canonical JSON of this file, computed by scripts/p4_2_protocol.py; run sidecar and gate must agree on it"
+  },
+  "result_bundle": {
+    "directory": "var/p4_2_v2",
+    "hashing": "sha256",
+    "hashes_manifest": "bundle_hashes.json",
+    "artifacts": [
+      {
+        "role": "run_csv",
+        "filename": "run.csv",
+        "producer": "scripts/run_p4_2_oracle.py --out var/p4_2_v2/run.csv",
+        "hash": "sha256",
+        "required": true,
+        "note": "Пер-seed матрица arm x stream x seed; единственный источник чисел для вердикта."
+      },
+      {
+        "role": "csv_sidecar",
+        "filename": "run.csv.meta.json",
+        "producer": "scripts/run_p4_2_oracle.py (пишется рядом с CSV, связь по имени)",
+        "hash": "sha256",
+        "required": true,
+        "note": "digest протокола, partial, non_confirmatory, git rev, версии python/numpy."
+      },
+      {
+        "role": "provenance_jsonl",
+        "filename": "provenance.jsonl",
+        "producer": "scripts/run_p4_2_oracle.py --provenance var/p4_2_v2/provenance.jsonl",
+        "hash": "sha256",
+        "required": true,
+        "note": "Chain sha256, одна запись на эпизод + заголовок прогона."
+      },
+      {
+        "role": "provenance_head_witness",
+        "filename": "provenance.jsonl.head.json",
+        "producer": "fly_connectome_agent/src/engineering/logging/provenance_log.py (append, atomic replace)",
+        "hash": "sha256",
+        "required": true,
+        "note": "Второй файл единого provenance-артефакта: без него обрезанный журнал неотличим от полного. Класть в bundle только JSONL запрещено контрактом писателя."
+      },
+      {
+        "role": "gate_stdout",
+        "filename": "gate.stdout.txt",
+        "producer": "scripts/check_p4_2_oracle_gate.py (перенаправление stdout+stderr)",
+        "hash": "sha256",
+        "required": true,
+        "note": "Человекочитаемый ход проверки вместе с кодом возврата: по нему видно, что отказ (rc=2) не был записан как результат (rc=1)."
+      },
+      {
+        "role": "gate_verdict_json",
+        "filename": "gate.verdict.json",
+        "producer": "scripts/check_p4_2_oracle_gate.py --json-out var/p4_2_v2/gate.verdict.json",
+        "hash": "sha256",
+        "required": true,
+        "note": "Машиночитаемый вердикт: сравнения, Holm, oracle-симметрия, решение по объявленной таблице."
+      },
+      {
+        "role": "per_seed_outcomes",
+        "filename": "per_seed_outcomes.csv",
+        "producer": "scripts/check_p4_2_oracle_gate.py --per-seed-out var/p4_2_v2/per_seed_outcomes.csv",
+        "hash": "sha256",
+        "required": true,
+        "note": "Raw исходы по каждому seed и каждому сравнению — единица наблюдения видна без пересчёта CSV."
+      },
+      {
+        "role": "environment_fingerprint",
+        "filename": "environment.json",
+        "producer": "scripts/collect_p4_2_bundle.py",
+        "hash": "sha256",
+        "required": true,
+        "note": "ОС, CPU, python/numpy/scipy, git rev и dirty-статус на момент сборки; без этого прогон нельзя повторить на той же машине."
+      },
+      {
+        "role": "file_hashes_manifest",
+        "filename": "bundle_hashes.json",
+        "producer": "scripts/collect_p4_2_bundle.py",
+        "hash": "sha256",
+        "required": true,
+        "note": "sha256 всех перечисленных файлов (сам манифест из собственного списка исключён — он не может быть хэшем самого себя) плюс bundle_digest по отсортированной паре (имя, хэш)."
+      }
+    ]
+  },
+  "run_budget": {
+    "cells": 1080,
+    "episodes": 86400,
+    "cell_formula": "6 arms x 60 confirmatory seeds x 3 task streams",
+    "measured_throughput_eps": 15.0,
+    "estimated_wall_clock_hours": 1.6,
+    "throughput_evidence": "15 эпизодов/с — из замеров P4.1 на тех же настройках; доля provenance-записей в этом времени измерена после исправления писателя: new_growth_ratio_max 1.17 при приёмке ≤3.0 и доля 1.4% при приёмке <15% (fly_connectome_agent/docs/benchmarks/provenance_writer_p4_2a.json). v1 встал именно на противоположном профиле: ×206 роста на 50 000 записей.",
+    "sharding": "разрешена только нарезка по объявленным seeds 120–179; гейт считается исключительно по полному множеству"
+  },
+  "decision_rule_after_p42": {
+    "beats_all_and_comparable_to_oracle": "P5 (real connectome ingestion) с осторожным оптимизмом",
+    "beats_weak_but_below_oracle": "P5 допускается как исследование механизма обучения, не как доказательство превосходства",
+    "fails_h1_or_h2": "к real connectome не идти; чинить toy-задачу и learning rule",
+    "oracle_and_frozen_stably_above_rstdp": "сначала P4.3 (усложнить credit assignment), масштабирование запрещено"
+  },
+  "not_in_scope": [
+    "Реальный connectome CSV: подключается только после вердикта P4.2.",
+    "Toy-сеть из 20 нейронов: P4.3, не сейчас.",
+    "Любые формулировки про биологию: прогон на 5-нейронной toy-сети.",
+    "Изменение learning rule, метрик или порога после просмотра результата.",
+    "Продолжение журнала P4.2.v1: ни recover_head на var/aborted/, ни append в него. Прерванный журнал остаётся read-only доказательством того, что прогон был остановлен, и в bundle v2 не входит.",
+    "Переиспользование seed'ов 0..119 и 900..903 в confirmatory-статистике.",
+    "Sharding по arms или по эпизодам: нарезка возможна только по объявленным seed-диапазонам, и полный гейт считается по объединению."
+  ]
+}

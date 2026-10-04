@@ -254,6 +254,40 @@ def oracle_symmetry_report(rows: list[dict], manifest: dict, codes: dict[str, st
     }
 
 
+def bundle_gate(manifest: dict, *, csv_paths: list[str], per_seed_out: str | None,
+                json_out: str | None) -> list[str]:
+    """Вердикт обязан лечь в объявленный result_bundle.
+
+    Манифест v2 перечисляет девять артефактов, и три из них (stdout гейта, verdict
+    JSON, per-seed исходы) создаёт только этот скрипт. Если --json-out и
+    --per-seed-out не переданы или ведут наружу bundle-папки, прогон технически
+    посчитан, а собирать результат не из чего: список из девяти файлов превращается
+    в пожелание. Полноту bundle проверяет collect_p4_2_bundle.py --check, здесь —
+    только куда пишутся артефакты гейта.
+    """
+    bundle = manifest.get("result_bundle")
+    if not bundle:
+        return []                      # протоколы до v2 bundle не объявляли
+    bdir = (REPO / bundle["directory"]).resolve()
+    by_role = {a["role"]: a["filename"] for a in bundle["artifacts"]}
+    for role, flag in (("gate_verdict_json", "--json-out"), ("per_seed_outcomes", "--per-seed-out")):
+        if not (json_out if flag == "--json-out" else per_seed_out):
+            raise Refused(
+                f"result_bundle объявляет артефакт {role!r} ({by_role.get(role)}), но {flag} не "
+                "передан: вердикта в bundle нет, и девять заявленных файлов не соберутся")
+    named = {"--csv": list(csv_paths), "--json-out": [json_out], "--per-seed-out": [per_seed_out]}
+    for flag, paths in named.items():
+        for raw in paths:
+            path = pathlib.Path(raw).resolve()
+            if bdir not in path.parents:
+                raise Refused(
+                    f"{flag} {raw} вне объявленного result_bundle.directory "
+                    f"{bundle['directory']}: артефакт снаружи списка манифеста не попадёт в "
+                    "bundle и не будет захеширован")
+    return [f"артефакты гейта пишутся в {bundle['directory']} "
+            f"(verdict={by_role['gate_verdict_json']}, per_seed={by_role['per_seed_outcomes']})"]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--manifest", default=str(proto.DEFAULT_MANIFEST))
@@ -280,7 +314,7 @@ def main() -> int:
 
     print(proto.describe(manifest))
     print(f"\n  digest файла: {digest_file}")
-    print(f"  замороженный протокол: {proto.FROZEN_PROTOCOL_DIGEST}")
+    print(f"  замороженный протокол: {proto.ACTIVE_PROTOCOL_ID} {proto.FROZEN_PROTOCOL_DIGEST}")
     # Раньше здесь стояло сравнение digest_file с manifest["_digest"] — тавтология:
     # обе величины считаются из одних байт, и подмена манифеста через --manifest
     # проходила бы мимо. Якорь обязан жить вне проверяемого файла.
@@ -294,6 +328,13 @@ def main() -> int:
         for name, side in check_sidecars(a.csv, a.sidecar, digest_file):
             print(f"  sidecar {name}: digest совпадает, partial={side.get('partial')}, "
                   f"git={side.get('git', {}).get('rev')} dirty={side.get('git', {}).get('dirty')}")
+        # Порядок именно такой: отсутствующий названный sidecar — отказ про сам
+        # контракт проверки, он должен дойти до пользователя раньше, чем
+        # замечание о том, куда разложен bundle. Оба — rc=2, и ни один артефакт
+        # до этих строк не пишется, так что перестановка ничего не ослабляет.
+        for note in bundle_gate(manifest, csv_paths=a.csv, per_seed_out=a.per_seed_out,
+                                json_out=a.json_out):
+            print("  " + note)
         rows = load_rows(a.csv, codes)
         print(f"\nзагружено строк: {len(rows)} из {len(a.csv)} файла(ов)")
         coverage_gate(rows, manifest, codes, streams)
@@ -411,6 +452,8 @@ def main() -> int:
         payload = {
             "protocol_id": manifest["protocol_id"],
             "manifest_digest": digest_file,
+            "supersedes_protocol_id": manifest.get("supersedes_protocol_id"),
+            "frozen_protocol_digest": proto.FROZEN_PROTOCOL_DIGEST,
             "primary_metric": manifest["primary_metric"],
             "task_stream_scored": mixed,
             "alpha": alpha,
@@ -420,8 +463,10 @@ def main() -> int:
             "required_gate_passed": required_ok,
             "unit_of_analysis": manifest["statistical_test"]["unit_of_analysis"],
         }
-        pathlib.Path(a.json_out).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-                                            encoding="utf-8")
+        out_json = pathlib.Path(a.json_out)
+        out_json.parent.mkdir(parents=True, exist_ok=True)
+        out_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                            encoding="utf-8")
         print(f"вердикт → {a.json_out}")
 
     print("\nвердикт гейта:", "REQUIRED-ГИПОТЕЗЫ ПРОЙДЕНЫ" if required_ok else "REQUIRED-ГИПОТЕЗЫ НЕ ПРОЙДЕНЫ")

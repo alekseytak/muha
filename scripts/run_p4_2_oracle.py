@@ -14,14 +14,20 @@
 
 Запуск (полный, один процесс):
     .venv/bin/python scripts/run_p4_2_oracle.py \
-        --out var/p4_2_oracle.csv --provenance var/p4_2_oracle.prov.jsonl
-По шардам (пример — по 3 arms):
-    ... --arms rstdp_mixed,no_plasticity,m_zero --out var/p4_2_oracle_a.csv
-    ... --arms weight_shuffled_frozen,direction_shuffled_frozen,oracle_reflex \
-        --out var/p4_2_oracle_b.csv
+        --out var/p4_2_v2/run.csv --provenance var/p4_2_v2/provenance.jsonl
+По шардам (пример — нарезка объявленных seed'ов):
+    ... --seeds 120-149 --out var/p4_2_v2/shards/run_a.csv
+    ... --seeds 150-179 --out var/p4_2_v2/shards/run_b.csv
 Проверка инструмента без прогона:
     ... --describe      (план и digest, ни одного эпизода)
     ... --probe         (seed'ы 900-903, вне любых гейтов, 8 эпизодов)
+
+Что здесь сторожится отдельно от протокола (P4.2.v1 этого не имел и потому встал):
+  - authorize_run: confirmatory-прогон идёт только если review поставил в реестре
+    run=authorized. Замороженный файл не может выдать разрешение сам себе;
+  - fresh provenance: журнал v2 обязан начинаться с пустого пути. Журнал v1 —
+    архив: он не читается, не восстанавливается через recover_head и не продолжается;
+  - bundle placement: артефакты прогона лежат в объявленном result_bundle-каталоге.
 """
 from __future__ import annotations
 
@@ -42,8 +48,12 @@ import numpy as np  # noqa: E402
 import p4_2_protocol as proto  # noqa: E402
 import run_p4_validation as p4  # noqa: E402
 
-DEFAULT_OUT = REPO / "var" / "p4_2_oracle.csv"
-DEFAULT_PROV = REPO / "var" / "p4_2_oracle.prov.jsonl"
+DEFAULT_OUT = REPO / "var" / "p4_2_v2" / "run.csv"
+DEFAULT_PROV = REPO / "var" / "p4_2_v2" / "provenance.jsonl"
+# Архив прерванного v1. Путь к нему запрещён раннеру явно: «не продолжать v1»
+# должно быть отказом кода, а не памяткой о том, какой флаг не надо жать.
+V1_PROV = REPO / "var" / "p4_2_oracle.prov.jsonl"
+ABORTED_ROOT = REPO / "var" / "aborted"
 PROBE_EPISODES = 8
 REFUSE = 2          # «прогона по этому протоколу не будет», тот же смысл, что у гейта
 
@@ -131,12 +141,94 @@ def freeze_guard(manifest: dict, experimental: bool, out_path: str) -> bool:
         return False
     if not experimental:
         raise Refused(
-            f"digest манифеста {digest} не равен замороженному "
-            f"{proto.FROZEN_PROTOCOL_DIGEST}. Правка протокола после заморозки — это уже "
-            "не P4.2; для отладочного прогона нужны --experimental-manifest и другой --out.")
+            f"digest манифеста {digest} не равен замороженному протоколу "
+            f"{proto.ACTIVE_PROTOCOL_ID} ({proto.FROZEN_PROTOCOL_DIGEST}). Правка протокола "
+            "после заморозки — это уже не P4.2; для отладочного прогона нужны "
+            "--experimental-manifest и другой --out.")
     if pathlib.Path(out_path).resolve() == pathlib.Path(DEFAULT_OUT).resolve():
         raise Refused(f"experimental-прогон не может писать в confirmatory путь {DEFAULT_OUT}")
     return True
+
+
+def bundle_dir(manifest: dict) -> pathlib.Path | None:
+    """Каталог объявленного result_bundle (None для протоколов до v2)."""
+    b = manifest.get("result_bundle")
+    return (REPO / b["directory"]).resolve() if b else None
+
+
+def authorize_run(manifest: dict) -> None:
+    """Confirmatory-прогон разрешён только если review поставил run=authorized.
+
+    Разрешение живёт в коде (p4_2_protocol.FROZEN_PROTOCOLS), а не в манифесте:
+    замороженный план не может выдать себе право на запуск, иначе «запрещено до
+    review» было бы строкой в том же файле, который это запрещает. Акцент на
+    confirmatory: experimental-прогон (уже помечен non_confirmatory и гейтом не
+    принимается) остаётся доступен — инфраструктуру надо чем-то проверять.
+    """
+    allowed, flag = proto.run_authorization(manifest["protocol_id"])
+    if not allowed:
+        raise Refused(
+            f"запуск по {manifest['protocol_id']} не авторизован (run={flag!r} в реестре кода). "
+            "Confirmatory-прогон начинается только после review этого коммита: право даёт "
+            "отдельный акт — строка run=\"authorized\" в p4_2_protocol.FROZEN_PROTOCOLS, а не "
+            "правка манифеста. --describe и --probe работают и без авторизации.")
+
+
+def provenance_guard(manifest: dict, experimental: bool, prov_path: str) -> None:
+    """Журнал v2 обязан начинаться с чистого листа, и v1 к нему непричастен.
+
+    Правила зависят от того, чей это прогон:
+    - путь внутри архива v1 (или ровно v1-журнал) запрещён всем: продолжение
+      stopped-прогона дало бы цепь, у которой начало из одного протокола, а
+      продолжение из другого;
+    - непустой файл запрещён confirmatory: это уже начатый прогон, а продолжение
+      чужой цепи возможно только через recover_head(), который для v2 запрещён
+      контрактом. experimental остаётся исключением намеренно: на нём проверяется
+      сам контракт adoption (test_runner_refuses_a_provenance_log_it_cannot_trust),
+      и раннер обязан доходить до писателя, а не вставать раньше него;
+    - писать в bundle-каталог запрещён experimental: отладочная запись легла бы
+      рядом с подтверждённым протоколом.
+    """
+    path = pathlib.Path(prov_path).resolve()
+    if path == V1_PROV.resolve() or ABORTED_ROOT in path.parents:
+        raise Refused(
+            f"provenance-путь {path} относится к прерванному P4.2.v1 (архив "
+            f"{ABORTED_ROOT.relative_to(REPO)}). Его нельзя ни продолжить, ни "
+            "восстановить через recover_head: v2 обязан писать новый пустой журнал, "
+            "иначе цепь начнётся событиями закрытого протокола.")
+    if not experimental and path.exists() and path.stat().st_size > 0:
+        raise Refused(
+            f"provenance-файл {path} уже непустой ({path.stat().st_size} байт). "
+            "Confirmatory-прогон обязан создавать свежий пустой путь: продолжение "
+            "чужого журнала требует recover_head(), а для v2 это запрещено контрактом — "
+            "удалите артефакты незавершённой попытки через collect_p4_2_bundle.py "
+            "--check-empty (он показывает, что мешает) и запустите заново.")
+    if experimental:
+        bdir = bundle_dir(manifest)
+        if bdir is not None and bdir in path.parents:
+            raise Refused(f"experimental-прогон не может писать в bundle-каталог {bdir.relative_to(REPO)}: "
+                          "отладочная запись легла бы рядом с подтверждённым протоколом")
+
+
+def bundle_guard(manifest: dict, experimental: bool, out_path: str) -> None:
+    """Артефакты confirmatory-прогона обязаны попасть в объявленный bundle.
+
+    Иначе «result_bundle из девяти артефактов» остаётся описанием папки, которую
+    никто не создавал: CSV в var/ отдельно, witness где-то отдельно.
+    """
+    bdir = bundle_dir(manifest)
+    if bdir is None:
+        return
+    path = pathlib.Path(out_path).resolve()
+    if experimental:
+        if bdir in path.parents:
+            raise Refused(f"experimental-прогон не может писать в bundle-каталог "
+                          f"{bdir.relative_to(REPO)}")
+        return
+    if bdir not in path.parents:
+        raise Refused(f"--out {path} вне объявленного result_bundle.directory "
+                      f"{bdir.relative_to(REPO)}: вердикт собирается по списку артефактов из "
+                      "манифеста, и файл снаружи этого списка в bundle не попадёт")
 
 
 def main() -> int:
@@ -181,6 +273,22 @@ def main() -> int:
         print("\n--describe: ни одного эпизода не симулировано.")
         return 0
 
+    if not a.probe:
+        # Отказы до первого эпизода. v1 встал на той же ошибки: проверка целостности
+        # журнала случилась внутри append, а не до прогона, и час процессорного
+        # времени ушёл на то, чтобы обнаружить, что считать нечего.
+        try:
+            # Авторизация касается только confirmatory: experimental-прогон помечен
+            # non_confirmatory и гейтом не принимается, поэтому он не может присвоить
+            # себе чужой результат — но проверять на нём писателя и запись надо.
+            if not experimental:
+                authorize_run(manifest)
+            provenance_guard(manifest, experimental, a.provenance)
+            bundle_guard(manifest, experimental, a.out)
+        except Refused as exc:
+            print(f"ЗАПУСК ОТКЛОНЁН: {exc}", file=sys.stderr)
+            return REFUSE
+
     settings = proto.build_settings(manifest)
     all_seeds = proto.confirmatory_seeds(manifest)
     streams = proto.task_streams(manifest)
@@ -218,6 +326,8 @@ def main() -> int:
                 "protocol_id": manifest["protocol_id"],
                 "manifest_digest": manifest["_digest"],
                 "frozen_protocol_digest": proto.FROZEN_PROTOCOL_DIGEST,
+                "supersedes_protocol_id": manifest.get("supersedes_protocol_id"),
+                "result_bundle_directory": (manifest.get("result_bundle") or {}).get("directory"),
                 "non_confirmatory": experimental,
                 "seeds": [seeds[0], seeds[-1]] if seeds else [],
                 "n_seeds": len(seeds),
@@ -258,6 +368,8 @@ def main() -> int:
         "protocol_id": manifest["protocol_id"],
         "manifest_digest": manifest["_digest"],
         "frozen_protocol_digest": proto.FROZEN_PROTOCOL_DIGEST,
+        "supersedes_protocol_id": manifest.get("supersedes_protocol_id"),
+        "result_bundle_directory": (manifest.get("result_bundle") or {}).get("directory"),
         "non_confirmatory": experimental,
         "manifest_path": str(pathlib.Path(a.manifest)),
         "partial": partial,
