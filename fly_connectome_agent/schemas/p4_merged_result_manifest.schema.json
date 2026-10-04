@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muha.local/schemas/p4_merged_result_manifest.schema.json",
+  "title": "P4MergedResultManifest",
+  "description": "Результат слияния N shard-чанков в единый полный эксперимент. Единственный артефакт, принимаемый scientific gate: partial=false, coverage_verified=true, merge_status=COMPLETE. Без этих констант гейт отвергает CSV как незавершённый.",
+  "type": "object",
+  "required": [
+    "merge_schema_version",
+    "protocol_id",
+    "manifest_digest",
+    "git_sha",
+    "merge_status",
+    "partial",
+    "coverage_verified",
+    "shard_count",
+    "shard_ids",
+    "total_cells",
+    "expected_cells",
+    "arms",
+    "seeds",
+    "task_streams",
+    "episodes_per_seed",
+    "merged_csv_path",
+    "merged_csv_sha256",
+    "merged_at_utc",
+    "environment_fingerprint"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "merge_schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.\\-]{2,63}$"
+    },
+    "manifest_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "merge_status": {
+      "type": "string",
+      "const": "COMPLETE"
+    },
+    "partial": {
+      "type": "boolean",
+      "const": false
+    },
+    "coverage_verified": {
+      "type": "boolean",
+      "const": true
+    },
+    "shard_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "shard_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 2,
+      "uniqueItems": true
+    },
+    "total_cells": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expected_cells": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "arms": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "seeds": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 },
+      "minItems": 1
+    },
+    "task_streams": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "episodes_per_seed": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "merged_csv_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "merged_csv_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "merged_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "environment_fingerprint": {
+      "type": "object",
+      "required": ["python", "numpy"],
+      "additionalProperties": true,
+      "properties": {
+        "python": { "type": "string", "minLength": 1 },
+        "numpy": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

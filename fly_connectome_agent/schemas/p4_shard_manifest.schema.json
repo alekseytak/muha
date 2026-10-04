@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muha.local/schemas/p4_shard_manifest.schema.json",
+  "title": "P4ShardManifest",
+  "description": "Манифест одного shard-чанка в P4.2b sharded execution. Описывает идентичность запуска, Subset arms/seeds/streams, хеши выходов и окружение. partial=true на shard обязателен: ни один chunk не является завершённым экспериментом, и гейт обязан такой результат отвергнуть.",
+  "type": "object",
+  "required": [
+    "shard_schema_version",
+    "protocol_id",
+    "manifest_digest",
+    "git_sha",
+    "shard_id",
+    "shard_axis",
+    "seed_subset",
+    "arm_subset",
+    "task_streams",
+    "episodes_per_seed",
+    "partial",
+    "csv_sha256",
+    "provenance_jsonl_sha256",
+    "provenance_head_sha256",
+    "environment_fingerprint",
+    "started_at_utc",
+    "finished_at_utc"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "shard_schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.\\-]{2,63}$"
+    },
+    "manifest_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "shard_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._\\-]{2,80}$"
+    },
+    "shard_axis": {
+      "type": "string",
+      "enum": ["arms"]
+    },
+    "seed_subset": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "arm_subset": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "task_streams": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "episodes_per_seed": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "partial": {
+      "type": "boolean",
+      "const": true,
+      "description": "Shard ВСЕГДА partial=true. Полный результат создаётся merge-инструментом, а не shard."
+    },
+    "non_confirmatory": {
+      "type": "boolean",
+      "const": false,
+      "description": "Shard обязан быть confirmatory; non_confirmatory shard в merge не принимается."
+    },
+    "csv_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "provenance_jsonl_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "provenance_head_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "environment_fingerprint": {
+      "type": "object",
+      "required": ["python", "numpy"],
+      "additionalProperties": true,
+      "properties": {
+        "python": { "type": "string", "minLength": 1 },
+        "numpy": { "type": "string", "minLength": 1 }
+      }
+    },
+    "started_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cells_in_shard": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "wall_clock_seconds": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}
