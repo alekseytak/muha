@@ -47,7 +47,8 @@
     },
     "shard_axis": {
       "type": "string",
-      "enum": ["arms"]
+      "enum": ["arms", "seeds"],
+      "description": "arms: shard режет множество arms, держит все seeds и streams. seeds: shard режет множество seeds, держит ВСЕ arms и ВСЕ streams. Точное разделение по оси и единство оси в одном merge проверяются кодом coverage, а не схемой."
     },
     "seed_subset": {
       "type": "array",

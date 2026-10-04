@@ -10,10 +10,12 @@
     "manifest_digest",
     "git_sha",
     "merge_status",
+    "merge_axis",
     "partial",
     "coverage_verified",
     "shard_count",
     "shard_ids",
+    "source_shards",
     "total_cells",
     "expected_cells",
     "arms",
@@ -47,6 +49,11 @@
       "type": "string",
       "const": "COMPLETE"
     },
+    "merge_axis": {
+      "type": "string",
+      "enum": ["arms", "seeds"],
+      "description": "Ось, по которой были нарезаны shard'ы. Смешанные оси в одном merge запрещены, поэтому у merged-результата ровно одна ось."
+    },
     "partial": {
       "type": "boolean",
       "const": false
@@ -64,6 +71,36 @@
       "items": { "type": "string", "minLength": 1 },
       "minItems": 2,
       "uniqueItems": true
+    },
+    "source_shards": {
+      "type": "array",
+      "description": "Заново проверяемое evidence по каждому shard'у: его идентификатор и записанные хеши CSV/provenance/head. merged-gate adapter сверяет их заново с диском, поэтому merged-результат нельзя подделать, пересобрав один лишь манифест.",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["shard_id", "shard_axis", "manifest_digest", "git_sha",
+                     "arm_subset", "seed_subset", "task_streams",
+                     "csv_sha256", "provenance_jsonl_sha256", "provenance_head_sha256",
+                     "shard_manifest_path"],
+        "additionalProperties": true,
+        "properties": {
+          "shard_id": { "type": "string", "minLength": 1 },
+          "shard_manifest_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Путь к shard_manifest.json этого chunk'а. merged-gate adapter идёт по нему к CSV/provenance/head shard'а и пересчитывает их хеши заново: без указателя на исходник «source shard hash» было бы просто числом в манифесте, которое не с чем сверить."
+          },
+          "shard_axis": { "type": "string", "enum": ["arms", "seeds"] },
+          "manifest_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "git_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "arm_subset": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+          "seed_subset": { "type": "array", "items": { "type": "integer" }, "minItems": 1 },
+          "task_streams": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+          "csv_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "provenance_jsonl_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "provenance_head_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        }
+      }
     },
     "total_cells": {
       "type": "integer",

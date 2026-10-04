@@ -18,6 +18,7 @@ Oracle сравнивается, но гейтом не является: его
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import pathlib
 import statistics
@@ -92,6 +93,162 @@ def check_sidecars(csv_paths: list[str], sidecar_paths: list[str], digest: str) 
                           "манифесту) — confirmatory-вердикт по нему не выносится")
         sides.append((path.name, side))
     return sides
+
+
+# --- Merged-gate adapter (P4.2c) ----------------------------------------------
+#
+# Научный вердикт имеет право считаться только по полному эксперименту. При
+# seed-axis/arms-axis шардинге полный эксперимент — это merged-CSV, к которому
+# приложен merged-манифест, а тот по ссылкам опирается на исходные shard-файлы.
+# Adapter разворачивает эту цепочку доверия в одну перепроверяемую связку:
+#   sidecar(merged) -> merged_result_manifest.json -> merged CSV -> каждый
+#   shard-манифест -> CSV/provenance/head каждого shard. Любой разрыв — отказ
+#   (rc=2, «проверки не было»), а не «прогон не прошёл».
+
+MERGED_MANIFEST_NAME = "p4_2_merged_result_manifest.json"
+MERGED_SIDECAR_FIELDS = ("merged_result_manifest_sha256", "merge_status",
+                         "source_shard_count")
+
+
+def sha256_file(path) -> str:
+    """SHA-256 файла на диске в форме «sha256:<hex>» — тот же формат, что в манифестах."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return f"sha256:{h.hexdigest()}"
+
+
+def build_merged_sidecar(merged_manifest_path) -> dict:
+    """Собирает обычный final-sidecar для merged-CSV по merged-манифесту.
+
+    Sidecar — это то, что гейт читает первым (рядом с CSV как <csv>.meta.json),
+    поэтому в него кладём якоря, которые гейт затем пересчитывает: digest
+    протокола, git_sha, путь к merged-манифесту и его хеш, хеш merged-CSV и
+    количество shard'ов. partial обязан быть ложным — это и есть отличие
+    «полного» результата от отдельного shard.
+    """
+    mm = pathlib.Path(merged_manifest_path)
+    manifest = json.loads(mm.read_text(encoding="utf-8"))
+    merged_csv = pathlib.Path(manifest["merged_csv_path"])
+    if not merged_csv.exists():
+        raise Refused(f"merged-манифест ссылается на CSV, которого нет: {merged_csv}")
+    if manifest.get("partial") is not False:
+        raise Refused("merged-манифест помечен partial — sidecar полного прогона не строится")
+    if manifest.get("coverage_verified") is not True:
+        raise Refused("merged-манифест без coverage_verified=true не имеет права на sidecar")
+    if manifest.get("merge_status") != "COMPLETE":
+        raise Refused("merged-манифест со статусом != COMPLETE не становится вердиктом")
+    return {
+        "protocol_id": manifest["protocol_id"],
+        "manifest_digest": manifest["manifest_digest"],
+        "git_sha": manifest["git_sha"],
+        "partial": False,
+        "non_confirmatory": False,
+        "coverage_verified": True,
+        "merge_status": manifest["merge_status"],
+        "merge_axis": manifest.get("merge_axis"),
+        "merged_result_manifest": str(mm),
+        "merged_result_manifest_sha256": sha256_file(mm),
+        "merged_csv_sha256": sha256_file(merged_csv),
+        "source_shard_count": int(manifest["shard_count"]),
+        "shard_ids": list(manifest["shard_ids"]),
+    }
+
+
+def verify_merged_sidecar(sidecar: dict, merged_csv_path) -> dict:
+    """Строгая сверка merged-результата. Срабатывает только если sidecar несёт
+    merge-поля; для одиночного (не-шардованного) прогона возвращает {'merged': False}.
+
+    Проверка пересобирает evidence с диска, поэтому «merge» нельзя заявить,
+    подделав один sidecar или один манифест: нужны согласованные merged-манифест +
+    merged-CSV + исходные shard-файлы, и каждый записанный digest обязан
+    совпасть с пересчитанным.
+    """
+    if not all(k in sidecar for k in MERGED_SIDECAR_FIELDS):
+        return {"merged": False}
+
+    # 1. Константы самого sidecar: partial/non_confirmatory/coverage/status.
+    if sidecar.get("partial"):
+        raise Refused("merged sidecar помечен partial — отдельный shard вердиктом не считается")
+    if sidecar.get("non_confirmatory"):
+        raise Refused("merged sidecar помечен non_confirmatory — confirmatory-вердикт не выносится")
+    if sidecar.get("coverage_verified") is not True:
+        raise Refused("merged sidecar: coverage_verified != true — полное покрытие не заявлено")
+    if sidecar.get("merge_status") != "COMPLETE":
+        raise Refused(f"merged sidecar: merge_status {sidecar.get('merge_status')!r} != COMPLETE")
+
+    # 2. Merged-манифест: найти, перехешировать, сверить с якорем sidecar.
+    mm_path = sidecar.get("merged_result_manifest")
+    if mm_path:
+        mm_path = pathlib.Path(mm_path)
+    else:
+        mm_path = pathlib.Path(merged_csv_path).with_name(MERGED_MANIFEST_NAME)
+    if not mm_path.exists():
+        raise Refused(f"merged result manifest отсутствует: {mm_path} — merged-вердикту нечем подтверждаться")
+    mm_sha = sha256_file(mm_path)
+    if mm_sha != sidecar.get("merged_result_manifest_sha256"):
+        raise Refused(
+            f"merged result manifest SHA mismatch: записан {sidecar.get('merged_result_manifest_sha256')}"
+            f"… , на диске {mm_sha}")
+
+    manifest = json.loads(mm_path.read_text(encoding="utf-8"))
+    if manifest.get("merge_status") != "COMPLETE":
+        raise Refused("merged result manifest: merge_status != COMPLETE")
+    if manifest.get("coverage_verified") is not True:
+        raise Refused("merged result manifest: coverage_verified != true")
+    if manifest.get("partial") is not False:
+        raise Refused("merged result manifest: partial != false")
+    if manifest.get("manifest_digest") != sidecar.get("manifest_digest"):
+        raise Refused("merged result manifest: manifest_digest разошёлся со sidecar")
+    if manifest.get("git_sha") != sidecar.get("git_sha"):
+        raise Refused("merged result manifest: git_sha разошёлся со sidecar")
+
+    # 3. source_shard_count обязан сойтись трижды: sidecar ↔ shard_count ↔ факт-список.
+    src = manifest.get("source_shards", [])
+    if int(sidecar["source_shard_count"]) != int(manifest.get("shard_count", -1)) \
+            or int(manifest.get("shard_count", -1)) != len(src):
+        raise Refused(
+            f"source_shard_count mismatch: sidecar={sidecar['source_shard_count']}, "
+            f"manifest.shard_count={manifest.get('shard_count')}, source_shards={len(src)}")
+
+    # 4. Merged CSV: то, что гейт реально читает, должно совпасть со sidecar И с манифестом.
+    csv_sha = sha256_file(merged_csv_path)
+    if csv_sha != sidecar.get("merged_csv_sha256"):
+        raise Refused("merged CSV hash mismatch со sidecar")
+    if csv_sha != manifest.get("merged_csv_sha256"):
+        raise Refused("merged CSV hash mismatch с merged-манифестом")
+
+    # 5. Каждое исходное shard-evidence пересчитывается с диска. Это тот случай,
+    # когда shard-файл подменили уже после merge: манифест цел, sidecar цел, а
+    # запись про chunk больше не подтверждается его собственными байтами.
+    for entry in src:
+        smp = entry.get("shard_manifest_path")
+        if not smp or not pathlib.Path(smp).exists():
+            raise Refused(f"source shard {entry.get('shard_id')}: shard manifest не найден ({smp})")
+        d = pathlib.Path(smp).parent
+        sid = entry["shard_id"]
+        for fname, key, label in [(f"{sid}.csv", "csv_sha256", "shard CSV"),
+                                  (f"{sid}.prov.jsonl", "provenance_jsonl_sha256", "shard provenance"),
+                                  (f"{sid}.prov.jsonl.head.json", "provenance_head_sha256", "shard head")]:
+            fp = d / fname
+            if not fp.exists():
+                raise Refused(f"source shard {sid}: файл не найден: {fname}")
+            if sha256_file(fp) != entry.get(key):
+                raise Refused(f"source shard hash mismatch: {sid} {label}")
+        # subset/identities shard-манифеста должны совпасть с тем, что записал merge
+        sm = json.loads(pathlib.Path(smp).read_text(encoding="utf-8"))
+        if sorted(sm["seed_subset"]) != sorted(entry["seed_subset"]) \
+                or sorted(sm["arm_subset"]) != sorted(entry["arm_subset"]) \
+                or sm["manifest_digest"] != entry["manifest_digest"]:
+            raise Refused(f"source shard {sid}: identity/subset разошлись с merged-манифестом")
+
+    return {
+        "merged": True,
+        "merge_axis": manifest.get("merge_axis"),
+        "source_shard_count": len(src),
+        "merged_csv": str(merged_csv_path),
+    }
 
 
 def load_rows(paths: list[str], codes: dict[str, str]) -> list[dict]:
@@ -335,6 +492,17 @@ def main() -> int:
         for note in bundle_gate(manifest, csv_paths=a.csv, per_seed_out=a.per_seed_out,
                                 json_out=a.json_out):
             print("  " + note)
+        # Merged-evidence: если sidecar несёт merge-поля, полный вердикт обязан
+        # опираться на перепроверяемую цепочку sidecar → merged-манифест → merged
+        # CSV → исходные shard-файлы. Отдельный shard (partial) уже отвергнут
+        # check_sidecars выше; здесь ловится подделка уже «склеенного» результата.
+        for csvp in a.csv:
+            sc_path = sidecar_path_for(pathlib.Path(csvp))
+            sc = json.loads(sc_path.read_text(encoding="utf-8"))
+            report = verify_merged_sidecar(sc, csvp)
+            if report.get("merged"):
+                print(f"  merged evidence: axis={report['merge_axis']}, "
+                      f"source_shards={report['source_shard_count']}, CSV={report['merged_csv']}")
         rows = load_rows(a.csv, codes)
         print(f"\nзагружено строк: {len(rows)} из {len(a.csv)} файла(ов)")
         coverage_gate(rows, manifest, codes, streams)

@@ -70,8 +70,15 @@ def validate_shard_identity(shards: list[dict], parent: dict) -> None:
             raise MergeRefused(f"shard {s['shard_id']}: partial должен быть true")
         if s.get("non_confirmatory"):
             raise MergeRefused(f"shard {s['shard_id']}: non_confirmatory shard в merge не входит")
-        if s["shard_axis"] != "arms":
-            raise MergeRefused(f"shard {s['shard_id']}: shard_axis {s['shard_axis']!r} != 'arms'")
+        if s["shard_axis"] not in ("arms", "seeds"):
+            raise MergeRefused(f"shard {s['shard_id']}: shard_axis {s['shard_axis']!r} вне arms/seeds")
+
+    # Ось обязана быть единой: смешивать arms-axis и seeds-axis в одном merge
+    # нельзя — полное покрытие тогда не сводится к одному точному разбиению.
+    axes = {s["shard_axis"] for s in shards}
+    if len(axes) != 1:
+        raise MergeRefused(
+            f"смешанные оси в одном merge запрещены: {sorted(axes)} — нужен отдельный merge на каждую ось")
 
     ref = shards[0]
     for s in shards[1:]:
@@ -179,10 +186,31 @@ def merge_csvs(shards: list[dict], shard_paths: list[pathlib.Path]) -> list[dict
 
 def build_merged_manifest(parent: dict, shards: list[dict],
                           merged_csv_path: pathlib.Path,
-                          total_cells: int) -> dict:
+                          total_cells: int,
+                          shard_paths: list[pathlib.Path] | None = None) -> dict:
     all_arms = sorted(set(a for s in shards for a in s["arm_subset"]))
     all_seeds = sorted(set(seed for s in shards for seed in s["seed_subset"]))
     expected = len(all_arms) * len(all_seeds) * len(parent["task_streams"])
+
+    # source_shards — заново проверяемое evidence: merged-gate adapter сверяет эти
+    # хеши и подмножества с диском, поэтому merged-результат нельзя подделать,
+    # пересобрав только сам манифест. shard_manifest_path — указатель, по которому
+    # гейт доходит до исходных CSV/provenance/head; без него «source shard hash»
+    # было бы числом, которое не с чем сверить.
+    source_shards = [{
+        "shard_id": s["shard_id"],
+        "shard_axis": s["shard_axis"],
+        "manifest_digest": s["manifest_digest"],
+        "git_sha": s["git_sha"],
+        "arm_subset": sorted(s["arm_subset"]),
+        "seed_subset": sorted(s["seed_subset"]),
+        "task_streams": sorted(s["task_streams"]),
+        "csv_sha256": s["csv_sha256"],
+        "provenance_jsonl_sha256": s["provenance_jsonl_sha256"],
+        "provenance_head_sha256": s["provenance_head_sha256"],
+        "shard_manifest_path": (str(shard_paths[i]) if shard_paths
+                                 else f"{s['shard_id']}.shard_manifest.json"),
+    } for i, s in enumerate(shards)]
 
     return {
         "merge_schema_version": "1.0.0",
@@ -190,10 +218,12 @@ def build_merged_manifest(parent: dict, shards: list[dict],
         "manifest_digest": parent["_digest"],
         "git_sha": shards[0]["git_sha"],
         "merge_status": "COMPLETE",
+        "merge_axis": shards[0]["shard_axis"],
         "partial": False,
         "coverage_verified": True,
         "shard_count": len(shards),
         "shard_ids": [s["shard_id"] for s in shards],
+        "source_shards": source_shards,
         "total_cells": total_cells,
         "expected_cells": expected,
         "arms": all_arms,
@@ -250,13 +280,23 @@ def main() -> int:
                 writer.writeheader()
                 writer.writerows(rows)
 
-        manifest = build_merged_manifest(parent, shards, merged_csv, len(rows))
+        manifest = build_merged_manifest(parent, shards, merged_csv, len(rows), shard_paths)
         manifest_path = out_dir / "p4_2_merged_result_manifest.json"
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
                                  encoding="utf-8")
 
+        # Merged sidecar — единственный артефакт, который scientific gate готов
+        # принять как «полный прогон»: partial=false + ссылки на merged-манифест и
+        # merged-CSV. Строится кодом гейта, чтобы sidecar и гейт сверяли одно и то же.
+        import check_p4_2_oracle_gate as gate
+        sidecar = gate.build_merged_sidecar(manifest_path)
+        sidecar_path = gate.sidecar_path_for(merged_csv)
+        sidecar_path.write_text(json.dumps(sidecar, ensure_ascii=False, indent=2) + "\n",
+                                encoding="utf-8")
+
         print(f"merged: {len(rows)} cells → {merged_csv}")
         print(f"merged manifest → {manifest_path}")
+        print(f"merged sidecar → {sidecar_path} (partial=false, merge_status=COMPLETE)")
         return 0
 
     except MergeRefused as exc:

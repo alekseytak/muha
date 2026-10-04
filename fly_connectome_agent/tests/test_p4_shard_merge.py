@@ -352,6 +352,214 @@ def test_individual_shard_cannot_pass_scientific_gate(tmp_path):
     assert len(sides) == 1
 
 
+# --- Seed-axis coverage / merge (P4.2c) ---------------------------------------
+
+def _seed_shard(shard_id: str, seeds: list[int], **ov) -> dict:
+    """Seed-axis shard: держит ВСЕ arms и ВСЕ streams, режет лишь seeds."""
+    return _make_shard(shard_id, ARMS, seeds=seeds, shard_axis="seeds", **ov)
+
+
+def _six_seed_shards() -> list[dict]:
+    return [_seed_shard(f"shard-s{i}", list(range(180 + i * 10, 190 + i * 10)))
+            for i in range(6)]
+
+
+def _seed_csv_rows(arms, seeds, streams):
+    return [{"arm_id": a, "seed": str(sd), "task": st}
+            for a in arms for sd in seeds for st in streams]
+
+
+def _write_shard(tmp_path, shard: dict):
+    """Materialise a shard dir (CSV + prov + head + manifest) with REAL hashes,
+    so hash-dependent guards are genuinely exercised."""
+    sid = shard["shard_id"]
+    d = tmp_path / sid
+    d.mkdir(parents=True, exist_ok=True)
+    csvf = d / f"{sid}.csv"
+    with open(csvf, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["arm_id", "seed", "task"])
+        w.writeheader()
+        w.writerows(_seed_csv_rows(shard["arm_subset"], shard["seed_subset"], shard["task_streams"]))
+    provf = d / f"{sid}.prov.jsonl"
+    provf.write_text('{"kind":"start"}\n')
+    headf = d / f"{sid}.prov.jsonl.head.json"
+    headf.write_text('{"last_hash":"x"}')
+    shard["csv_sha256"] = _file_hash(csvf)
+    shard["provenance_jsonl_sha256"] = _file_hash(provf)
+    shard["provenance_head_sha256"] = _file_hash(headf)
+    sp = d / f"{sid}.shard_manifest.json"
+    sp.write_text(json.dumps(shard))
+    return shard, sp
+
+
+# (1) six 10-seed shards merge successfully; (2) 1080 exact cells.
+def test_six_seed_shards_cover_experiment(parent_manifest, monkeypatch):
+    _patch_parent_seeds(monkeypatch, parent_manifest)
+    shards = _six_seed_shards()
+    problems = cov_mod.check_coverage(shards, parent_manifest)
+    assert problems == [], problems
+    total = sum(len(s["arm_subset"]) * len(s["seed_subset"]) * len(s["task_streams"])
+                for s in shards)
+    assert total == 6 * 60 * 3 == 1080
+
+
+# (3) no duplicate cells across the merged CSV.
+def test_six_seed_shards_merge_without_duplicates(tmp_path):
+    shards = _six_seed_shards()
+    written = [_write_shard(tmp_path, s) for s in shards]
+    shard_paths = [sp for _, sp in written]
+    merged = merge_mod.merge_csvs([s for s, _ in written], shard_paths)
+    assert len(merged) == 1080
+    keys = {(r["arm_id"], r["seed"], r["task"]) for r in merged}
+    assert len(keys) == 1080  # unique cells, no dup
+
+
+# (4) merged manifest carries the seed-axis constants.
+def test_merged_manifest_seed_axis(tmp_path):
+    parent = {"protocol_id": "p4.2.oracle-baseline.v3", "_digest": DIGEST,
+              "arms": [{"arm_id": a} for a in ARMS], "task_streams": STREAMS,
+              "episodes_per_seed": 80}
+    shards = _six_seed_shards()
+    written = [_write_shard(tmp_path, s) for s in shards]
+    shard_paths = [sp for _, sp in written]
+    merged_csv = tmp_path / "merged.csv"
+    merged_csv.write_text("arm_id,seed,task\n")
+    m = merge_mod.build_merged_manifest(parent, [s for s, _ in written], merged_csv, 1080,
+                                        shard_paths)
+    assert m["partial"] is False
+    assert m["coverage_verified"] is True
+    assert m["merge_status"] == "COMPLETE"
+    assert m["merge_axis"] == "seeds"
+    assert m["shard_count"] == 6
+    assert len(m["source_shards"]) == 6
+
+
+# (5) overlap seed 190 across two shards fails.
+def test_seed_overlap_fails(parent_manifest, monkeypatch):
+    _patch_parent_seeds(monkeypatch, parent_manifest)
+    s1 = _seed_shard("shard-a", list(range(180, 191)))   # includes 190
+    s2 = _seed_shard("shard-b", list(range(190, 200)))   # also 190
+    problems = cov_mod.check_coverage([s1, s2], parent_manifest)
+    assert any("overlap" in p for p in problems), problems
+
+
+# (6) missing seed 239 fails.
+def test_seed_gap_fails(parent_manifest, monkeypatch):
+    _patch_parent_seeds(monkeypatch, parent_manifest)
+    shards = _six_seed_shards()
+    shards[-1]["seed_subset"] = list(range(230, 239))     # drops 239
+    shards[-1]["cells_in_shard"] = 6 * 9 * 3
+    problems = cov_mod.check_coverage(shards, parent_manifest)
+    assert any("отсутствуют" in p for p in problems), problems
+
+
+# (7) one seed-shard missing the oracle arm fails.
+def test_seed_shard_missing_arm_fails(parent_manifest, monkeypatch):
+    _patch_parent_seeds(monkeypatch, parent_manifest)
+    shards = _six_seed_shards()
+    shards[0]["arm_subset"] = ARMS[:-1]                    # oracle_reflex dropped
+    shards[0]["cells_in_shard"] = 5 * 10 * 3
+    problems = cov_mod.check_coverage(shards, parent_manifest)
+    assert any("arms missing" in p for p in problems), problems
+
+
+# (8) one seed-shard missing the mixed stream fails.
+def test_seed_shard_missing_stream_fails(parent_manifest, monkeypatch):
+    _patch_parent_seeds(monkeypatch, parent_manifest)
+    shards = _six_seed_shards()
+    shards[1] = _seed_shard("shard-s1", list(range(190, 200)),
+                            streams=["left_target", "right_target"])
+    problems = cov_mod.check_coverage(shards, parent_manifest)
+    assert any("task_streams" in p for p in problems), problems
+
+
+# (9) mixed arms-axis and seeds-axis in one merge fails (coverage + identity).
+def test_mixed_axis_shards_fail_coverage(parent_manifest, monkeypatch):
+    _patch_parent_seeds(monkeypatch, parent_manifest)
+    arms_shard = _make_shard("shard-arms", ARMS[:3])       # axis arms
+    seed_shard = _seed_shard("shard-seed", list(range(180, 240)))
+    problems = cov_mod.check_coverage([arms_shard, seed_shard], parent_manifest)
+    assert any("смешанные оси" in p for p in problems), problems
+
+
+def test_mixed_axis_shards_fail_identity():
+    arms_shard = _make_shard("shard-arms", ARMS[:3])
+    seed_shard = _seed_shard("shard-seed", list(range(180, 240)))
+    parent = {"protocol_id": "p4.2.oracle-baseline.v3", "_digest": DIGEST,
+              "arms": [{"arm_id": a} for a in ARMS]}
+    with pytest.raises(merge_mod.MergeRefused, match="смешанные оси"):
+        merge_mod.validate_shard_identity([arms_shard, seed_shard], parent)
+
+
+# (10) one shard with 79 episodes fails.
+def test_seed_shard_wrong_episodes_fails(parent_manifest, monkeypatch):
+    _patch_parent_seeds(monkeypatch, parent_manifest)
+    shards = _six_seed_shards()
+    shards[2] = _seed_shard("shard-s2", list(range(200, 210)), episodes_per_seed=79)
+    problems = cov_mod.check_coverage(shards, parent_manifest)
+    assert any("episodes_per_seed" in p for p in problems), problems
+
+
+# (11) one shard from another Git SHA fails.
+def test_seed_shard_other_git_sha_fails():
+    s1 = _seed_shard("shard-a", list(range(180, 190)))
+    s2 = _seed_shard("shard-b", list(range(190, 200)))
+    s2["git_sha"] = "b" * 40
+    parent = {"protocol_id": "p4.2.oracle-baseline.v3", "_digest": DIGEST,
+              "arms": [{"arm_id": a} for a in ARMS]}
+    with pytest.raises(merge_mod.MergeRefused, match="git_sha"):
+        merge_mod.validate_shard_identity([s1, s2], parent)
+
+
+# (12) one shard with a foreign digest fails.
+def test_seed_shard_foreign_digest_fails():
+    s1 = _seed_shard("shard-a", list(range(180, 190)))
+    s2 = _seed_shard("shard-b", list(range(190, 200)))
+    s2["manifest_digest"] = "sha256:" + "9" * 64
+    parent = {"protocol_id": "p4.2.oracle-baseline.v3", "_digest": DIGEST,
+              "arms": [{"arm_id": a} for a in ARMS]}
+    with pytest.raises(merge_mod.MergeRefused, match="manifest_digest"):
+        merge_mod.validate_shard_identity([s1, s2], parent)
+
+
+# --- Runtime planner (P4.2c, run_p4_shard) ------------------------------------
+
+import run_p4_shard as shard_mod  # noqa: E402
+
+
+def test_planner_ten_seed_shard_is_180_cells():
+    # (17) 10 seeds × 6 arms × 3 streams produces 180 cells.
+    p = shard_mod.plan_shard(6, 10, 3)
+    assert p["cells"] == 180
+
+
+def test_planner_refuses_over_budget():
+    # (18) refuses if estimated duration > 1200s (180 cells @ ~12s/cell = 2160s).
+    p = shard_mod.plan_shard(6, 10, 3)
+    assert p["within_budget"] is False
+    assert p["estimated_seconds"] > shard_mod.MAX_SHARD_TARGET_SECONDS
+
+
+def test_planner_accepts_within_budget_shard():
+    # the compliant seed-axis split (5 seeds) fits; planner does not force it.
+    p = shard_mod.plan_shard(6, 5, 3)
+    assert p["cells"] == 90 and p["within_budget"] is True
+
+
+def test_planner_does_not_silently_change_seed_subset():
+    # (19) the parsed subset is EXACTLY what was asked; out-of-protocol refuses.
+    got = shard_mod.parse_seed_subset("180-189", list(range(180, 240)))
+    assert got == list(range(180, 190))
+    with pytest.raises(shard_mod.ShardRefused):
+        shard_mod.parse_seed_subset("180-189,250", list(range(180, 240)))
+
+
+def test_planner_refuses_burned_seeds():
+    # (20) refuses any seed overlapping burned range 0-179.
+    with pytest.raises(shard_mod.ShardRefused, match="burned"):
+        shard_mod.parse_seed_subset("150-159", list(range(180, 240)))
+
+
 # --- Helper ---
 
 def _file_hash(path: pathlib.Path) -> str:

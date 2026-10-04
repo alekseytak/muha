@@ -79,6 +79,20 @@ def test_valid_shard_manifest_passes(validator):
     validator.validate(VALID_SHARD)
 
 
+def test_valid_seed_axis_shard_passes(validator):
+    """P4.2c: shard_axis="seeds" теперь валиден — seed-axis shard держит ВСЕ
+    arms и ВСЕ streams и режет лишь seeds. Схема это разрешает; точное разбиение
+    проверяет код coverage, не схема."""
+    doc = copy.deepcopy(VALID_SHARD)
+    doc["shard_axis"] = "seeds"
+    doc["shard_id"] = "shard-seed-group-a"
+    doc["seed_subset"] = [180, 181, 182, 183, 184, 185, 186, 187, 188, 189]
+    doc["arm_subset"] = ["rstdp_mixed", "no_plasticity", "m_zero",
+                        "weight_shuffled_frozen", "direction_shuffled_frozen", "oracle_reflex"]
+    doc["cells_in_shard"] = len(doc["arm_subset"]) * len(doc["seed_subset"]) * len(doc["task_streams"])
+    validator.validate(doc)
+
+
 def test_schema_itself_is_valid():
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
@@ -125,7 +139,9 @@ def test_empty_seed_subset_fails(validator):
 # --- 7. Invalid shard axis fails ---
 
 def test_invalid_shard_axis_fails(validator):
-    doc = _mutate(lambda d: d.__setitem__("shard_axis", "seeds"))
+    """Разрешены только arms и seeds. Значение 'episodes' (резать episodes)
+    схемой отвергается: делить прогон по episodes нельзя — это меняет научный план."""
+    doc = _mutate(lambda d: d.__setitem__("shard_axis", "episodes"))
     assert _errors(validator, doc)
     assert "shard_axis" in _failed_props(validator, doc)
 
