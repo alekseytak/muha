@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0.0",
+  "proposal_id": "teacher-analysis-p42v2-001",
+  "created_at": "2026-09-25T14:30:00Z",
+  "source_bundle": {
+    "experiment_id": "p4-2-oracle-baseline-v2-run-001",
+    "protocol_id": "p4.2.oracle-baseline.v2",
+    "manifest_digest": "sha256:5f5cae42a2f0373933ead1c61307eac97f6a864f25b0927dbda4643e94d75123",
+    "result_bundle_hash": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "gate_verdict_ref": "var/p4_2_v2/gate_verdict.json"
+  },
+  "teacher": {
+    "system": "soup",
+    "model_id": "llama-3.1-8b-instruct",
+    "model_revision": "v0.73.0-soup",
+    "config_digest": "sha256:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+  },
+  "status": "ADVISORY_ONLY",
+  "analysis": {
+    "summary": "P4.2.v2 oracle baseline: все 4 обязательные гипотезы (H1–H4) прошли Holm-коррекцию; H5 characterization зафиксировала отсутствие значимого отличия rstdp_mixed от oracle_reflex.",
+    "observed_results": [
+      {
+        "claim": "H1 (rstdp_mixed > no_plasticity): 48W/5L/7T, adjusted p < 0.001",
+        "evidence_refs": ["gate_verdict.json#/hypotheses/H1", "per_seed_outcomes.csv"],
+        "confidence": "high",
+        "limitations": ["toy 14-neuron network", "single operating point"]
+      },
+      {
+        "claim": "H5 shows no significant gap vs oracle (p=0.34)",
+        "evidence_refs": ["gate_verdict.json#/hypotheses/H5"],
+        "confidence": "medium",
+        "limitations": ["H5 is characterization, not confirmatory", "n=60 may lack power for small effects"]
+      }
+    ],
+    "anomalies": [
+      {
+        "description": "seed 155 shows saturation: all 3 streams at 1.0 success across 80 episodes in rstdp_mixed arm",
+        "evidence_refs": ["per_seed_outcomes.csv#seed=155"],
+        "severity": "info"
+      }
+    ],
+    "next_experiment_suggestions": [
+      {
+        "suggestion_id": "s-p6-001",
+        "rationale": "H5 non-significance is ambiguous: ceiling effect or genuine equivalence?",
+        "proposed_question": "Does increasing episode budget from 80 to 160 on new seeds reveal separation between rstdp_mixed and oracle_reflex?",
+        "required_controls": ["no_plasticity at same budget", "fixed-budget rstdp_mixed at 80 for cross-reference"],
+        "must_use_new_seed_set": true
+      }
+    ]
+  },
+  "safety": {
+    "advisory_only": true,
+    "requires_human_review": true,
+    "policy_eligible": false,
+    "scientific_claim_eligible": false,
+    "may_modify_snn": false,
+    "may_execute_action": false,
+    "may_write_provenance": false,
+    "may_modify_manifest": false
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muha.local/schemas/teacher_analysis_proposal.schema.json",
+  "title": "TeacherAnalysisProposal",
+  "description": "Формат вывода внешнего LLM-консультанта (Soup или аналогичного). Схема закрепляет, что предложение носит исключительно рекомендательный характер: safety-флаги зафиксированы как const, additionalProperties:false на каждом уровне не позволяет проскользнуть исполняемой семантике (action, weight_update, manifest_override и т.п.). Ни одно поле не даёт право на изменение протокола, запуск или запись в provenance.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "proposal_id",
+    "created_at",
+    "source_bundle",
+    "teacher",
+    "status",
+    "analysis",
+    "safety"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "proposal_id": {
+      "type": "string",
+      "pattern": "^teacher-analysis-[a-zA-Z0-9._\\-]{3,80}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp with timezone."
+    },
+    "source_bundle": {
+      "type": "object",
+      "required": [
+        "experiment_id",
+        "protocol_id",
+        "manifest_digest",
+        "result_bundle_hash",
+        "gate_verdict_ref"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "experiment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.\\-]{2,63}$"
+        },
+        "manifest_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "result_bundle_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "gate_verdict_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "teacher": {
+      "type": "object",
+      "required": ["system", "model_id", "model_revision", "config_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "system": {
+          "type": "string",
+          "enum": ["soup", "other"]
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "const": "ADVISORY_ONLY",
+      "description": "Единственно возможный статус. Любое другое значение — схема отвергает; это не «пока не реализовано», а архитектурное ограничение: LLM не имеет статуса, дающего право на действие."
+    },
+    "analysis": {
+      "type": "object",
+      "required": ["summary", "observed_results", "anomalies", "next_experiment_suggestions"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim", "evidence_refs", "confidence", "limitations"],
+            "additionalProperties": false,
+            "properties": {
+              "claim": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "minItems": 1
+              },
+              "confidence": {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              "limitations": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "minItems": 1
+              }
+            }
+          }
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description", "evidence_refs", "severity"],
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "minItems": 1
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["info", "warning"]
+              }
+            }
+          }
+        },
+        "next_experiment_suggestions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "suggestion_id",
+              "rationale",
+              "proposed_question",
+              "required_controls",
+              "must_use_new_seed_set"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "suggestion_id": {
+                "type": "string",
+                "pattern": "^s-[a-zA-Z0-9._\\-]{2,60}$"
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1
+              },
+              "proposed_question": {
+                "type": "string",
+                "minLength": 1
+              },
+              "required_controls": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "minItems": 1
+              },
+              "must_use_new_seed_set": {
+                "type": "boolean",
+                "const": true,
+                "description": "Постоянно true: предложение не имеет права разрешать повторный прогон на уже использованных seed'ах."
+              }
+            }
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "advisory_only",
+        "requires_human_review",
+        "policy_eligible",
+        "scientific_claim_eligible",
+        "may_modify_snn",
+        "may_execute_action",
+        "may_write_provenance",
+        "may_modify_manifest"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "advisory_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "requires_human_review": {
+          "type": "boolean",
+          "const": true
+        },
+        "policy_eligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "scientific_claim_eligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "may_modify_snn": {
+          "type": "boolean",
+          "const": false
+        },
+        "may_execute_action": {
+          "type": "boolean",
+          "const": false
+        },
+        "may_write_provenance": {
+          "type": "boolean",
+          "const": false
+        },
+        "may_modify_manifest": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    }
+  }
+}
