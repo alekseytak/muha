@@ -165,6 +165,10 @@ def test_journal_names_the_committed_verb(tmp_path):
     }
     assert p["verb_counts"] == {k: v for k, v in expected.items() if v}
     assert sum(p["verb_counts"].values()) == p["steps"]
+    # Запирать semantics: в игрушке декодер выдаёт только валидные действия, DENY не
+    # бывает → stay в verb_counts это настоящий stay, а не навязанный гейтом. Слияние
+    # «stay-при-DENY» с «выбранным stay» недостижимо, пока удержаний нет.
+    assert p["denied"] == 0
 
 
 def test_journal_encodes_direction_that_actually_happened(tmp_path):
