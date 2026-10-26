@@ -482,9 +482,11 @@ def main(argv: list[str] | None = None) -> int:
         seeds = sorted({r["seed"] for r in rows})
     else:
         args.provenance.parent.mkdir(parents=True, exist_ok=True)
-        if args.provenance.exists():
-            args.provenance.unlink()
         prov = ProvenanceLog(path=str(args.provenance))
+        # Журнал и его witness (.head.json/.tmp) — ОДИН артефакт: прошлый прогон оставлял
+        # head без журнала, и append на свежем нулевом файле справедливо падал tamper-гардом
+        # (второй локальный запуск не работал). clear() сносит все три — самовосстановление.
+        prov.clear()
         rows = collect(arms, tasks, seeds, episodes, settings, prov, args.verbose)
     print_matrix(rows, seeds, tasks)
     single = [t for t in tasks if t in ("right", "left")]

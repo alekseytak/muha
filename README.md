@@ -47,6 +47,7 @@ python3 -m venv .venv
 .venv/bin/python scripts/run_p4_validation.py --quick   # быстрый прогон 7 условий × 2 зеркальные задачи
 .venv/bin/python scripts/run_p4_validation.py --seeds 20 --probe   # полная матрица P4/P4.1, ~20 мин
 .venv/bin/python scripts/run_p4_validation.py --tasks mixed --seeds 20 --episodes 40   # смешанный поток
+.venv/bin/python scripts/run_exploratory_channel.py --seeds 8 --episodes 12             # зонд каналов 4/1/6 (не-confirmatory)
 # подтверждающий прогон (60 seeds × 80 эпизодов, ~45 мин на двух шардах):
 .venv/bin/python scripts/run_p4_validation.py --tasks mixed --seeds 60 --episodes 80 --eta 1.5 \
     --arms plastic,weight_shuffled_frozen --out var/p4_conf60_a.csv
@@ -56,7 +57,7 @@ python3 -m venv .venv
 Отдельные шаги:
 
 ```bash
-.venv/bin/python -m pytest fly_connectome_agent/tests -q          # тесты агента (174)
+.venv/bin/python -m pytest fly_connectome_agent/tests -q          # тесты агента (440)
 .venv/bin/python -m pytest fly_connectome_agent/tests -q -k lif   # только LIF
 .venv/bin/python -m pytest fly_connectome_agent/tests -q -k stdp  # только обучение
 .venv/bin/python scripts/check_schemas.py                         # схемы манифестов
@@ -68,13 +69,22 @@ python3 -m venv .venv
 
 ## Состояние
 
-- Тесты агента: **174 зелёных**, пропущенных нет. Проверка схем — 5 проб,
+- Тесты агента: **440 зелёных**, пропущенных нет. Проверка схем — 5 проб,
   проверка синтаксиса — весь python, включая код внутри документации.
 - Реализовано: граф коннектома с валидацией и подграфами, разреженный LIF
   (рефрактерность, шум, задержки, детерминированный повтор), разреженный
   reward-modulated STDP с модулятором, декодер действий, verb-act и gatekeeper
   (ALLOW исполняет именно proposal, DENY/ESCALATE — только stay), provenance-лог
-  с flock и проверкой цепочки по диску, схемы и примеры манифестов.
+  с flock и проверкой цепочки по диску (повторный локальный прогон чистит журнал вместе
+  с witness-сайдкаром — раньше осиротевший `.head.json` ронял второй запуск tamper-гардом),
+  схемы и примеры манифестов.
+- Философские каналы (принципы 4/1/6 из `PHILOSOPHY.md`) — **выключенные по умолчанию**
+  параметры `ToyAgent` (замороженный operating point P4.2 не тронут: при дефолтах путь
+  байт-идентичен). Композиция трёх каналов направленно-независима (right/left/mixed ×
+  seedы), provenance-журнал хранит глагол совершённого действия (`verb_counts`).
+  Exploratory-зонд (`scripts/run_exploratory_channel.py`): каналы живые, но их эффект на
+  toy-метрике тонет в дисперсии и нестабилен по знаку между бюджетами — утилита ни не
+  подтверждена, ни не опровергнута (честное «нет свидетельств», а не «нулевой эффект»).
 - Научная валидация MVP: `fly_connectome_agent/docs/p4_validation.md` — 7 условий
   × 2 зеркальные задачи × 20 seeds на симметричной 5-нейронной toy-сети,
   скрипт `scripts/run_p4_validation.py`. Итог: **P4.1 (зеркальный тест обучения
