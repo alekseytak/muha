@@ -6,3 +6,4 @@ __pycache__/
 htmlcov/
 .DS_Store
 var/
+fly_connectome_agent/data/
