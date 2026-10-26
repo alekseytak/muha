@@ -30,7 +30,7 @@ def extract_subgraph(
         New ConnectomeGraph containing only selected nodes and their edges
     """
     if not any([node_ids, regions, neuron_classes]):
-        if max_nodes is None or max_nodes >= graph.n_nodes:
+        if (max_nodes is None or max_nodes >= graph.n_nodes) and not reindex:
             return graph.copy_with_nodes(graph.nodes)
         node_ids = tuple(sorted(graph._index.keys()))[:max_nodes]
 

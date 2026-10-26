@@ -160,6 +160,27 @@ def test_extract_subgraph_reindex_alignment():
         assert np.isclose(sub.weights[0], 0.4)
 
 
+def test_extract_subgraph_reindex_without_filters():
+    """regression: `reindex=True` must yield ids 0..N-1 on EVERY path.
+
+    The no-filter fast path returned `copy_with_nodes(...)` verbatim, which kept
+    the source graph's non-zero-based ids and silently ignored `reindex`. A real
+    connectome loads with arbitrary neuron ids, so this is the common case.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        nodes_path = Path(tmp) / "nodes.csv"
+        edges_path = Path(tmp) / "edges.csv"
+        make_test_nodes_csv(nodes_path)
+        make_test_edges_csv(edges_path)
+        graph = load_connectome(nodes_path, edges_path)  # ids {1, 2, 3}
+        assert set(graph._index.keys()) == {1, 2, 3}
+
+        sub = extract_subgraph(graph, reindex=True)
+        assert set(sub._index.keys()) == {0, 1, 2}
+        assert sub.n_edges == 3
+        assert sub.weights.shape == (sub.n_edges,)
+
+
 def test_validation_raises_on_error():
     nodes = [Node(1, "exc", "A", 0, 0, 0)]
     edges = [Edge(1, 2, 1.0, 0.5, 1.0)]
