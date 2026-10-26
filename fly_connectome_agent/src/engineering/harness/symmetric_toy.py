@@ -383,6 +383,20 @@ def sensory_drive(position: int, target: int, settings: ToySettings) -> np.ndarr
     return I
 
 
+def select_prunable(plastic_weights: np.ndarray, floor: float) -> frozenset[int]:
+    """Локальные индексы пластичных рёбер, подлежащих устранению: |w| < floor.
+
+    Направленная нейтральность по построению: смотрит ТОЛЬКО на модули весов, без
+    привязки к стороне/задаче/слоту — поэтому эквариантна к любой перестановке
+    слотов, включая зеркало left↔right. floor<=0 → канал выключен, пустое множество
+    (замороженный путь не трогается).
+    """
+    if floor <= 0.0:
+        return frozenset()
+    w = np.abs(np.asarray(plastic_weights, dtype=np.float64))
+    return frozenset(int(i) for i in np.nonzero(w < floor)[0])
+
+
 class ToyAgent:
     """One measured run: a learner + network that persists across episodes."""
 
@@ -396,6 +410,7 @@ class ToyAgent:
         verb_feedback: float = 0.0,
         self_obs_gain: float = 0.0,
         internal_observer_only: bool = False,
+        structural_prune_floor: float = 0.0,
         settings: ToySettings | None = None,
     ):
         self.settings = settings or ToySettings()
@@ -415,6 +430,8 @@ class ToyAgent:
         self._last_action: str | None = None  # предыдущий совершённый глагол (принцип 4)
         self.self_obs_gain = self_obs_gain  # принцип 1: 0.0 → петля выключена
         self.internal_observer_only = internal_observer_only  # принцип 6: False → страж инертен
+        self.structural_prune_floor = structural_prune_floor  # структурная пластичность: 0.0 → канал выключен
+        self._pruned: set[int] = set()  # локальные индексы устранённых рёбер (монотонно)
         self.tasks = make_tasks(self.settings)
         self.init_regime = init_regime
         self.learner_kind = learner_kind
@@ -424,10 +441,25 @@ class ToyAgent:
         return np.asarray(self.learner.edge_weights, dtype=np.float64)
 
     def _carry_weights_to(self, graph: ConnectomeGraph) -> ConnectomeGraph:
-        """Rebuild the network on a graph that carries the learned weights."""
+        """Rebuild the network on a graph that carries the learned weights.
+
+        Устранённые structural-plasticity синапсы переносятся в жёсткий 0 — мёртвый
+        синапс не проводит. При пустом _pruned (пол выключен) переносимые значения
+        идентичны исходным, поэтому замороженный путь побитово не меняется.
+        """
         weights = graph.weights.copy()
-        weights[np.array(self.settings.plastic_slots, dtype=np.int64)] = self.plastic_weights
+        pw = self.plastic_weights.copy()
+        if self._pruned:
+            pw[np.array(sorted(self._pruned), dtype=np.int64)] = 0.0
+        weights[np.array(self.settings.plastic_slots, dtype=np.int64)] = pw
         return build_graph(weights, self.settings)
+
+    def _apply_structural_prune(self) -> None:
+        """Структурное устранение «use-it-or-lose-it»: пластичное ребро, чей |вес|
+        ниже порога, устраняется монотонно (мёртвый не воскрешается). Эффект
+        проявляется на следующих эпизодах через _carry_weights_to — текущую
+        траекторию не правит. Вызывается только при включённом канале."""
+        self._pruned |= set(select_prunable(self.plastic_weights, self.structural_prune_floor))
 
     def run_episode(self, task: str, episode: int, prov: ProvenanceLog | None = None, verbose: bool = False) -> EpisodeResult:
         s = self.settings
@@ -517,6 +549,12 @@ class ToyAgent:
         result.task = real_task
         result.weights_after = self.plastic_weights.copy()
 
+        # Структурная пластичность: устранение считается в конце эпизода и влияет на
+        # перенос весов следующих эпизодов (forward). При floor=0 канал выключен —
+        # ни одного нового вызова, побитовый путь замороженного прогона не меняется.
+        if self.structural_prune_floor:
+            self._apply_structural_prune()
+
         if prov is not None:
             # Принцип 4 end-to-end: журнал хранит ГЛАГОЛ совершённого действия,
             # выведенный из действия (не подставную константу). Аддитивное поле —
@@ -547,6 +585,7 @@ class ToyAgent:
                 "verb_counts": verb_counts,
                 "weights_after": [round(float(w), 6) for w in result.weights_after],
                 "governance_violations": self.prov_stats["governance_violations"],
+                "pruned_slots": sorted(self._pruned),
             })
         return result
 
