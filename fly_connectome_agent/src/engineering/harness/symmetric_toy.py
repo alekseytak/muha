@@ -64,6 +64,60 @@ def resolve_task(task: str, episode: int) -> str:
     return task
 
 
+# Принцип 4 (обратная половина): глагол не назначается извне константой, а
+# выводится из совершённого действия. Направленно-нейтрален: left↔right зеркальны,
+# stay отдельно. См. docs — это демонстрация механизма, не результат обучения.
+VERB_BY_ACTION = {
+    "move_left": "движет_наляво",
+    "move_right": "движет_направо",
+    "stay": "пребывает",
+}
+
+
+def verb_for_action(action_type: str) -> str:
+    """Глагол, который сеть реально совершила, — из действия, не из шаблона."""
+    try:
+        return VERB_BY_ACTION[action_type]
+    except KeyError:
+        raise ValueError(f"unknown action_type: {action_type!r}")
+
+
+def verb_coherence(previous_action: str | None, action_type: str) -> float:
+    """Направленно-нейтральный вклад устойчивости совершённого глагола.
+
+    1.0 если глагол повторяется, 0.0 если сменился или предыстории нет. Одинаково
+    для left-left и right-right — иначе сигнал вольёт направление в зеркальный тест.
+    """
+    if previous_action is None:
+        return 0.0
+    return 1.0 if previous_action == action_type else 0.0
+
+
+def self_observation_scale(n_past_events: int, gain: float) -> float:
+    """Принцип 1: сколько СВОИХ записей агент уже прочитал из журнала → скалярный
+    множитель сенсорного входа. 1.0 нет истории/нет gain (канал молчит, замороженный
+    путь цел). Направленно-нейтрален: усиливает оба сенсора одинаково, намеренно
+    не принимает направление/задачу."""
+    if gain == 0.0 or n_past_events <= 0:
+        return 1.0
+    return 1.0 + gain
+
+
+class ExternalValuationError(RuntimeError):
+    """Наблюдатель = то, что наблюдает: внешняя оценка отвергнута."""
+
+
+def valuation_gate(source: str, internal_only: bool) -> None:
+    """Принцип 6 на границе доверия. При включённом инварианте единственный
+    разрешённый источник обучающего сигнала — внутренний канал (source='internal');
+    внешняя оценка/критик отвергается. internal_only=False → страж инертен
+    (обратная совместимость, замороженный путь не сдвигается)."""
+    if internal_only and source != "internal":
+        raise ExternalValuationError(
+            f"внешняя оценка {source!r} не допускается: сигнал обязан идти из "
+            "внутреннего канала агента")
+
+
 # Edge slots (fixed topology; only weights/labels change per regime). Slots 8/9
 # are the reciprocal command→command competition edges; they are inert unless
 # ToySettings.command_inh_weight is non-zero (see the P4 run-#1 diagnosis).
@@ -304,10 +358,16 @@ def make_learner(kind: str, graph: ConnectomeGraph, settings: ToySettings):
     raise ValueError(f"unknown learner kind: {kind!r}")
 
 
-def make_modulator(reward_coupled: bool, settings: ToySettings) -> RewardModulator:
-    """reward_coupled=False uses the library's own no_modulator profile (alpha=0)."""
+def make_modulator(reward_coupled: bool, settings: ToySettings, verb_feedback: float = 0.0) -> RewardModulator:
+    """reward_coupled=False uses the library's own no_modulator profile (alpha=0).
+
+    verb_feedback — коэффициент принципа 4 (действие→глагол→coherence), НЕ поле
+   ToySettings: рабочая точка P4.2 заморожена и обязана объявлять все поля,
+    поэтому новый механизм живёт на уровне агента, а не в замороженном operating
+    point. 0.0 → term помножен на ноль → прежние прогоны побитово не меняются.
+    """
     if reward_coupled:
-        return RewardModulator(params=ModulatorParams(alpha=settings.alpha, M_max=10.0, profile_id="p4_reward_v1"))
+        return RewardModulator(params=ModulatorParams(alpha=settings.alpha, epsilon=verb_feedback, M_max=10.0, profile_id="p4_reward_v1"))
     return RewardModulator(profile_id="no_modulator")
 
 
@@ -333,6 +393,9 @@ class ToyAgent:
         init_regime: str,
         seed: int,
         reward_coupled: bool = True,
+        verb_feedback: float = 0.0,
+        self_obs_gain: float = 0.0,
+        internal_observer_only: bool = False,
         settings: ToySettings | None = None,
     ):
         self.settings = settings or ToySettings()
@@ -341,7 +404,7 @@ class ToyAgent:
         self.weights_init = init_weights(init_regime, self.rng, self.settings)
         self.graph = build_graph(self.weights_init, self.settings)
         self.learner = make_learner(learner_kind, self.graph, self.settings)
-        self.modulator = make_modulator(reward_coupled, self.settings)
+        self.modulator = make_modulator(reward_coupled, self.settings, verb_feedback)
         self.decoder = ActionDecoder(n_neurons=2)
         self.gatekeeper = GateKeeper()
         self.net = SparseLIF(
@@ -349,6 +412,9 @@ class ToyAgent:
             synapse_tau_ms=5.0, seed=seed,
         )
         self.prov_stats: dict[str, int] = {"decisions": 0, "denied": 0, "governance_violations": 0}
+        self._last_action: str | None = None  # предыдущий совершённый глагол (принцип 4)
+        self.self_obs_gain = self_obs_gain  # принцип 1: 0.0 → петля выключена
+        self.internal_observer_only = internal_observer_only  # принцип 6: False → страж инертен
         self.tasks = make_tasks(self.settings)
         self.init_regime = init_regime
         self.learner_kind = learner_kind
@@ -382,9 +448,15 @@ class ToyAgent:
         result = EpisodeResult(steps=0, reward=0.0, reached=False, moved_left=0, moved_right=0,
                                stayed=0, denied=0, spikes_left=0, spikes_right=0, mean_abs_dw=0.0)
         dw_abs: list[float] = []
+        # Commitment считается внутри одной траектории: новый эпизод — новая история глаголов.
+        self._last_action = None
+        # Принцип 1: агент читает СОБСТВЕННЫЙ журнал (сколько своих записей уже есть)
+        # → направленно-нейтральный масштаб сенсорного входа. 0 записей/выкл → 1.0.
+        n_past = prov.count if (self.self_obs_gain and prov is not None) else 0
+        obs_scale = self_observation_scale(n_past, self.self_obs_gain)
 
         for step in range(config.max_steps):
-            I_ext = sensory_drive(position, config.target_position, s)
+            I_ext = sensory_drive(position, config.target_position, s) * obs_scale
             left_spikes = right_spikes = 0
             for _ in range(s.window_steps):
                 spikes = self.net.step(I_ext)
@@ -424,7 +496,10 @@ class ToyAgent:
 
             # Reward delivery is its own call: learning time is not tied to
             # whether spikes happened to be present at that moment.
-            M = self.modulator.compute(task_reward=reward)
+            # Награда идёт из env.step самого агента → source 'internal'.
+            valuation_gate("internal", self.internal_observer_only)
+            M = self.modulator.compute(task_reward=reward, coherence=verb_coherence(self._last_action, decision.enforced_action))
+            self._last_action = decision.enforced_action
             dw = self.learner.apply_modulator(M)
             dw_abs.append(float(np.mean(np.abs(dw))))
             result.mean_abs_dw = float(np.mean(dw_abs)) if dw_abs else 0.0
@@ -465,6 +540,15 @@ class ToyAgent:
                 "governance_violations": self.prov_stats["governance_violations"],
             })
         return result
+
+    def inject_valuation(self, value: float, source: str = "external") -> float:
+        """Единственная дверь, через которую оценка может войти извне. При
+        включённом инварианте принципа 6 внешняя подача отвергается стражем.
+        Когда инвариант выключен — легальная внешняя оценка, возврат M."""
+        valuation_gate(source, self.internal_observer_only)
+        M = self.modulator.compute(task_reward=value)
+        self.learner.apply_modulator(M)
+        return float(M)
 
     def dw_per_edge(self) -> np.ndarray:
         """Δw per plastic edge, aligned with labels_for(settings.plastic_slots)."""
