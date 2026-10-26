@@ -37,11 +37,11 @@ def _tiny():
                        edge_margin=1, sigma=0.0, episodes=1)
 
 
-def _all_on(**over):
+def _all_on(seed: int = 500, **over):
     """Агент со всеми тремя каналами; over позволяет глушить отдельный из них."""
     kw = dict(verb_feedback=0.4, self_obs_gain=0.5, internal_observer_only=True)
     kw.update(over)
-    return toy.ToyAgent(learner_kind="stdp", init_regime="anti", seed=500,
+    return toy.ToyAgent(learner_kind="stdp", init_regime="anti", seed=seed,
                         settings=_tiny(), **kw)
 
 
@@ -52,16 +52,20 @@ def _signature(r):
 
 # --- 1. все три включены: управление чисто, цепь цела -----------------------
 
-def test_all_three_on_governance_zero_and_chain_intact(tmp_path):
+@pytest.mark.parametrize("task", ["right", "left", "mixed"])
+@pytest.mark.parametrize("seed", [500, 7])
+def test_all_three_on_governance_zero_and_chain_intact(tmp_path, task, seed):
+    """Композиция направленно-независима: на любом зеркале (right/left), на
+    смешанном потоке (mixed) и на разных seed — violations 0 и цепь цела."""
     prov = ProvenanceLog(path=str(tmp_path / "all_on.jsonl"))
-    agent = _all_on()
+    agent = _all_on(seed=seed)
     # Убедиться, что каналы реально живы на этом экземпляре (а не проглочены).
     assert agent.modulator.params.epsilon == pytest.approx(0.4)   # принцип 4
     assert agent.self_obs_gain == 0.5                              # принцип 1
     assert agent.internal_observer_only is True                    # принцип 6
 
     for ep in range(3):
-        r = agent.run_episode("right", ep, prov=prov)
+        r = agent.run_episode(task, ep, prov=prov)
         assert np.isfinite(r.reward) and r.steps > 0
 
     # Три эпизода → три записи; самонаблюдение их читало, ничего не порвало.
