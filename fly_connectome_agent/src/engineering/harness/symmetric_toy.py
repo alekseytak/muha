@@ -518,6 +518,14 @@ class ToyAgent:
         result.weights_after = self.plastic_weights.copy()
 
         if prov is not None:
+            # Принцип 4 end-to-end: журнал хранит ГЛАГОЛ совершённого действия,
+            # выведенный из действия (не подставную константу). Аддитивное поле —
+            # пересобирается из уже есть счётчиков, петлю и траекторию не трогает.
+            verb_counts = {k: v for k, v in {
+                verb_for_action("move_left"): result.moved_left,
+                verb_for_action("move_right"): result.moved_right,
+                verb_for_action("stay"): result.stayed,
+            }.items() if v}
             prov.append({
                 "kind": "p4_episode",
                 "learner": self.learner_kind,
@@ -536,6 +544,7 @@ class ToyAgent:
                 "spikes_cmd_left": result.spikes_left,
                 "spikes_cmd_right": result.spikes_right,
                 "mean_abs_dw": round(result.mean_abs_dw, 6),
+                "verb_counts": verb_counts,
                 "weights_after": [round(float(w), 6) for w in result.weights_after],
                 "governance_violations": self.prov_stats["governance_violations"],
             })

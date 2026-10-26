@@ -29,6 +29,7 @@ from fly_connectome_agent.src.engineering.harness.symmetric_toy import (
     verb_coherence,
     verb_for_action,
 )
+from fly_connectome_agent.src.engineering.logging.provenance_log import ProvenanceLog
 
 
 # --- 1. глагол рождается из совершённого действия --------------------------
@@ -139,3 +140,35 @@ def test_live_feedback_changes_the_learning_trajectory():
     off = _final_weights(verb_feedback=0.0)
     on = _final_weights(verb_feedback=1.0)
     assert not np.array_equal(off, on)
+
+
+# --- 5. совершённый глагол оседает в журнале (принцип 4 end-to-end) ----------
+
+def _episode_payload(tmp_path, regime="anti", task="right"):
+    prov = ProvenanceLog(path=str(tmp_path / f"verbs_{regime}.jsonl"))
+    agent = toy.ToyAgent(learner_kind="none", init_regime=regime, seed=500, settings=_tiny())
+    agent.run_episode(task, 0, prov=prov)
+    return prov.get_events()[-1].payload
+
+
+def test_journal_names_the_committed_verb(tmp_path):
+    """Журнал хранит ГЛАГОЛ совершённого действия, а не безымянные счётчики
+    направлений. Имена — из VERB_BY_ACTION, не подставная константа, и сверяются
+    с уже есть счётчиками: глагол = то же действие в другой упаковке."""
+    p = _episode_payload(tmp_path)
+    assert "verb_counts" in p
+    assert set(p["verb_counts"]).issubset(set(toy.VERB_BY_ACTION.values()))
+    expected = {
+        verb_for_action("move_left"): p["moved_left"],
+        verb_for_action("move_right"): p["moved_right"],
+        verb_for_action("stay"): p["stayed"],
+    }
+    assert p["verb_counts"] == {k: v for k, v in expected.items() if v}
+    assert sum(p["verb_counts"].values()) == p["steps"]
+
+
+def test_journal_encodes_direction_that_actually_happened(tmp_path):
+    """На right_bias+right совершается правый глагол — журнал различает действия,
+    а не пишет одно имя. Иначе 'именование' фиктивное (константа)."""
+    p = _episode_payload(tmp_path, regime="right_bias", task="right")
+    assert verb_for_action("move_right") in p["verb_counts"]
