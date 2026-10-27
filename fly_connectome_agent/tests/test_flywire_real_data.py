@@ -15,6 +15,8 @@ import pytest
 
 from fly_connectome_agent.src.science.graph.load_connectome import load_connectome
 from fly_connectome_agent.src.science.ingest.flywire import run_ingest
+from fly_connectome_agent.src.science.snn.lif_sparse import LIFParams, simulate_lif
+from fly_connectome_agent.src.science.snn.weights_policy import graph_with_signed_weights
 
 AGENT = pathlib.Path(__file__).resolve().parent.parent
 DATA_DIR = AGENT / "data"
@@ -70,3 +72,46 @@ def test_real_manifest_valid_po_skhe_konnektoma(tmp_path):
     assert "UNVERIFIED" in manifest["provenance"]["license"]
     # манифест честно отражает фактический размер подграфа
     assert manifest["node_count"] > 0 and manifest["edge_count"] > 0
+
+
+@requires_env
+def test_real_podgraf_gonit_snn_bez_nan_seyzima_i_vsyo_bez_molchania(tmp_path):
+    """Волна 2: реальный FlyWire-подграф реально крутит SparseLIF.
+
+    Утверждаем ТОЛЬКО safety-инварианты из validation_plan §6 и инженерную
+    полосу частот [1, 20] Hz (engineering target, не биологический факт).
+    Знак весов — из данных (edge_class); масштаб и шум sigma=3 — модельные
+    инженерные константы (см. weights_policy).
+    """
+    import numpy as np
+
+    run_ingest(DATA_DIR, tmp_path, target_nodes=300)
+    graph = load_connectome(
+        tmp_path / "nodes.csv",
+        tmp_path / "edges.csv",
+        manifest_path=tmp_path / "connectome_manifest.json",
+    )
+    signed = graph_with_signed_weights(graph)
+    # знак не потерян: оба класса дают нетто-веса (в сырых counts его нет)
+    assert np.any(signed.weights > 0) and np.any(signed.weights < 0)
+    assert np.max(np.abs(signed.weights)) <= 1.0  # границы пластичности STDPParams
+
+    n_steps = 1000
+    result = simulate_lif(
+        signed, n_steps=n_steps, params=LIFParams(sigma=3.0), seed=7, record=True
+    )
+    # 1) конечность: ни NaN, ни inf нигде в состояниях
+    assert np.all(np.isfinite(result["V_hist"]))
+    assert np.all(np.isfinite(result["I_hist"]))
+
+    spikes = result["spikes_hist"]
+    total_time_s = n_steps * 1.0 / 1000.0
+    rates_hz = spikes.sum(axis=0) / total_time_s
+
+    # 2) не «всё молчит»: есть хотя бы один спайк и популяционная активность
+    assert spikes.sum() > 0
+    mean_rate = float(rates_hz.mean())
+    assert 1.0 <= mean_rate <= 20.0  # engineering target, см. validation_plan §6
+
+    # 3) no runaway: ни один нейрон не уходит в припадочный режим
+    assert float(rates_hz.max()) < 100.0
