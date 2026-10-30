@@ -14,6 +14,7 @@ import pathlib
 import pytest
 
 from fly_connectome_agent.src.science.graph.load_connectome import load_connectome
+from fly_connectome_agent.src.science.graph.shuffle_wiring import shuffled_wiring
 from fly_connectome_agent.src.science.ingest.flywire import run_ingest
 from fly_connectome_agent.src.science.learning.plasticity_sparse import (
     EdgeSparseSTDP,
@@ -226,3 +227,131 @@ def test_stdp_na_realnym_podgrafe_derzhit_granicy_i_repleyayetsya(tmp_path):
     rates_hz = result["spikes_hist"].sum(axis=0) / 0.5
     assert 1.0 <= float(rates_hz.mean()) <= 20.0
     assert float(rates_hz.max()) < 100.0
+
+
+def _mean_hz(result, n_steps: int) -> float:
+    """Средняя частота сети в Гц (dt = 1 мс)."""
+    return float(result["spikes_hist"].sum() / (n_steps / 1000.0) / result["spikes_hist"].shape[1])
+
+
+@requires_env
+def test_null_model_lichaet_sebya_pri_silnyh_sinapsah(tmp_path):
+    """Контроль не пустой: если снять кап магнитуды, реальная проводка и её
+    degree-preserving null расходятся в разы (замер: 22 Hz против 3 Hz).
+
+    Без этого теста вывод «на штатной планке топология не видна» был бы
+    неотличим от сломанного контроля.
+    """
+    import numpy as np
+
+    run_ingest(DATA_DIR, tmp_path, target_nodes=300)
+    graph = load_connectome(
+        tmp_path / "nodes.csv",
+        tmp_path / "edges.csv",
+        manifest_path=tmp_path / "connectome_manifest.json",
+    )
+    strong = graph_with_signed_weights(
+        graph, w_syn_per_count=1.0, w_exc_max=20.0, w_inh_max=20.0
+    )
+    assert float(np.mean(np.abs(strong.weights))) > 5.0
+
+    means = {}
+    for arm in ("real", "null"):
+        values = []
+        for seed in (7, 13, 42):
+            g_arm = strong if arm == "real" else shuffled_wiring(strong, seed=seed)
+            result = simulate_lif(
+                g_arm, n_steps=1000, params=LIFParams(sigma=3.0), seed=seed, record=True
+            )
+            assert np.all(np.isfinite(result["V_hist"]))
+            values.append(_mean_hz(result, 1000))
+        means[arm] = float(np.mean(values))
+    assert means["null"] > 0.0
+    # запас порядокный: измерено 6.6-кратное расхождение при пороге 2-кратное
+    assert means["real"] >= 2.0 * means["null"]
+
+
+@requires_env
+def test_na_shtatnoy_planke_topologiya_ne_vlyaet_chastotu(tmp_path):
+    """Честный null: на штатном масштабе policy (кап 1.0) реальная проводка и
+    перемешанная с теми же степенями и весами неразличимы.
+
+    Смысл для предыдущих волн: инженерная полоса [1, 20] Hz из волн 2–3
+    следует из масштаба весов и шума, а НЕ из структуры мозга мухи. Претензии
+    «дело в топологии» на этой планке не обоснованы (замер: ≤0.6% расхождения
+    на пяти повторах с разными seed).
+    """
+    import numpy as np
+
+    run_ingest(DATA_DIR, tmp_path, target_nodes=300)
+    graph = load_connectome(
+        tmp_path / "nodes.csv",
+        tmp_path / "edges.csv",
+        manifest_path=tmp_path / "connectome_manifest.json",
+    )
+    signed = graph_with_signed_weights(graph)
+
+    deltas = []
+    for seed in (7, 13, 21, 42, 99):
+        shuffled = shuffled_wiring(signed, seed=seed)
+        moved = sum(1 for a, b in zip(signed.edges, shuffled.edges) if a.target != b.target)
+        # перемешано реально (замер: 99.4% рёбер), а не «почти тот же граф»
+        assert moved > 0.9 * signed.n_edges
+        arms = {}
+        for arm, g_arm in (("real", signed), ("null", shuffled)):
+            result = simulate_lif(
+                g_arm, n_steps=1000, params=LIFParams(sigma=3.0), seed=seed, record=True
+            )
+            hz = result["spikes_hist"].sum(axis=0)
+            assert np.all(np.isfinite(result["V_hist"]))
+            assert 1.0 <= float(hz.mean()) <= 20.0
+            assert float(hz.max()) < 100.0
+            arms[arm] = float(hz.mean())
+        deltas.append(abs(arms["null"] - arms["real"]) / arms["real"])
+    assert max(deltas) < 0.05
+
+
+@requires_env
+def test_stdp_na_peremeshannom_grafe_dvigaetsya_kak_na_realnom(tmp_path):
+    """Парный контроль обучения: объём сдвигов пластичности на штатной планке
+    не зависит от топологии (замер: от -2% до +5% на пяти перемешиваниях).
+
+    Шум фиксирован одним seed на обеих ветках — сравнение попарное, а не
+    «среднее против среднего». Знак и границы весов обязаны держаться на обеих
+    ветках: null-модель сохраняет edge_class, поэтому правила пластичности те же.
+    """
+    import numpy as np
+
+    run_ingest(DATA_DIR, tmp_path, target_nodes=300)
+    graph = load_connectome(
+        tmp_path / "nodes.csv",
+        tmp_path / "edges.csv",
+        manifest_path=tmp_path / "connectome_manifest.json",
+    )
+    signed = graph_with_signed_weights(graph)
+
+    def sum_dw(base):
+        idx = select_plastic_edges(base)
+        assert 0 < len(idx) < base.n_edges
+        cls = np.array([str(base.edge_classes[i]).lower() for i in idx])
+        exc = cls == "excitatory"
+        w_init = base.weights[idx].copy()
+        stdp = EdgeSparseSTDP(base, idx)
+        net = SparseLIF(base, LIFParams(sigma=3.0), seed=7)
+        for _ in range(500):
+            spikes = net.step()
+            stdp.update(spikes, spikes, modulator=1.0)
+        w_final = stdp.get_weights()
+        assert np.all(np.isfinite(net.V))
+        assert np.all(w_final[exc] >= 0.0) and np.all(w_final[exc] <= 1.0)
+        assert np.all(w_final[~exc] <= 0.0) and np.all(w_final[~exc] >= -1.0)
+        assert np.any(w_final != w_init)
+        return float(np.abs(w_final - w_init).sum())
+
+    baseline = sum_dw(signed)
+    ratios = []
+    for seed in (7, 13, 21, 42, 99):
+        shuffled = shuffled_wiring(signed, seed=seed)
+        ratios.append(abs(sum_dw(shuffled) - baseline) / baseline)
+    # измерено <=5.2% при пороге 15% — запас троекратный
+    assert max(ratios) < 0.15
