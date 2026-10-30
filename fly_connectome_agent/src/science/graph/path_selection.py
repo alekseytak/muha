@@ -243,7 +243,11 @@ def _forward(
         neighbors = _gather(indptr, indices, frontier)
         if neighbors.size == 0:
             break
-        keep = dist[neighbors] <= remaining - 1
+        # dist == -1 значит «до выхода не доходит никогда», а не «уже рядом»:
+        # без нижней границы тупики-соседи проходили как dist <= remaining-1 и
+        # раздували подграф (на реальном датасете — 965 фантомных узлов).
+        neighbor_dist = dist[neighbors]
+        keep = (neighbor_dist >= 0) & (neighbor_dist <= remaining - 1)
         neighbors = np.unique(neighbors[keep])
         if neighbors.size == 0:
             break

@@ -90,6 +90,24 @@ def test_rebro_bez_uzla_eto_oshibka_dannyh_a_ne_sdvignutyy_indeks():
         select_io_subgraph(**broken, max_inputs=5)
 
 
+def test_tupik_ne_tyanet_uzly_bez_puti_k_vykhodu():
+    # 50 sensory -> 60 выход (канал есть) и 50 -> 70 -> 80 тупик (к выходу не
+    # приходит никогда). Без нижней границы dist тупики попадали в подграф:
+    # на реальном датасете это дало 965 фантомных «промежуточных» при hops=1.
+    got = select_io_subgraph(
+        node_ids=[50, 60, 70, 80],
+        pre_ids=[50, 50, 70],
+        post_ids=[60, 70, 80],
+        classes={50: "sensory", 60: "descending", 70: "central", 80: "central"},
+        input_classes=("sensory",), output_classes=("descending",),
+        max_hops=2, max_inputs=1,
+    )
+    assert got.inputs == (50,)
+    assert got.outputs == (60,)
+    assert got.intermediates == ()
+    assert got.node_ids == (50, 60)
+
+
 def test_result_neizmenyaemyy_snimok_s_chislom_ikhodov():
     got = select_io_subgraph(**OPTIONS, max_inputs=10)
     assert isinstance(got, IOSubgraph)

@@ -19,7 +19,9 @@ import csv
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
+
+from ..graph.path_selection import select_io_subgraph
 
 __all__ = [
     "voxel_to_micron",
@@ -33,6 +35,7 @@ __all__ = [
     "load_annotations_tsv",
     "load_regions_csv",
     "run_ingest",
+    "run_role_ingest",
 ]
 
 # Воксельная сетка FAFB 4x4x40 nm → µm (анизотропия: шаг z в 10 раз крупнее).
@@ -196,6 +199,7 @@ def build_connectome_manifest(
     unknown_annotation_policy: str = "separate_class",
     node_classes: list[dict[str, Any]] | None = None,
     edge_classes: list[dict[str, Any]] | None = None,
+    io_channel: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Connectome-манифест по schemas/connectome_manifest.schema.json.
 
@@ -211,7 +215,7 @@ def build_connectome_manifest(
             {"class_id": "excitatory", "structural": True, "plastic": False, "sign_constraint": "positive"},
             {"class_id": "inhibitory", "structural": True, "plastic": False, "sign_constraint": "negative"},
         ]
-    return {
+    manifest = {
         "manifest_version": "1.0.0",
         "dataset_id": dataset_id,
         "dataset_version": dataset_version,
@@ -228,6 +232,13 @@ def build_connectome_manifest(
         "edge_classes": list(edge_classes),
         "provenance": dict(provenance),
     }
+    if io_channel is not None:
+        # Канал кладём на верхний уровень, а не в subgraph_rule: это контракт
+        # для симулятора (какие узлы стимулировать и какие читать), а не
+        # описание того, как резали подграф. Пустой канал сюда не доезжает —
+        # select_io_subgraph падает раньше.
+        manifest["io_channel"] = dict(io_channel)
+    return manifest
 
 
 # --------------------------------------------------------------------------- IO
@@ -290,30 +301,32 @@ def _top_degree_ids(np, pre, post, conn, target_nodes: int):
     return uniq[order[:take]]
 
 
-def run_ingest(
-    data_dir: str | Path,
-    out_dir: str | Path,
+def _materialize(
+    out_dir: Path,
     *,
-    target_nodes: int = 2000,
-    dataset_id: str = "flywire.fafb.v783",
-    dataset_version: str = "783",
-    provenance: Mapping[str, Any] | None = None,
+    np,
+    ann: Mapping[int, dict[str, str]],
+    regions: Mapping[int, str],
+    pre,
+    post,
+    conn,
+    exc,
+    chosen_ids,
+    subgraph_rule: Mapping[str, Any],
+    io_channel: Mapping[str, Any] | None,
+    dataset_id: str,
+    dataset_version: str,
+    provenance: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
-    """Декодирует вариант A, режет degree-induced подграф, пишет nodes/edges/manifest.
+    """Пишет nodes/edges/manifest для уже отобранного множества узлов.
 
-    Возвращает сводку (node_count, edge_count, регион-покрытие, пути). Большие
-    файлы остаются в data/ (gitignore); производные — в out_dir (var/, gitignore).
+    Общий хвост двух правил отбора: degree-induced (ЭТАП 1) и role-path
+    (волна 6). Канал, если задан, приходит в flywire-id и здесь же
+    переиндексируется: иначе симулятор читал бы id, которых нет в nodes.csv.
     """
-    data_dir = Path(data_dir)
-    out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    ann = load_annotations_tsv(data_dir / FILE_CORES["annotations"])
-    regions = load_regions_csv(data_dir / FILE_CORES["regions"])
-    np, pre, post, conn, exc = _read_connectome_arrays(data_dir)
-
-    chosen = _top_degree_ids(np, pre, post, conn, target_nodes)
-    chosen_set = set(int(i) for i in chosen.tolist())
+    chosen_set = {int(i) for i in chosen_ids}
+    chosen = np.fromiter(sorted(chosen_set), dtype=np.int64, count=len(chosen_set))
 
     in_pre = np.isin(pre, chosen)
     in_post = np.isin(post, chosen)
@@ -344,6 +357,24 @@ def run_ingest(
         node["flywire_id"] = fid
         nodes_out.append(node)
 
+    if io_channel is not None:
+        # Канал — контракт стимула и считывания; выпавший узел означает, что
+        # манифест обещает не то, что лежит в nodes.csv. Молча урезанный канал
+        # сделал бы гейт «успех вырос» измерением ни о чём.
+        present = {n["flywire_id"] for n in nodes_out}
+        wanted = {int(i) for i in io_channel["input_ids"]} | {int(i) for i in io_channel["output_ids"]}
+        absent = sorted(wanted - present)
+        if absent:
+            raise ValueError(
+                f"узлы канала не доехали до nodes.csv ({len(absent)}): {absent[:5]} — "
+                "канал нельзя записать частично"
+            )
+        io_channel = {
+            **io_channel,
+            "input_ids": [id_map[int(i)] for i in io_channel["input_ids"]],
+            "output_ids": [id_map[int(i)] for i in io_channel["output_ids"]],
+        }
+
     _write_nodes(out_dir / "nodes.csv", nodes_out)
     _write_edges(out_dir / "edges.csv", edges_out)
     (out_dir / "flywire_id_map.json").write_text(
@@ -355,11 +386,8 @@ def run_ingest(
         dataset_version=dataset_version,
         node_count=len(nodes_out),
         edge_count=len(edges_out),
-        subgraph_rule={
-            "rule_id": "degree-induced-subgraph",
-            "description": "top-N нейронов по суммарному числу синапсов; индуцированный набор рёбер.",
-            "target_node_count": int(target_nodes),
-        },
+        subgraph_rule=dict(subgraph_rule),
+        io_channel=io_channel,
         provenance=dict(provenance or DEFAULT_PROVENANCE),
     )
     (out_dir / "connectome_manifest.json").write_text(
@@ -370,11 +398,125 @@ def run_ingest(
     return {
         "node_count": len(nodes_out),
         "edge_count": len(edges_out),
-        "requested_target_nodes": int(target_nodes),
         "nodes_with_region": with_region,
         "region_coverage": round(with_region / len(nodes_out), 4) if nodes_out else 0.0,
         "out_dir": str(out_dir),
     }
+
+
+def run_ingest(
+    data_dir: str | Path,
+    out_dir: str | Path,
+    *,
+    target_nodes: int = 2000,
+    dataset_id: str = "flywire.fafb.v783",
+    dataset_version: str = "783",
+    provenance: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Декодирует вариант A, режет degree-induced подграф, пишет nodes/edges/manifest.
+
+    Возвращает сводку (node_count, edge_count, регион-покрытие, пути). Большие
+    файлы остаются в data/ (gitignore); производные — в out_dir (var/, gitignore).
+    """
+    data_dir = Path(data_dir)
+    ann = load_annotations_tsv(data_dir / FILE_CORES["annotations"])
+    regions = load_regions_csv(data_dir / FILE_CORES["regions"])
+    np, pre, post, conn, exc = _read_connectome_arrays(data_dir)
+
+    stats = _materialize(
+        Path(out_dir),
+        np=np, ann=ann, regions=regions, pre=pre, post=post, conn=conn, exc=exc,
+        chosen_ids=_top_degree_ids(np, pre, post, conn, target_nodes),
+        subgraph_rule={
+            "rule_id": "degree-induced-subgraph",
+            "description": "top-N нейронов по суммарному числу синапсов; индуцированный набор рёбер.",
+            "target_node_count": int(target_nodes),
+        },
+        io_channel=None,
+        dataset_id=dataset_id, dataset_version=dataset_version, provenance=provenance,
+    )
+    stats["requested_target_nodes"] = int(target_nodes)
+    return stats
+
+
+def run_role_ingest(
+    data_dir: str | Path,
+    out_dir: str | Path,
+    *,
+    input_classes: Sequence[str] = ("sensory", "ascending"),
+    output_classes: Sequence[str] = ("descending",),
+    max_hops: int = 1,
+    max_inputs: int = 300,
+    dataset_id: str = "flywire.fafb.v783",
+    dataset_version: str = "783",
+    provenance: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Подграф по пути вход → выход (ЭТАП 4, волна 6).
+
+    Не degree-топ: сенсорные узлы в нём не выживают (медиана 42 синапса, лучший
+    ранг 5704). Здесь семена — входы, у которых есть проводка к выходам; бюджет
+    считает ВХОДЫ, а не узлы. Канал (input_ids/output_ids в переиндексации
+    0..N-1) фиксируется в манифесте и замораживается до обучения: переопределить
+    его после прогона — значит померить другой эксперимент.
+
+    `max_hops=2` на этих данных насыщается (все 1299 нисходящих достижимы,
+    подграф ~13k узлов) — замер в docs/FLYWIRE_DATA.md, волна 6.
+    """
+    data_dir = Path(data_dir)
+    ann = load_annotations_tsv(data_dir / FILE_CORES["annotations"])
+    regions = load_regions_csv(data_dir / FILE_CORES["regions"])
+    np, pre, post, conn, exc = _read_connectome_arrays(data_dir)
+
+    ids = np.unique(np.concatenate([pre, post]))
+    classes = {
+        int(node_id): (_clean(ann.get(int(node_id), {}).get("super_class")) or None)
+        for node_id in ids.tolist()
+    }
+    channel = select_io_subgraph(
+        node_ids=ids.tolist(),
+        pre_ids=pre,
+        post_ids=post,
+        classes=classes,
+        input_classes=input_classes,
+        output_classes=output_classes,
+        max_hops=max_hops,
+        max_inputs=max_inputs,
+    )
+
+    in_roles = sorted({str(value).strip().lower() for value in input_classes if str(value).strip()})
+    out_roles = sorted({str(value).strip().lower() for value in output_classes if str(value).strip()})
+    stats = _materialize(
+        Path(out_dir),
+        np=np, ann=ann, regions=regions, pre=pre, post=post, conn=conn, exc=exc,
+        chosen_ids=channel.node_ids,
+        subgraph_rule={
+            "rule_id": "role-path-subgraph",
+            "description": (
+                f"входы ролей {'/'.join(in_roles)} с путём к выходам {'/'.join(out_roles)} "
+                f"за <= {int(max_hops)} шаг(ов); бюджет {int(max_inputs)} входов, узлы индуцированы"
+            ),
+        },
+        io_channel={
+            "rule_id": "role-path",
+            "input_classes": in_roles,
+            "output_classes": out_roles,
+            "max_hops": int(max_hops),
+            "max_inputs": int(max_inputs),
+            "input_ids": [int(i) for i in channel.inputs],
+            "output_ids": [int(i) for i in channel.outputs],
+            "intermediate_count": len(channel.intermediates),
+        },
+        dataset_id=dataset_id, dataset_version=dataset_version, provenance=provenance,
+    )
+    stats.update({
+        "selection": "role-path-subgraph",
+        "requested_max_inputs": int(max_inputs),
+        "max_hops": int(max_hops),
+        "io_inputs": len(channel.inputs),
+        "io_outputs": len(channel.outputs),
+        "io_intermediates": len(channel.intermediates),
+    })
+    return stats
 
 
 def _write_nodes(path: Path, nodes: list[dict[str, Any]]) -> None:

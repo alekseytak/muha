@@ -76,6 +76,28 @@
         "license": {"type": "string"},
         "reconstruction_confidence_threshold": {"type": "number"}
       }
+    },
+    "io_channel": {
+      "type": "object",
+      "description": "Замороженный канал стимула и считывания после reindex 0..N-1; отсутствует, если подграф резался без ролей.",
+      "required": [
+        "rule_id", "input_classes", "output_classes", "max_hops", "max_inputs",
+        "input_ids", "output_ids", "intermediate_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rule_id": {"type": "string"},
+        "input_classes": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "output_classes": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "max_hops": {"type": "integer", "minimum": 1},
+        "max_inputs": {"type": "integer", "minimum": 1},
+        "input_ids": {
+          "type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 1,
+          "description": "В порядке ранга (число различных достижимых выходов), а не по id."
+        },
+        "output_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 1},
+        "intermediate_count": {"type": "integer", "minimum": 0}
+      }
     }
   }
 }

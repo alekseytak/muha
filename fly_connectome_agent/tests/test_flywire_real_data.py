@@ -15,7 +15,7 @@ import pytest
 
 from fly_connectome_agent.src.science.graph.load_connectome import load_connectome
 from fly_connectome_agent.src.science.graph.shuffle_wiring import shuffled_wiring
-from fly_connectome_agent.src.science.ingest.flywire import run_ingest
+from fly_connectome_agent.src.science.ingest.flywire import run_ingest, run_role_ingest
 from fly_connectome_agent.src.science.learning.plasticity_sparse import (
     EdgeSparseSTDP,
     select_plastic_edges,
@@ -355,3 +355,46 @@ def test_stdp_na_peremeshannom_grafe_dvigaetsya_kak_na_realnom(tmp_path):
         ratios.append(abs(sum_dw(shuffled) - baseline) / baseline)
     # измерено <=5.2% при пороге 15% — запас троекратный
     assert max(ratios) < 0.15
+
+
+@requires_env
+def test_rolnoy_podgraf_fiksiruet_kanal_i_kanal_realen(tmp_path):
+    """Волна 6: подграф по пути вход -> выход и замороженный канал в манифесте.
+
+    Проверяется не только то, что отбор отработал, а то, что канал не
+    декларация: у каждого входа в файлах лежит синапс на объявленный выход.
+    """
+    jsonschema = pytest.importorskip("jsonschema")
+    stats = run_role_ingest(
+        DATA_DIR, tmp_path,
+        input_classes=("sensory",), output_classes=("descending",),
+        max_hops=1, max_inputs=60,
+    )
+    assert stats["io_inputs"] == 60
+    assert stats["io_outputs"] > 0
+
+    manifest = json.loads((tmp_path / "connectome_manifest.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, json.loads(SCHEMA_PATH.read_text(encoding="utf-8")))
+    channel = manifest["io_channel"]
+    assert channel["max_hops"] == 1 and channel["max_inputs"] == 60
+    assert channel["input_classes"] == ["sensory"]
+    assert channel["output_classes"] == ["descending"]
+    assert len(set(channel["input_ids"])) == 60
+    # сенсорных в степени-топ подграфе нет вовсе — тут они есть по построению
+    assert manifest["subgraph_rule"]["rule_id"] == "role-path-subgraph"
+
+    graph = load_connectome(
+        tmp_path / "nodes.csv",
+        tmp_path / "edges.csv",
+        manifest_path=tmp_path / "connectome_manifest.json",
+    )
+    ids = {node.node_id for node in graph.nodes}
+    assert set(channel["input_ids"]) <= ids
+    assert set(channel["output_ids"]) <= ids
+    assert all(
+        node.class_id == "sensory" for node in graph.nodes if node.node_id in set(channel["input_ids"])
+    )
+
+    outputs = set(channel["output_ids"])
+    incoming = {edge.source for edge in graph.edges if edge.target in outputs}
+    assert set(channel["input_ids"]) <= incoming
