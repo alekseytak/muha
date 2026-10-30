@@ -104,3 +104,25 @@ def graph_with_signed_weights(
         w_inh_max=w_inh_max,
     )
     return graph.copy_with_edges(graph.edges, weights=weights)
+
+
+def apply_synaptic_gain(graph: ConnectomeGraph, *, gain: float) -> ConnectomeGraph:
+    """Копия графа с синаптическим выигрышем, применённым к весам симуляции.
+
+    Разделение единиц. Нормированные веса ([-1, 1]) — валюта правила
+    пластичности: их нельзя выводить за границы, иначе STDP начнёт писать
+    запрещённые значения. gain — физический масштаб синаптической проводимости,
+    он решает, влияет ли проводка вообще на что-нибудь (при gain = 1 рекуррентный
+    ток ~2% шума, см. null волны 4). Знак, класс, топология и synapse_count
+    сохраняются, исходный граф не мутируется: обучение ведётся на нормированном
+    графе, сеть гоняется на усиленном.
+
+    fail-fast: gain обязан быть конечным числом строго больше нуля. Ноль убивает
+    синапсы, отрицательный переворачивает E/I, а NaN прошёл бы в солвер молча.
+    """
+    if not np.isfinite(gain) or gain <= 0.0:
+        raise ValueError(f"gain обязан быть конечным и больше нуля, получен {gain!r}")
+    weights = graph.weights * float(gain)
+    if not np.all(np.isfinite(weights)):
+        raise ValueError("усиленные веса перестали быть конечными")
+    return graph.copy_with_edges(graph.edges, weights=weights)
