@@ -75,7 +75,7 @@ def test_select_prunable_перестановочно_эквариантен_т�
 
 # --- default-off не двигает замороженный путь ------------------------------
 
-def test_floor_nоль_побитово_равен_замороженному_arm():
+def test_floor_nol_pobitovo_raven_zamorozhennomu_arm():
     r = toy.run_arm("plastic", "right", 500, settings=_tiny(), episodes=3)
     agent = toy.ToyAgent(learner_kind="stdp", init_regime="symmetric", seed=500,
                          reward_coupled=True, settings=_tiny())

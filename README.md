@@ -43,7 +43,7 @@ cd muha
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 
-./scripts/check.sh          # всё сразу: синтаксис + тесты + схемы манифестов
+./scripts/check.sh          # всё сразу: синтаксис + тесты + схемы манифестов + проза + журнал
 .venv/bin/python scripts/run_p4_validation.py --quick   # быстрый прогон 7 условий × 2 зеркальные задачи
 .venv/bin/python scripts/run_p4_validation.py --seeds 20 --probe   # полная матрица P4/P4.1, ~20 мин
 .venv/bin/python scripts/run_p4_validation.py --tasks mixed --seeds 20 --episodes 40   # смешанный поток
@@ -57,7 +57,7 @@ python3 -m venv .venv
 Отдельные шаги:
 
 ```bash
-.venv/bin/python -m pytest fly_connectome_agent/tests -q          # тесты агента (449)
+.venv/bin/python -m pytest fly_connectome_agent/tests -q          # тесты агента (531)
 .venv/bin/python -m pytest fly_connectome_agent/tests -q -k lif   # только LIF
 .venv/bin/python -m pytest fly_connectome_agent/tests -q -k stdp  # только обучение
 .venv/bin/python scripts/check_schemas.py                         # схемы манифестов
@@ -69,8 +69,14 @@ python3 -m venv .venv
 
 ## Состояние
 
-- Тесты агента: **449 зелёных**, пропущенных нет. Проверка схем — 5 проб,
+- Тесты агента: **531 зелёных**, пропущенных нет. Проверка схем — 5 проб,
   проверка синтаксиса — весь python, включая код внутри документации.
+- Два гейта, которых раньше не было: `scripts/check_prose.py` (в русскую прозу не
+  обязана просачиваться чужая письменность — иероглиф или латинская буква, похожая
+  на кириллическую) и `scripts/check_journal.py` (журнал решений обязан читаться).
+  Журнал `var/decisions.tsv` лежит в git отдельно от остального `var/`: одна строка
+  на решение, шесть колонок — что решено, зачем, чем проверено, что получилось.
+  Без него следующий агент принимает уже принятое заново.
 - Реализовано: граф коннектома с валидацией и подграфами, разреженный LIF
   (рефрактерность, шум, задержки, детерминированный повтор), разреженный
   reward-modulated STDP с модулятором, декодер действий, verb-act и gatekeeper
@@ -81,7 +87,7 @@ python3 -m venv .venv
 - Философские каналы (принципы 4/1/6 из `PHILOSOPHY.md`) — **выключенные по умолчанию**
   параметры `ToyAgent` (замороженный operating point P4.2 не тронут: при дефолтах путь
   байт-идентичен). Композиция трёх каналов направленно-независима (right/left/mixed ×
-  seedы), provenance-журнал хранит глагол совершённого действия (`verb_counts`).
+  seed), provenance-журнал хранит глагол совершённого действия (`verb_counts`).
   Exploratory-зонд (`scripts/run_exploratory_channel.py`): каналы живые, но их эффект на
   toy-метрике тонет в дисперсии и нестабилен по знаку между бюджетами — утилита ни не
   подтверждена, ни не опровергнута (честное «нет свидетельств», а не «нулевой эффект»).

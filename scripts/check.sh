@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Единая проверка репозитория МУХА: синтаксис, тесты агента, схемы манифестов.
+# Единая проверка репозитория МУХА: синтаксис, тесты агента, схемы манифестов, проза, журнал.
 #
 # Правило: проверка, которая не может упасть, бесполезна. Здесь каждый шаг
 # способен покраснеть, а итог — общий код возврата: 0 только если зелёное всё.
@@ -26,7 +26,7 @@ fails=0
 step() { printf '\n── %s\n' "$1"; }
 fail() { echo "  ПАДЕНИЕ: $1"; fails=$((fails + 1)); }
 
-step "1/3 синтаксис всего python (включая код внутри документации 01/02/03)"
+step "1/5 синтаксис всего python (включая код внутри документации 01/02/03)"
 if "$PY" -m compileall -q fly_connectome_agent 01-omega-archive 02-mirror-swarm 03-anuclear-rhizome >/dev/null; then
   echo "  компилируется чисто"
 else
@@ -34,22 +34,36 @@ else
   fail "часть файлов не компилируется"
 fi
 
-step "2/3 тесты агента (fly_connectome_agent/tests)"
+step "2/5 тесты агента (fly_connectome_agent/tests)"
 if "$PY" -m pytest fly_connectome_agent/tests -q 2>&1 | tail -4; then
   echo "  тесты прошли"
 else
   fail "тесты агента упали"
 fi
 
-step "3/3 схемы манифестов"
+step "3/5 схемы манифестов"
 if "$PY" scripts/check_schemas.py; then
   echo "  схемы в порядке"
 else
   fail "проверка схем упала"
 fi
 
+step "4/5 проза: без смешения письменностей"
+if "$PY" scripts/check_prose.py; then
+  echo "  проза в порядке"
+else
+  fail "в текст просочилась чужая письменность"
+fi
+
+step "5/5 журнал решений: схема из шести колонок"
+if "$PY" scripts/check_journal.py; then
+  echo "  журнал в схеме"
+else
+  fail "журнал нечитаем: строки вне схемы"
+fi
+
 if [ "$fails" -gt 0 ]; then
   printf '\nпровалено шагов: %s\n' "$fails"
   exit 1
 fi
-printf '\nвсё зелёное: синтаксис, тесты, схемы\n'
+printf '\nвсё зелёное: синтаксис, тесты, схемы, проза, журнал\n'

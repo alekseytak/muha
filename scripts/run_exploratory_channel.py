@@ -152,7 +152,7 @@ def main(argv=None) -> int:
     settings = ToySettings()  # замороженная рабочая точка P4; канал — только параметр агента
 
     print("=" * 80)
-    print("МУХA · EXPLORATORY-замер канала · arm=plastic · task=mixed")
+    print("МУХА · EXPLORATORY-замер канала · arm=plastic · task=mixed")
     print("  СТАТУС: НЕ confirmatory. Seed'ы %d..%d вне замороженного 0..179." % (seeds[0], seeds[-1]))
     print("  Каналы в проде ВЫКЛЮЧены по дефолту — этот прогон ничего не меняет в коде.")
     print("  episodes=%d sigma=%s alpha=%s eta=%s" % (args.episodes, settings.sigma, settings.alpha, settings.eta))

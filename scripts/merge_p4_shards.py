@@ -130,7 +130,7 @@ def verify_shard_provenance(shards: list[dict], shard_paths: list[pathlib.Path])
 
 
 def check_not_aborted(shards: list[dict]) -> None:
-    """Не merge-ить чанки от abortивного или неавторизованного протокола (#4).
+    """Не merge-ить чанки от прерванного или неавторизованного протокола (#4).
 
     Реестр FROZEN_PROTOCOLS — единственный источник статуса: манифест shard не
     может объявить свой прогон завершённым. Статус со слов 'aborted' и снятое
