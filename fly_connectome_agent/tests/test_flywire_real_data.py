@@ -76,12 +76,13 @@ def test_real_manifest_valid_po_skhe_konnektoma(tmp_path):
 
 @requires_env
 def test_real_podgraf_gonit_snn_bez_nan_seyzima_i_vsyo_bez_molchania(tmp_path):
-    """Волна 2: реальный FlyWire-подграф реально крутит SparseLIF.
+    """Волна 2: реальный FlyWire-подграф реально крутит SparseLIF (5 seeds).
 
     Утверждаем ТОЛЬКО safety-инварианты из validation_plan §6 и инженерную
     полосу частот [1, 20] Hz (engineering target, не биологический факт).
     Знак весов — из данных (edge_class); масштаб и шум sigma=3 — модельные
-    инженерные константы (см. weights_policy).
+    инженерные константы (см. weights_policy). Пороги — грубые инженерные
+    границы, а не подгонка под измеренное (меры 2.9-3.2 Hz на пяти seeds).
     """
     import numpy as np
 
@@ -97,21 +98,22 @@ def test_real_podgraf_gonit_snn_bez_nan_seyzima_i_vsyo_bez_molchania(tmp_path):
     assert np.max(np.abs(signed.weights)) <= 1.0  # границы пластичности STDPParams
 
     n_steps = 1000
-    result = simulate_lif(
-        signed, n_steps=n_steps, params=LIFParams(sigma=3.0), seed=7, record=True
-    )
-    # 1) конечность: ни NaN, ни inf нигде в состояниях
-    assert np.all(np.isfinite(result["V_hist"]))
-    assert np.all(np.isfinite(result["I_hist"]))
-
-    spikes = result["spikes_hist"]
     total_time_s = n_steps * 1.0 / 1000.0
-    rates_hz = spikes.sum(axis=0) / total_time_s
+    # validation_plan: для утверждений нужно >=5 seeds — держим нижнюю границу
+    for seed in [7, 13, 21, 42, 99]:
+        result = simulate_lif(
+            signed, n_steps=n_steps, params=LIFParams(sigma=3.0), seed=seed, record=True
+        )
+        # 1) конечность: ни NaN, ни inf нигде в состояниях
+        assert np.all(np.isfinite(result["V_hist"])), f"seed={seed}"
+        assert np.all(np.isfinite(result["I_hist"])), f"seed={seed}"
 
-    # 2) не «всё молчит»: есть хотя бы один спайк и популяционная активность
-    assert spikes.sum() > 0
-    mean_rate = float(rates_hz.mean())
-    assert 1.0 <= mean_rate <= 20.0  # engineering target, см. validation_plan §6
+        spikes = result["spikes_hist"]
+        rates_hz = spikes.sum(axis=0) / total_time_s
 
-    # 3) no runaway: ни один нейрон не уходит в припадочный режим
-    assert float(rates_hz.max()) < 100.0
+        # 2) не «всё молчит»: есть хотя бы один спайк и популяционная активность
+        assert spikes.sum() > 0, f"seed={seed}"
+        assert 1.0 <= float(rates_hz.mean()) <= 20.0, f"seed={seed}"  # engineering target
+
+        # 3) no runaway: ни один нейрон не уходит в припадочный режим
+        assert float(rates_hz.max()) < 100.0, f"seed={seed}"
