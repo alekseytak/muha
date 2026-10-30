@@ -15,7 +15,11 @@ import pytest
 
 from fly_connectome_agent.src.science.graph.load_connectome import load_connectome
 from fly_connectome_agent.src.science.ingest.flywire import run_ingest
-from fly_connectome_agent.src.science.snn.lif_sparse import LIFParams, simulate_lif
+from fly_connectome_agent.src.science.learning.plasticity_sparse import (
+    EdgeSparseSTDP,
+    select_plastic_edges,
+)
+from fly_connectome_agent.src.science.snn.lif_sparse import LIFParams, SparseLIF, simulate_lif
 from fly_connectome_agent.src.science.snn.weights_policy import graph_with_signed_weights
 
 AGENT = pathlib.Path(__file__).resolve().parent.parent
@@ -161,3 +165,64 @@ def test_bazlayn_syrie_counts_vyvodit_seizim_policy_derzhit_polosu(tmp_path):
         assert float(rr.mean()) > 100.0, f"seed={seed}: raw {rr.mean()}"
         # разрыв измерен: минимум десятикратный (240 vs ~3 Hz) — не пограничный случай
         assert float(rr.mean()) > 10.0 * float(rp.mean()), f"seed={seed}"
+
+
+@requires_env
+def test_stdp_na_realnym_podgrafe_derzhit_granicy_i_repleyayetsya(tmp_path):
+    """Волна 3: reward-modulated STDP в замкнутом цикле на реальном подграфе.
+
+    Уровень simulation_result: пластичность крутится на реальной структуре,
+    знаки/границы соблюдены, replay детерминирован, после обучения сеть
+    остаётся в инженерной полосе. Утверждения «обучение улучшает задачу»
+    здесь НЕТ — это ЭТАП 4 с полигоном и базлайнами.
+    """
+    import numpy as np
+
+    run_ingest(DATA_DIR, tmp_path, target_nodes=300)
+    graph = load_connectome(
+        tmp_path / "nodes.csv",
+        tmp_path / "edges.csv",
+        manifest_path=tmp_path / "connectome_manifest.json",
+    )
+    signed = graph_with_signed_weights(graph)
+
+    plastic_idx = select_plastic_edges(signed)
+    # в реальных данных есть конфликтные NT↔edge_class и модуляторные NT —
+    # значит plastic-подмножество строгое, но непустое
+    assert 0 < len(plastic_idx) < graph.n_edges
+    # fail-fast EdgeSparseSTDP не срабатывает: селектор пропустил только согласованные
+    cls_plastic = np.array([str(signed.edge_classes[i]).lower() for i in plastic_idx])
+    assert np.all(np.isin(cls_plastic, ["excitatory", "inhibitory"]))
+
+    def closed_loop(seed: int, n_steps: int) -> np.ndarray:
+        stdp = EdgeSparseSTDP(signed, plastic_idx)
+        net = SparseLIF(signed, LIFParams(sigma=3.0), seed=seed)
+        for _ in range(n_steps):
+            spikes = net.step()
+            stdp.update(spikes, spikes, modulator=1.0)
+        assert np.all(np.isfinite(net.V))
+        return stdp.get_weights()
+
+    w_final = closed_loop(seed=7, n_steps=500)
+    w_init = signed.weights[plastic_idx]
+
+    # конечность и границы: знак каждого plastic-ребра сохранён, |w| <= 1.0
+    assert np.all(np.isfinite(w_final))
+    exc = cls_plastic == "excitatory"
+    inh = ~exc
+    assert np.all(w_final[exc] >= 0.0) and np.all(w_final[exc] <= 1.0)
+    assert np.all(w_final[inh] <= 0.0) and np.all(w_final[inh] >= -1.0)
+    # обучение реально произошло: часть сдвигов не нулевая (замер: >50% рёбер)
+    assert np.any(w_final != w_init)
+    # детерминизм: повторный прогон с тем же seed даёт побитово те же веса
+    assert np.array_equal(w_final, closed_loop(seed=7, n_steps=500))
+
+    # послеобученная устойчивость: выученные веса обратно в граф → §6-инварианты
+    full = signed.weights.copy()
+    full[plastic_idx] = w_final
+    learned = signed.copy_with_edges(signed.edges, weights=full)
+    result = simulate_lif(learned, n_steps=500, params=LIFParams(sigma=3.0), seed=11, record=True)
+    assert np.all(np.isfinite(result["V_hist"]))
+    rates_hz = result["spikes_hist"].sum(axis=0) / 0.5
+    assert 1.0 <= float(rates_hz.mean()) <= 20.0
+    assert float(rates_hz.max()) < 100.0

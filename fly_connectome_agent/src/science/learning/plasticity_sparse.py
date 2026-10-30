@@ -41,6 +41,35 @@ _EXC_NTX = {"glutamate", "acetylcholine"}
 _INH_NTX = {"gaba", "glycine"}
 
 
+def select_plastic_edges(graph: ConnectomeGraph) -> np.ndarray:
+    """Индексы рёбер, годных для MVP-пластичности на реальном коннектоме.
+
+    Кандидат = ребро, где:
+    1) NT известен (после strip/lower попадает в _EXC_NTX или _INH_NTX), и
+    2) выводимый NT знак СОВПАДАЕТ с edge_class (данные колонки в FlyWire
+       согласованы не везде: GABA|excitatory, glutamate|inhibitory).
+
+    Всё прочее (модуляторные 5-HT/DA/OA, неизвестный/пустой NT, пустой
+    edge_class, конфликт знака) остаётся структурным — ребро не проходит в
+    EdgeSparseSTDP, поэтому его fail-fast по unknown NT не срабатывает.
+    Чистая функция, порядок детерминированный (возрастающие индексы).
+    """
+    def _norm(value) -> str:
+        return str(value).strip().lower() if value is not None else ""
+
+    selected: list[int] = []
+    for i, (ntx, edge_class) in enumerate(zip(graph.edge_neurotransmitters, graph.edge_classes)):
+        ntx_norm = _norm(ntx)
+        class_norm = _norm(edge_class)
+        if not ntx_norm or not class_norm:
+            continue
+        if ntx_norm in _EXC_NTX and class_norm == "excitatory":
+            selected.append(i)
+        elif ntx_norm in _INH_NTX and class_norm == "inhibitory":
+            selected.append(i)
+    return np.asarray(selected, dtype=np.int64)
+
+
 @dataclass
 class PlasticityDiagnostics:
     """Diagnostics output from a single STDP step."""
