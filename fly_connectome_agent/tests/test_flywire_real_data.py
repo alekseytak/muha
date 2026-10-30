@@ -117,3 +117,47 @@ def test_real_podgraf_gonit_snn_bez_nan_seyzima_i_vsyo_bez_molchania(tmp_path):
 
         # 3) no runaway: ни один нейрон не уходит в припадочный режим
         assert float(rates_hz.max()) < 100.0, f"seed={seed}"
+
+
+@requires_env
+def test_bazlayn_syrie_counts_vyvodit_seizim_policy_derzhit_polosu(tmp_path):
+    """Волна 2, сравнительный базлайн: тот же граф, те же seeds, два arms.
+
+    Сырые synapse_counts (наивный фолбэк ConnectomeGraph без weights_policy)
+    садят сеть на рефрактерный потолок: mean ~240 Hz, max ~325 Hz на всех
+    пяти seeds. Полоса [1, 20] Hz у policy-весов при этом держится.
+    Тест ловит ИМЕННО scale-cap политики; знак при таких магнитудах
+    измеримого эффекта на safety-статистику не дал (null-результат, см.
+    FLYWIRE_DATA.md) — специально не утверждаем обратного.
+
+    Уровень: engineering_performance (парное сравнение двух модельных весов).
+    """
+    import numpy as np
+
+    run_ingest(DATA_DIR, tmp_path, target_nodes=300)
+    graph = load_connectome(
+        tmp_path / "nodes.csv",
+        tmp_path / "edges.csv",
+        manifest_path=tmp_path / "connectome_manifest.json",
+    )
+    # наивный путь: веса = сырые counts (фолбэк models.py), знак теряется сам собой
+    assert np.array_equal(graph.weights, graph.synapse_counts)
+    signed = graph_with_signed_weights(graph)
+
+    for seed in [7, 13, 21, 42, 99]:
+        params = LIFParams(sigma=3.0)
+        res_policy = simulate_lif(signed, n_steps=1000, params=params, seed=seed, record=True)
+        res_raw = simulate_lif(graph, n_steps=200, params=params, seed=seed, record=True)
+
+        # численная устойчивость симулятора держится в обоих arms (ловим здесь, а не в весах)
+        assert np.all(np.isfinite(res_raw["V_hist"])), f"seed={seed}"
+        assert np.all(np.isfinite(res_policy["V_hist"])), f"seed={seed}"
+
+        rp = res_policy["spikes_hist"].sum(axis=0) / (1000 * 1.0 / 1000.0)
+        rr = res_raw["spikes_hist"].sum(axis=0) / (200 * 1.0 / 1000.0)
+
+        # policy — в инженерной полосе; сырые counts — припадочная сатурация
+        assert 1.0 <= float(rp.mean()) <= 20.0, f"seed={seed}: policy {rp.mean()}"
+        assert float(rr.mean()) > 100.0, f"seed={seed}: raw {rr.mean()}"
+        # разрыв измерен: минимум десятикратный (240 vs ~3 Hz) — не пограничный случай
+        assert float(rr.mean()) > 10.0 * float(rp.mean()), f"seed={seed}"
