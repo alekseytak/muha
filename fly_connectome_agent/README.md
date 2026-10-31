@@ -205,7 +205,8 @@ its sign is stable while its size is not. Result:
 and report with `scripts/run_p4_loop.py --confirm --neuron-credit 0.5` and
 `scripts/report_p4_5_neuron_credit_amplitude.py`.
 
-`P4.6 v6 — CREDIT DELIVERY TIMING (pre-registered, smoke/pilot/confirmatory pending)`:
+`P4.6 v6 — CREDIT DELIVERY TIMING (pre-registered; smoke OK, pilot BLOCKED on its
+own mechanism veto, confirmatory not run)`:
 the closed line was the *form* of the third component, the working rule is the v1
 scalar, and every wave so far delivered the modulator in the same instant as the
 action. v6 moves one variable only — when credit arrives.
@@ -242,3 +243,29 @@ A nor B is read as a timing effect. Protocol, frozen manifest (sha256
 [docs/p4_6_credit_delay_protocol.md](docs/p4_6_credit_delay_protocol.md); run with
 `scripts/run_p4_loop.py --confirm --credit-delay 0|20|80` and report with
 `scripts/report_p4_6_credit_delay.py`.
+
+Smoke (burned seed 7, 5 episodes): at D = 0 all three arms are bit-identical (the
+three TSVs share one md5) with `deliveries = decisions` and no tail; the frozen arm
+tracks the declared amplitude to +0.13% at D = 20 (0.7798 against 0.7788) and +0.25%
+at D = 80 (0.3688 against 0.3679), while the live arm at D = 80 keeps 1.025 of the
+immediate credit — the trace refills with the spikes of the delay interval, so a delay
+here costs address, not amplitude. Pilot (burned seed 182, 500 episodes, two
+invocations because `plastic` cannot carry a nonzero delay): feasibility gates pass —
+first-block success 0.350 / 0.390 / 0.270 for `plastic` / `delay_live` / `delay_frozen`
+all inside [0.2, 0.7], at most 0.022 at bound, both verbs alive at 477 and 449 in the
+last 100, zero violations and denials, `deliveries = decisions - 1` in the delay cells.
+The fourth, mechanical criterion failed as declared by its own veto: measured
+last-100 `mean|Δw|` of `delay_frozen` over `plastic` is 0.2704 against the predicted
+0.3679, outside the ±15% band. The confirmatory run was therefore not started and no
+fresh seed was burned. Diagnosis recorded before any further number: H4 compares two
+*policies that have diverged* (the frozen arm learns far less, Δ +0.160 against
++0.360, and delivers into a different eligibility mass), while the exact identity
+pinned by unit tests is within one delivery; a cross-arm ratio is not a constant of
+the mechanism at any correctness, so it was the wrong thing to gate on. What the
+pilot does hint at, on one burned seed and not as evidence: at D = 80 the live arm
+learns *better* than immediate delivery (0.390 → 0.970 against 0.350 → 0.710), which
+points at row 4 of the declared table. Next: P4.6 v2 pre-registers a within-cell
+mechanism gate (delivered frozen credit against the same credit applied at the action
+moment, expected `exp(-D/τ)` to numerical precision), keeps the cross-arm ratio as
+diagnostic C, and moves to fresh seeds; the manifest was not edited after the pilot
+and the v1 pilot numbers are not reused as evidence.
