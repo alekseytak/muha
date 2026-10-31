@@ -1,13 +1,17 @@
-"""Тесты контрастной модуляции по пулам (P4.3 v2).
+"""Тесты контрастной модуляции по пулам (P4.3 v2 и абляция v3).
 
 Правило v2: проигравший пул учится в том же направлении, но медленнее
 (`M_loser = (1−κ)·M`), а не с обратным знаком: пилот с `−κM` развернул чтение.
-Поэтому проверяется ровно три вещи:
+Абляция v3 делит это правило по знаку кредита: `pool_pos` ослабляет
+проигравшего только на подкрепляющих шагах, `pool_neg` — только на
+наказывающих. Поэтому проверяется ровно пять вещей:
 
 - величина M на рёбрах пула-победителя и пула-проигравшего;
 - знак кредита не инвертируется ни на одном ребре;
-- при kappa=0 рука `pool` обязана быть бит-в-бит равна v1 (`plastic`), иначе
-  сравнение двух правил смешивается с посторонней правкой.
+- каждая рука включает контраст только на своём знаке M;
+- при kappa=0 все три руки обязаны быть бит-в-бит равны v1 (`plastic`), иначе
+  сравнение правил смешивается с посторонней правкой;
+- режим руки (`always`/`positive`/`negative`) объявлен в одном месте.
 """
 import numpy as np
 import pytest
@@ -141,12 +145,57 @@ def test_ravenstvo_i_chuzhaya_ruka_ne_vklyuchayut_kontrast():
 
 def test_kappa_nol_daet_te_zhe_vesa_chto_v1():
     v1 = make_agent("plastic")
-    v2 = make_agent("pool", pool_contrast=0.0)
-
     v1.run(episodes=1)
-    v2.run(episodes=1)
 
-    assert np.array_equal(v1.learner.get_weights(), v2.learner.get_weights())
+    for arm in ("pool", "pool_pos", "pool_neg"):
+        agent = make_agent(arm, pool_contrast=0.0)
+        agent.run(episodes=1)
+        assert np.array_equal(v1.learner.get_weights(), agent.learner.get_weights()), arm
+
+
+def test_polozhitelnyy_kontrast_ne_trogaet_otricatelnyy_kredit():
+    agent = make_agent("pool_pos", pool_contrast=0.5)
+    post = agent.learner.edge_index[:, 1]
+    left = np.isin(post, agent.channel.outputs_left)
+    right = np.isin(post, agent.channel.outputs_right)
+
+    M = agent._edge_modulator(4.0, "move_left")
+    assert M is not None
+    assert np.all(M[left] == 4.0)
+    assert np.all(M[right] == 2.0)
+
+    assert agent._edge_modulator(-1.0, "move_left") is None
+    assert agent._edge_modulator(0.0, "move_left") is None
+
+
+def test_otricatelnyy_kontrast_zerkalno_polozhitelnomu():
+    agent = make_agent("pool_neg", pool_contrast=0.5)
+    post = agent.learner.edge_index[:, 1]
+    left = np.isin(post, agent.channel.outputs_left)
+    right = np.isin(post, agent.channel.outputs_right)
+
+    assert agent._edge_modulator(4.0, "move_right") is None
+    assert agent._edge_modulator(0.0, "move_right") is None
+
+    M = agent._edge_modulator(-2.0, "move_right")
+    assert M is not None
+    assert np.all(M[right] == -2.0)
+    assert np.all(M[left] == -1.0)
+    assert np.all(np.sign(M) * np.sign(-2.0) >= 0)
+
+
+def test_rezhim_kontrasta_obyavlen_dlya_kazhdoy_ruki():
+    from fly_connectome_agent.src.engineering.harness.snn_corridor import POOL_ARMS
+
+    assert POOL_ARMS == {"pool": "always", "pool_pos": "positive", "pool_neg": "negative"}
+    for arm, mode in POOL_ARMS.items():
+        assert make_agent(arm, pool_contrast=0.5).pool_when == mode
+    assert make_agent("plastic").pool_when == "always"
+
+
+def test_kazhdaya_ruka_kontrasta_est_v_arms():
+    for arm in ("pool", "pool_pos", "pool_neg"):
+        assert arm in ARMS
 
 
 def test_kappa_ogranichena_diapazonom():

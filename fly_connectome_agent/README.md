@@ -109,8 +109,31 @@ reward — on rewarded steps the loser is attenuated (preference toward the winn
 on punished steps it is punished less (preference toward the loser). Measured on
 10 episodes of the treatment arm, 26.7% of steps carry `M < 0`; why the positive
 majority does not compensate is left to an ablation (contrast only when `M > 0`),
-declared as the next pre-registration rather than applied to v2. The pilot on a
+declared as the next pre-registration rather than applied to v2; that ablation is
+the v3 entry below. The pilot on a
 burned seed had shown the same direction and κ was not retuned after it. Protocol,
 pilot and result:
 [docs/p4_3_v2_pool_protocol.md](docs/p4_3_v2_pool_protocol.md); run and report
 with `scripts/run_p4_loop.py --confirm --kappa 0.5` and `scripts/report_p4_3_v2.py`.
+
+`P4.3 v3 — CREDIT-SIGN ABLATION (pre-registered, negative result)`:
+splits the same κ = 0.5 contrast by the sign of the modulator — `pool_pos` applies it
+only on rewarded steps (M > 0), `pool_neg` only on punished steps (M < 0), and the
+other sign falls back to the v1 scalar. 500 episodes × 3 fresh seeds (401/411/421),
+5 arms, 15 cells. `pool_pos` does not learn: 0.310/0.370/0.320 → 0.290/0.130/0.220,
+Δ −0.020/−0.240/−0.100, verb accuracy 0.769→0.766, 0.781→0.717, 0.762→0.742,
+20–28 wall bumps. `pool_neg` matches the v1 control: Δ +0.520/+0.470/+0.560 against
++0.510/+0.480/+0.590, paired difference −0.01/+0.01/−0.03, accuracy +13.9/+10.4/+15.7
+pp, zero bumps. Frozen topology stays flat, oracle 1.000, gates G1–G8 pass, verdict
+rc=1 (H1–H4 NOT PASSED). The measured `mean_abs_dw` in the last 100 episodes is
+2.1–2.4·10⁻⁴ for `pool_pos` against 4.2–4.8·10⁻⁴ for both other arms, and `stay` is
+17/16/14 against 3/6/3: halving the credit on ~45% of edges on most steps removes half
+the learning and the policy never forms. So the damage of v2 came from the rewarded
+steps, attenuation on punished steps is neutral, and pool contrast is rejected as a
+fix in both forms. The productive signal here is the absolute amount of credit on the
+stimulated path, not the ratio between pools; the v1 scalar remains the working rule.
+The next candidate is per-neuron credit, which needs its own pre-registration. Protocol,
+pilot and result:
+[docs/p4_3_v3_credit_sign_ablation.md](docs/p4_3_v3_credit_sign_ablation.md); run and
+report with `scripts/run_p4_loop.py --confirm --kappa 0.5` and
+`scripts/report_p4_3_v3.py`.

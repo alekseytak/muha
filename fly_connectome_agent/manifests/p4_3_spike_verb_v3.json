@@ -1,0 +1,245 @@
+{
+  "manifest_version": "1.0.0",
+  "protocol_id": "p4.3.spike-verb.credit-sign.v3",
+  "created_at": "2026-10-31T03:20:00Z",
+  "pre_registered": true,
+  "supersedes": "p4.3.spike-verb.pool.v2",
+  "claims_allowed": [
+    "simulation_result",
+    "engineering_performance"
+  ],
+  "question": "В каком канале контраст по пулам вредит: на подкрепляющих шагах (M > 0) или на наказывающих (M < 0)? Даёт ли контраст только на подкрепляющих шагах прирост больше скаляра v1 — и является ли он починкой?",
+  "frozen_inputs": {
+    "graph": "var/flywire-role",
+    "graph_provenance": "волна 6 (коммит a536977): подграф по пути вход->выход, 1515 узлов / 58 674 ребра, io_channel в манифесте",
+    "channel": {
+      "inputs_left": 138,
+      "inputs_right": 162,
+      "outputs_left": 596,
+      "outputs_right": 611
+    },
+    "plastic_edges": 47845,
+    "plastic_edge_rule": "select_plastic_edges: NT известен и его знак совпадает с edge_class",
+    "pool_edges": {
+      "into_outputs_left": 20598,
+      "into_outputs_right": 22924,
+      "outside_both_pools": 4323,
+      "overlap": 0,
+      "note": "Контраст действует только на рёбра проигравшего пула; остальные, включая 4323 ребра вне обоих пулов, учатся по скаляру v1."
+    }
+  },
+  "seed_sets": {
+    "confirmatory": {
+      "id": "p4_3_v3_confirmatory",
+      "values": [401, 411, 421],
+      "count": 3
+    },
+    "burned": [
+      {
+        "id": "p4_3_v3_pilot",
+        "values": [182],
+        "note": "Пилот двух рук абляции на рабочей точке. Seed сожжён: числа пилота не входят в гипотезы и не подтверждают ничего. Пилот — проверка отсутствия коллапса и насыщения, не оценка эффекта; его критерии и результат записаны в протоколе до подтверждающего прогона."
+      },
+      {
+        "id": "p4_3_v2_pilot",
+        "values": [181, 182],
+        "note": "Пилот правила v2 (обе версии контраста)."
+      },
+      {
+        "id": "p4_3_pilot",
+        "values": [181, 182],
+        "note": "Пилот рабочей точки и первый пилот v1."
+      },
+      {
+        "id": "p4_3_confirmatory",
+        "values": [201, 211, 223],
+        "note": "Подтверждение v1. В v3 не переиспользуются: сравнение правил идёт на свежих seed'ах."
+      },
+      {
+        "id": "p4_3_v2_confirmatory",
+        "values": [301, 311, 323],
+        "note": "Подтверждение v2. В v3 не переиспользуются: числа v2 остаются на своих seed'ах и с числами v3 не смешиваются."
+      },
+      {
+        "id": "p4_2_and_earlier",
+        "range": [0, 179],
+        "note": "0–119 заняты P4.1/P4.2, 120–179 — отменённым P4.2.v2 (см. p4_2_v1_burned_seeds.json)."
+      }
+    ]
+  },
+  "operating_point": {
+    "values": {
+      "episodes": 500,
+      "window_steps": 100,
+      "i_drive": 20.0,
+      "gain": 6.0,
+      "sigma": 3.0,
+      "eta": 0.03,
+      "pool_contrast": 0.5,
+      "tau_eligibility": 80.0,
+      "coherence_gain": 0.0,
+      "policy_penalty": 1.0,
+      "m_max": 10.0,
+      "alpha": 1.0,
+      "delta": 1.0,
+      "epsilon": 0.0,
+      "zeta": 0.0,
+      "max_decisions": 12,
+      "width": 7,
+      "height": 7,
+      "start": [1, 1],
+      "heading": 0,
+      "target": [5, 5],
+      "target_reward": 10.0,
+      "wall_penalty": -1.0,
+      "shaping_scale": 1.0
+    },
+    "derivation": {
+      "inherited_from_v1_and_v2": "Все числа, включая kappa=0.5, взяты из p4.3.spike-verb.pool.v2 без изменений. Абляция меняет только то, на каких шагах включается уже объявленное правило: иначе сравнение с v1 и v2 смешалось бы с изменением физики или силы контраста.",
+      "why_ablation_and_not_retune": "v2 проиграла скаляру v1 на всех трёх seed'ах. Повторять v2 с другим kappa нельзя: это была бы подгонка под наблюдённый результат. Абляция делит тот же контраст по знаку кредита и оставляет kappa объявленным.",
+      "pilot_declared_before_run": "Пилот на сожжённом seed'е 182 проверяет только отсутствие коллапса пула и насыщения весов у обеих рук: success первых 100 в [0.2, 0.7], у границы <= 0.5, в последних 100 эпизодах каждый из глаголов влево/вправо >= 20. Это проверка выполнимости, а не оценка эффекта; точечные числа пилота не используются в гипотезах. Результат пилота записывается в протокол, манифест после этого не меняется.",
+      "sign_channel_arithmetic": "При M > 0 ослабление проигравшего (1-kappa)M повышает относительное предпочтение победителя — это задуманный механизм. При M < 0 то же ослабление уменьшает наказание проигравшего, то есть повышает его относительное предпочтение, — побочный эффект, противоположный задуманному. Поэтому направление эффекта зависит от знака кредита, и канал измеряется отдельной рукой."
+    }
+  },
+  "perception": {
+    "rule": "bearing == left -> i_drive на inputs_left; bearing == right -> i_drive на inputs_right; ahead/behind -> входы не зажигаются",
+    "note": "Одинаково для всех рук. bearing — восприятие, не команда: среда не сообщает, какое действие верное."
+  },
+  "action": {
+    "rule": "За окно считаются спайки в пулах outputs_left/outputs_right; глагол = пул с большим счётом; равенство -> stay",
+    "verbs": {
+      "move_left": "поворачивает_налево",
+      "move_right": "поворачивает_направо",
+      "stay": "идёт_прямо"
+    },
+    "note": "Действие не назначается: оно читается из спайков. Оракул — единственная рука, где действие берётся из bearing."
+  },
+  "modulator": {
+    "formula": "M = alpha*task_reward - delta*policy_violation + epsilon*coherence",
+    "values": {"alpha": 1.0, "delta": 1.0, "epsilon": 0.0, "zeta": 0.0},
+    "pool_rule": {
+      "winner": "M",
+      "loser": "(1-kappa)*M",
+      "outside_both_pools": "M",
+      "tie_or_stay": "M на всех рёбрах",
+      "winner_source": "прочитанный глагол (proposal.action_type), не bearing",
+      "note": "Знак кредита сохраняется при любом M во всех руках. Победитель не подкрепляется сильнее v1: ослабляется только проигравший, поэтому kappa=0 тождественно v1."
+    },
+    "ablation_by_credit_sign": {
+      "pool_pos": "поправка проигравшего включается только при M > 0",
+      "pool_neg": "поправка проигравшего включается только при M < 0",
+      "other_sign": "скаляр v1: все рёбра получают M",
+      "zero_and_tie": "M = 0, stay и равенство счётов дают скаляр v1 (поправка тождественна)"
+    }
+  },
+  "arms": [
+    {"arm_id": "pool_pos", "learner": "stdp", "reward_coupled": true, "pool_when": "positive", "role": "treatment_v3", "gate": "required"},
+    {"arm_id": "pool_neg", "learner": "stdp", "reward_coupled": true, "pool_when": "negative", "role": "ablation_channel", "gate": "required"},
+    {"arm_id": "plastic", "learner": "stdp", "reward_coupled": true, "pool_when": "always", "role": "paired_control_v1", "gate": "required"},
+    {"arm_id": "no_plasticity", "learner": "none", "reward_coupled": true, "pool_when": "always", "role": "topology_control", "gate": "required"},
+    {"arm_id": "oracle", "learner": "none", "reward_coupled": false, "pool_when": "always", "role": "upper_bound_characterization", "gate": "none"}
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "kind": "required",
+      "statement": "У руки pool_pos success_rate последних 100 эпизодов выше, чем первых 100, на каждом из трёх seed'ов.",
+      "endpoint": "success_last_minus_first",
+      "direction": "greater"
+    },
+    {
+      "id": "H2",
+      "kind": "required",
+      "statement": "Прирост pool_pos больше прироста plastic (скаляр v1) на том же seed'е: контраст на подкрепляющих шагах даёт больше, чем общая возбудимость.",
+      "endpoint": "delta_pool_pos_minus_delta_plastic",
+      "direction": "greater"
+    },
+    {
+      "id": "H3",
+      "kind": "required",
+      "statement": "Прирост pool_pos больше прироста pool_neg на том же seed'е: вред локализован в канале наказания.",
+      "endpoint": "delta_pool_pos_minus_delta_pool_neg",
+      "direction": "greater"
+    },
+    {
+      "id": "H4",
+      "kind": "mechanism",
+      "statement": "Точность глагола на бортах растёт у pool_pos на всех seed'ах, а прирост у no_plasticity не превышает четверти прироста pool_pos на том же seed'е.",
+      "endpoint": "decision_accuracy_last_minus_first",
+      "direction": "greater",
+      "relative_threshold": 0.25,
+      "note": "Порог величины эффекта объявлен до прогона: без него H4 проваливается на разбросе заморозки в доли процентного пункта."
+    },
+    {
+      "id": "H5",
+      "kind": "characterization",
+      "statement": "Насколько pool_pos отличается от plastic, pool_neg и oracle по абсолютному success последних 100. Не гейт.",
+      "endpoint": "success_last_differences",
+      "direction": "difference"
+    }
+  ],
+  "statistics": {
+    "unit_of_observation": "seed",
+    "n_seeds": 3,
+    "blocks": "первые 100 и последние 100 эпизодов из 500",
+    "claim": "descriptive",
+    "note": "При n=3 парный знаковый тест даёт минимальное p=0.125 и значимости не достигает. H1–H3 считаются подтверждёнными, если знак совпал на всех трёх seed'ах, и формулируются как описание эффекта. Эпизоды внутри seed'а не увеличивают n."
+  },
+  "guards": [
+    {
+      "id": "G1",
+      "name": "difficulty_band",
+      "rule": "success первых 100 эпизодов у pool_pos лежит в [0.2, 0.7]",
+      "on_fail": "прогон неинформативен (пол/потолок), H1 не интерпретируется"
+    },
+    {
+      "id": "G2",
+      "name": "saturation",
+      "rule": "доля весов на границе в конце последнего эпизода <= 0.5 у pool_pos и pool_neg",
+      "on_fail": "обучение насыщено, H1 не интерпретируется как обучение политики"
+    },
+    {
+      "id": "G3",
+      "name": "governance",
+      "rule": "governance_violations == 0 и denied == 0 на всех клетках",
+      "on_fail": "прогон недействителен"
+    },
+    {
+      "id": "G4",
+      "name": "numerics",
+      "rule": "нет NaN/Inf в reward и mean_abs_dw",
+      "on_fail": "прогон недействителен"
+    },
+    {
+      "id": "G5",
+      "name": "oracle_ceiling",
+      "rule": "у oracle success последних 100 эпизодов == 1.0",
+      "on_fail": "среда или ворота сломаны, сравнение недействительно"
+    },
+    {
+      "id": "G6",
+      "name": "pool_not_collapsed",
+      "rule": "в последних 100 эпизодах pool_pos каждый из глаголов влево/вправо встречается >= 20 раз на seed",
+      "on_fail": "пул схлопнулся, H2/H3 не интерпретируются; результат публикуется как есть"
+    },
+    {
+      "id": "G7",
+      "name": "rule_identity",
+      "rule": "pool_contrast в мете клеток равен объявленному, а при kappa=0 каждая рука контраста совпадает с plastic бит-в-бит",
+      "on_fail": "прогон сделан не тем правилом, которое объявлено"
+    },
+    {
+      "id": "G8",
+      "name": "arm_mode_identity",
+      "rule": "pool_when в мете каждой клетки совпадает с объявленным для её руки (positive/negative/always)",
+      "on_fail": "рука считалась не тем режимом, сравнение недействительно"
+    }
+  ],
+  "known_limitations": [
+    "n=3 seed'а: вердикт описательный, значимость не заявляется.",
+    "Заявка ограничена simulation_result: это LIF-модель на замороженном подграфе, а не поведение мухи.",
+    "Абляция разделяет только знак кредита. Контраст остаётся одним скаляром на пул: он не различает отдельные нейроны и промежуточные слои.",
+    "pool (контраст на всех шагах) не переигрывается: он измерен в v2 на seed'ах 301/311/323, и числа с разных seed'ов не смешиваются.",
+    "Если pool_pos выигрывает, это починка внутри этой физики, а не утверждение о механизме мухи."
+  ]
+}

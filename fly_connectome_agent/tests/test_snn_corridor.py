@@ -113,7 +113,8 @@ def test_kanal_proveryaetsya():
 
 
 def test_nabor_ruk_obyavlen():
-    assert ARMS == ("plastic", "pool", "no_plasticity", "no_modulator", "oracle")
+    assert ARMS == ("plastic", "pool", "pool_pos", "pool_neg",
+                    "no_plasticity", "no_modulator", "oracle")
 
 
 def test_tochnost_glagola_izmerima_tolko_tam_gde_otvet_opredelen():

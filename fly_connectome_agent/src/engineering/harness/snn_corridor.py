@@ -24,6 +24,10 @@
 глагола, а не из стороны, на которой цель, поэтому подсказка (bearing) в
 правило не попадает.
 
+Абляция v3 (`pool_pos`, `pool_neg`) включает ту же поправку только на одном
+знаке M: на подкрепляющих или на наказывающих шагах. Разница каждой руки с
+v1 показывает, какой канал даёт выигрыш, а какой — вред.
+
 Действие = спайк. Глагол не выбирается декодером «из головы»: он выводится из
 того, какой пул реально выстрелил, а `verb_for_action` называет совершённое.
 
@@ -63,7 +67,15 @@ VERB_BY_ACTION = {
 ORACLE_ACTION = {"left": "move_left", "right": "move_right",
                  "ahead": "stay", "behind": "move_left"}
 
-ARMS = ("plastic", "pool", "no_plasticity", "no_modulator", "oracle")
+ARMS = ("plastic", "pool", "pool_pos", "pool_neg",
+        "no_plasticity", "no_modulator", "oracle")
+
+# Абляция v3: одна и та же поправка проигравшего, разведённая по знаку кредита.
+# `always` — правило v2 целиком; `positive` — только на подкрепляющих шагах
+# (проигравший наказывается наравне, как в v1); `negative` — только на
+# наказывающих. Разница между `pool_pos` и v1 показывает, что даёт выигрыш
+# победителя, разница `pool_neg` и v1 — откуда берётся вред.
+POOL_ARMS = {"pool": "always", "pool_pos": "positive", "pool_neg": "negative"}
 
 
 @dataclass(frozen=True)
@@ -227,10 +239,11 @@ class CorridorAgent:
         self.prov_stats = {"decisions": 0, "denied": 0, "governance_violations": 0}
         self._last_action: str | None = None
         self.learner = self._make_learner()
+        self.pool_when = POOL_ARMS.get(arm, "always")
         post = self.learner.edge_index[:, 1]
         self._pool_left = np.isin(post, self._out_left)
         self._pool_right = np.isin(post, self._out_right)
-        if arm == "pool" and not (self._pool_left.any() and self._pool_right.any()):
+        if arm in POOL_ARMS and not (self._pool_left.any() and self._pool_right.any()):
             raise ValueError("контраст по пулам требует пластичных рёбер в обоих пулах")
         self.modulator = self._make_modulator()
 
@@ -288,22 +301,28 @@ class CorridorAgent:
         """Контраст по пулам: проигравший учится в том же направлении, но медленнее.
 
         `M_winner = M`, `M_loser = (1−κ)·M`, прочие рёбра `M`. Знак кредита
-        сохраняется: инверсия знака («−κM») на пилоте развернула чтение,
-        потому что в коридоре большинство шагов несёт M ≤ 0 и наказание
-        доставалось тому пулу, который только что выиграл.
+        сохраняется: инверсия знака («−κM») на пилоте развернула чтение.
+        Абляция v3 включает ту же поправку только на своём знаке M:
+        `pool_pos` — при `M > 0`, `pool_neg` — при `M < 0`; на другом знаке
+        возвращается скаляр v1. При `M = 0` поправка тождественна скаляру,
+        поэтому тоже возвращается None.
 
         Кто победил, берётся из уже прочитанного глагола (`action`), а не из
         `bearing`: иначе правило получило бы ответ, который оракул берёт
         напрямую, и сравнение с оракулом потеряло бы смысл. При равенстве
         счётов глагол = `stay`, победителя нет — остаётся скаляр v1.
         """
-        if self.arm != "pool" or self.settings.pool_contrast <= 0.0:
+        if self.arm not in POOL_ARMS or self.settings.pool_contrast <= 0.0:
             return None
         if action == "move_left":
             loser = self._pool_right
         elif action == "move_right":
             loser = self._pool_left
         else:
+            return None
+        if self.pool_when == "positive" and modulator <= 0.0:
+            return None
+        if self.pool_when == "negative" and modulator >= 0.0:
             return None
         M = np.full(self.learner.n_plastic, modulator, dtype=np.float64)
         M[loser] *= 1.0 - self.settings.pool_contrast

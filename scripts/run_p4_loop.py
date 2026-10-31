@@ -7,6 +7,8 @@ per-episode TSV, а не из памяти родителя.
 Руки:
     plastic        R-STDP с модулятором (награда среды), один скаляр на все рёбра
     pool           то же, но проигравший пул получает (1-kappa)*M (контраст по пулам)
+    pool_pos       то же, но контраст только на подкрепляющих шагах (M > 0)
+    pool_neg       то же, но контраст только на наказывающих шагах (M < 0)
     no_plasticity  та же сеть и проводка, Δw ≡ 0
     no_modulator   eligibility копится, M ≡ 0
     oracle         политика по сенсорике без сети — верхняя граница среды
@@ -32,6 +34,7 @@ sys.path.insert(0, str(REPO))
 
 from fly_connectome_agent.src.engineering.harness.snn_corridor import (  # noqa: E402
     ARMS,
+    POOL_ARMS,
     Channel,
     CorridorAgent,
     LoopSettings,
@@ -297,6 +300,7 @@ def main() -> int:
         return {"arm": job["arm"], "seed": job["seed"],
                 "settings": {k: (list(v) if isinstance(v, tuple) else v)
                              for k, v in job["settings"].items()},
+                "pool_when": POOL_ARMS.get(job["arm"], "always"),
                 "protocol_sha256": protocol["sha256"] if protocol else None}
 
     pending = [j for j in jobs
