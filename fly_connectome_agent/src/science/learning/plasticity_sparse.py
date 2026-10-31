@@ -237,7 +237,7 @@ class EdgeSparseSTDP:
 
         return dw
 
-    def apply_modulator(self, modulator: float) -> np.ndarray:
+    def apply_modulator(self, modulator: float | np.ndarray) -> np.ndarray:
         """Apply accumulated eligibility once with a reward signal M.
 
         Separate from update(): spike timing (eligibility accumulation) belongs
@@ -252,13 +252,26 @@ class EdgeSparseSTDP:
           keeps decaying only through update() calls.
 
         Args:
-            modulator: scalar reward signal M (must be finite)
+            modulator: scalar M for all edges, or a vector of shape
+                (E_plastic,) carrying a per-pool signal. A vector must be
+                finite and is clipped elementwise, like the scalar.
 
         Returns:
             Weight changes dw for plastic edges, shape (E_plastic,)
         """
-        clipped_M = self._clip_modulator(modulator)
-        dw = self.params.eta * clipped_M * self.eligibility
+        values = np.asarray(modulator, dtype=np.float64)
+        if values.ndim == 0:
+            clipped = self._clip_modulator(float(values))
+        else:
+            if values.shape != self.eligibility.shape:
+                raise ValueError(
+                    f"modulator vector must have shape {self.eligibility.shape}, "
+                    f"got {values.shape}"
+                )
+            if not np.all(np.isfinite(values)):
+                raise ValueError("modulator vector contains non-finite values")
+            clipped = np.clip(values, -self.params.M_max, self.params.M_max)
+        dw = self.params.eta * clipped * self.eligibility
         self.edge_weights = self._apply_sign_constraints(self.edge_weights + dw)
         return dw
 
@@ -461,8 +474,14 @@ class NoPlasticityBaseline:
         """Alias for update()."""
         return self.update(pre_spikes, post_spikes, modulator)
 
-    def apply_modulator(self, modulator: float) -> np.ndarray:
+    def apply_modulator(self, modulator: float | np.ndarray) -> np.ndarray:
         """Interface-compatible reward application: always zero dw."""
+        values = np.asarray(modulator, dtype=np.float64)
+        if values.ndim > 0 and values.shape != (self.n_plastic,):
+            raise ValueError(
+                f"modulator vector must have shape ({self.n_plastic},), "
+                f"got {values.shape}"
+            )
         return np.zeros(self.n_plastic, dtype=np.float64)
 
     def get_weights(self) -> np.ndarray:

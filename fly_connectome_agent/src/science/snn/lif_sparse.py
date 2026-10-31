@@ -85,7 +85,7 @@ class SparseLIF:
 
         W = graph.weight_matrix
         delays = graph.delays_ms
-        if delays is not None and len(delays) == graph.n_edges:
+        if delays is not None and len(delays) == graph.n_edges and graph.n_edges > 0:
             max_delay = int(np.ceil(np.max(delays) / self.dt))
         else:
             max_delay = 0
@@ -95,6 +95,17 @@ class SparseLIF:
         self.delay_steps = np.ceil(delays / self.dt).astype(np.int64)
         self.edge_index = graph.edge_index
         self.edge_weights = np.asarray(graph.weights, dtype=np.float64)
+
+        # Исходящая индексация: срез рёбер на каждый пресинаптический узел.
+        # Раньше step() на КАЖДЫЙ спайк сканировал все рёбра (edge_index[:,0] == pre),
+        # т.е. шаг стоил O(спайки x E): на реальном подграфе (58 674 ребра, ~150
+        # активных нейронов) это ~9 мс на шаг и 2 часа на 500 эпизодов.
+        # Сортировка stable, поэтому внутри одного pre порядок рёбер сохраняется, и
+        # очередь задержек получает ту же последовательность, что и старый цикл:
+        # результат побитово совпадает (tests/test_lif_outgoing_index.py).
+        order = np.argsort(self.edge_index[:, 0], kind="stable")
+        self._out_index = order
+        self._out_ptr = np.searchsorted(self.edge_index[order, 0], np.arange(self.n + 1))
 
         self.delay_queues: list[list[tuple[int, float]]] = [[] for _ in range(max_delay + 1)]
         self.V = self.E_L.copy()
@@ -143,12 +154,14 @@ class SparseLIF:
             )
 
             for pre in spiking:
-                post_mask = self.edge_index[:, 0] == pre
-                if not np.any(post_mask):
+                lo = self._out_ptr[pre]
+                hi = self._out_ptr[pre + 1]
+                if lo == hi:
                     continue
-                posts = self.edge_index[post_mask, 1]
-                weights = self.edge_weights[post_mask]
-                delays = self.delay_steps[post_mask]
+                idx = self._out_index[lo:hi]
+                posts = self.edge_index[idx, 1]
+                weights = self.edge_weights[idx]
+                delays = self.delay_steps[idx]
                 for post, w, d in zip(posts, weights, delays):
                     queue_idx = (self.step_count + d) % (self.max_delay + 1)
                     self.delay_queues[queue_idx].append((post, w))

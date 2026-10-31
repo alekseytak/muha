@@ -50,6 +50,8 @@ python ../scripts/run_p4_validation.py --tasks mixed --seeds 60 --episodes 80 --
     --arms plastic,weight_shuffled_frozen --out ../var/p4_conf60_a.csv          # confirmatory
 python ../var/p4_conf60_report.py ../var/p4_conf60_a.csv --min-seed=20           # gate on fresh seeds
 python ../scripts/run_p4_validation.py --replay ../var/p4_results.csv  # re-score, no simulation
+python ../scripts/run_p4_loop.py --out ../var/p4_3_confirm --confirm  # frozen P4.3, refuses drift
+python ../scripts/report_p4_3.py ../var/p4_3_confirm/summary.json      # applies H1-H5, G1-G5
 ```
 
 Protocol, pass criteria, the first (failed) measurement and the mechanism fixes
@@ -78,3 +80,37 @@ single-task `success_rate` at 20 seeds, and a wiring that is lucky in *both*
 directions solves both mirrors perfectly more often than 80 episodes of learning do
 (both halves ≥0.8: 10/60 frozen vs 4/60 plastic). See docs/p4_validation.md before
 reading any number here as a capability claim. No real connectome data is loaded.
+
+`P4.3 — ACTION IS A SPIKE (pre-registered, frozen channel)`:
+on the 1515-node FlyWire role subgraph the verb is not assigned but read from which
+output pool won a 100-step window, and the modulator comes from the environment's
+reward. 500 episodes × 3 confirmatory seeds (7×7 corridor, 12 decisions): `plastic`
+reaches 0.290/0.330/0.390 → 0.750/0.780/0.800 (first vs last 100 episodes) against
+0.280/0.270/0.320 → 0.290/0.280/0.320 for the frozen topology, spike budget ratio
+0.971 (criterion ≤ 2), zero gate denials, oracle at 1.000. The mechanism endpoint —
+accuracy of the verb where the correct verb is defined — grows 0.78 → 0.89–0.90 on all
+three plastic seeds; the pre-registered H4 rule still reports NOT PASSED, because two
+frozen cells drifted +0.003/+0.011 while the rule demanded no positive delta. That
+rule had no effect-size floor and is recorded as mis-specified for v2, not
+reinterpreted here. n=3: description, not significance. Protocol and result:
+[docs/p4_3_spike_verb_protocol.md](docs/p4_3_spike_verb_protocol.md).
+
+`P4.3 v2 — POOL CONTRAST (pre-registered, negative result)`:
+one change to the same loop — the losing output pool learns at `(1−κ)·M` with
+κ = 0.5, so the pools differ in learning speed while the sign of the credit is
+preserved. 500 episodes × 3 fresh seeds (301/311/323): the treatment loses success
+on every seed (0.390/0.220/0.250 → 0.210/0.170/0.090) while the paired `plastic`
+control under the v1 scalar gains (0.440/0.270/0.290 → 0.910/0.950/0.690), paired
+Δ −0.65/−0.73/−0.56; verb accuracy falls 5.8–6.6 pp where v1 gains 11.0–17.7 pp,
+and wall bumps in the last 100 episodes are 34/28/51 against 0/0/2. Spike budget
+ratio 1.025 and gates G1–G7 pass, so the run is informative: in this physics the
+rule is not neutral but harmful. The rule splits its own effect by the sign of the
+reward — on rewarded steps the loser is attenuated (preference toward the winner),
+on punished steps it is punished less (preference toward the loser). Measured on
+10 episodes of the treatment arm, 26.7% of steps carry `M < 0`; why the positive
+majority does not compensate is left to an ablation (contrast only when `M > 0`),
+declared as the next pre-registration rather than applied to v2. The pilot on a
+burned seed had shown the same direction and κ was not retuned after it. Protocol,
+pilot and result:
+[docs/p4_3_v2_pool_protocol.md](docs/p4_3_v2_pool_protocol.md); run and report
+with `scripts/run_p4_loop.py --confirm --kappa 0.5` and `scripts/report_p4_3_v2.py`.
