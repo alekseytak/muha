@@ -165,8 +165,7 @@ result: [docs/p4_4_neuron_credit_protocol.md](docs/p4_4_neuron_credit_protocol.m
 run and report with `scripts/run_p4_loop.py --confirm --neuron-credit 0.5` and
 `scripts/report_p4_4_neuron_credit.py`.
 
-`P4.5 v5 — EQUAL AMPLITUDE, DIFFERENT DISTRIBUTION (pre-registered, pilot passed,
-confirmatory run in progress)`:
+`P4.5 v5 — EQUAL AMPLITUDE, DIFFERENT DISTRIBUTION (pre-registered, negative result)`:
 removes the confound found after v4. The rank factor is unchanged
 (λ = 0.5, κ = 0), but every arm divides it by `rho = Σ s_i·E_i / Σ E_i` over the
 active neurons, which makes the credit delivered to the edges equal to the v1
@@ -186,7 +185,22 @@ excess reproduces. Pilot on burned seed 182: `neuron_renorm` 0.31 → 0.89
 0.34 → 0.72 (Δ +0.380). Both pass the declared feasibility gates, and neither the
 rule nor λ nor the outcome table was changed after the pilot. The verdict turns on
 two all-seed signs: A — the treatment beats v1 at equal amplitude, B — it beats the
-renormalized null. Result:
+renormalized null.
+
+Confirmatory result (15 cells, verdict rc=1): `neuron_renorm` gives Δ +0.55/+0.54/+0.53
+with accuracy +14.5/+14.8/+13.3 pp, the v1 control +0.46/+0.58/+0.55, the renormalized
+null +0.52/+0.53/+0.37. A = +0.09/−0.04/−0.02 — not positive on every seed, so H2 fails;
+B = +0.03/+0.01/+0.16, so H3 passes; H1 and H4 pass with C = 1.051/1.023/0.965, which is
+the amplitude identity actually holding inside the declared [0.9, 1.1] band (v4 measured
+1.28–1.36). Gates G1–G8 pass, frozen topology stays flat (−0.02/−0.08/−0.13), oracle
+1.000. Row 3 of the declared table fires: with total credit equalized, the per-neuron
+form stops beating the scalar, so the v4 near-miss was amplitude, and the credit-form
+line is closed — the v1 scalar remains the working rule and the next step is the timing
+of delivery. Caveats recorded after the run: measured `mean_abs_dw` of the null is
+slightly below the treatment (3.77–4.29 against 4.48–4.70·10⁻⁴, because trajectories
+differ even though the per-step identity holds), so binding is still not fully separated
+from delivered credit; and B is one to three episodes of 100 on two of three seeds, so
+its sign is stable while its size is not. Result:
 [docs/p4_5_neuron_credit_amplitude.md](docs/p4_5_neuron_credit_amplitude.md); run
 and report with `scripts/run_p4_loop.py --confirm --neuron-credit 0.5` and
 `scripts/report_p4_5_neuron_credit_amplitude.py`.
