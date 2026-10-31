@@ -114,6 +114,7 @@ def test_kanal_proveryaetsya():
 
 def test_nabor_ruk_obyavlen():
     assert ARMS == ("plastic", "pool", "pool_pos", "pool_neg",
+                    "neuron", "neuron_shuffled",
                     "no_plasticity", "no_modulator", "oracle")
 
 

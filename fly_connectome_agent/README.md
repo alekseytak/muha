@@ -132,8 +132,34 @@ the learning and the policy never forms. So the damage of v2 came from the rewar
 steps, attenuation on punished steps is neutral, and pool contrast is rejected as a
 fix in both forms. The productive signal here is the absolute amount of credit on the
 stimulated path, not the ratio between pools; the v1 scalar remains the working rule.
-The next candidate is per-neuron credit, which needs its own pre-registration. Protocol,
+The next candidate is per-neuron credit (the v4 entry below), which needs its own
+pre-registration. Protocol,
 pilot and result:
 [docs/p4_3_v3_credit_sign_ablation.md](docs/p4_3_v3_credit_sign_ablation.md); run and
 report with `scripts/run_p4_loop.py --confirm --kappa 0.5` and
 `scripts/report_p4_3_v3.py`.
+
+`P4.4 v4 — PER-NEURON CREDIT (pre-registered, negative result)`:
+replaces the single third factor with one per postsynaptic neuron, built from the
+rank of that neuron's eligibility mass in the closed window
+(`s_i = 1 − λ + 2λ·rank/(m − 1)`, λ = 0.5, mean exactly 1 over active neurons,
+inactive neurons get 1), so credit is redistributed rather than cut.
+`neuron_shuffled` is the null: the same set of factors permuted across the same
+neurons by `(seed, episode, step)`. 500 episodes × 3 fresh seeds (501/511/521),
+5 arms, 15 cells. `neuron` gives Δ +0.63/+0.56/+0.66 with accuracy
++18.5/+14.3/+17.8 pp and `mean_abs_dw` 6.2/5.8/5.9·10⁻⁴; the v1 control gives
++0.64/+0.44/+0.54 at 4.8/4.3/4.4·10⁻⁴; the shuffled null gives +0.58/+0.49/+0.37
+at 4.2/4.1/3.7·10⁻⁴. Binding to participation beats the shuffled null on every
+seed (+0.05/+0.07/+0.29), so H1, H3 and H4 pass, but the treatment loses to v1 on
+seed 501 by one episode of 100 (−0.01) and wins by +0.12 on the other two, so the
+pre-registered all-seed criterion H2 fails and the verdict is rc=1. Gates G1–G8
+pass, frozen topology stays flat, oracle 1.000. Row 3 of the declared table fires:
+the binding matters, the per-neuron form is not a fix, and the v1 scalar remains
+the working rule. Caveat found after the run: rank factors correlate with
+eligibility by construction, so `neuron` also delivers 1.28–1.36× more total
+credit than v1 while the shuffled null preserves only the unweighted mean;
+concentration and amplitude are therefore confounded, and the next discriminating
+run needs an eta-matched control or a renormalized factor. Protocol, pilot and
+result: [docs/p4_4_neuron_credit_protocol.md](docs/p4_4_neuron_credit_protocol.md);
+run and report with `scripts/run_p4_loop.py --confirm --neuron-credit 0.5` and
+`scripts/report_p4_4_neuron_credit.py`.

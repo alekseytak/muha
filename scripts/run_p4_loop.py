@@ -9,6 +9,8 @@ per-episode TSV, а не из памяти родителя.
     pool           то же, но проигравший пул получает (1-kappa)*M (контраст по пулам)
     pool_pos       то же, но контраст только на подкрепляющих шагах (M > 0)
     pool_neg       то же, но контраст только на наказывающих шагах (M < 0)
+    neuron         третья компонента своя на нейрон, по рангу массы eligibility
+    neuron_shuffled то же, но факторы переставлены между нейронами (нулевая рука)
     no_plasticity  та же сеть и проводка, Δw ≡ 0
     no_modulator   eligibility копится, M ≡ 0
     oracle         политика по сенсорике без сети — верхняя граница среды
@@ -34,6 +36,7 @@ sys.path.insert(0, str(REPO))
 
 from fly_connectome_agent.src.engineering.harness.snn_corridor import (  # noqa: E402
     ARMS,
+    NEURON_ARMS,
     POOL_ARMS,
     Channel,
     CorridorAgent,
@@ -188,6 +191,7 @@ def verify_protocol(path: str, arms: list[str], seeds: list[int],
         ("sigma", settings["sigma"]),
         ("eta", settings["eta"]),
         ("pool_contrast", settings["pool_contrast"]),
+        ("neuron_credit", settings["neuron_credit"]),
         ("coherence_gain", settings["coherence_gain"]),
         ("max_decisions", settings["max_episode_steps"]),
         ("width", settings["width"]),
@@ -258,6 +262,8 @@ def main() -> int:
     ap.add_argument("--eta", type=float, default=0.02)
     ap.add_argument("--kappa", type=float, default=0.0,
                     help="контраст проигравшего пула в руке pool (0 = правило v1)")
+    ap.add_argument("--neuron-credit", type=float, default=0.0,
+                    help="размах пер-нейронного фактора λ в руках neuron* (0 = v1)")
     ap.add_argument("--coherence", type=float, default=0.0)
     ap.add_argument("--steps", type=int, default=40, help="решений на эпизод")
     ap.add_argument("--size", type=int, default=7)
@@ -279,6 +285,7 @@ def main() -> int:
     settings = dict(episodes=args.episodes, window_steps=args.window_steps,
                     i_drive=args.drive, gain=args.gain, sigma=args.sigma,
                     eta=args.eta, pool_contrast=args.kappa,
+                    neuron_credit=args.neuron_credit,
                     coherence_gain=args.coherence,
                     max_episode_steps=args.steps, width=args.size,
                     height=args.size, start=tuple(int(v) for v in args.start.split(",")),
@@ -301,6 +308,7 @@ def main() -> int:
                 "settings": {k: (list(v) if isinstance(v, tuple) else v)
                              for k, v in job["settings"].items()},
                 "pool_when": POOL_ARMS.get(job["arm"], "always"),
+                "neuron_credit": NEURON_ARMS.get(job["arm"], "none"),
                 "protocol_sha256": protocol["sha256"] if protocol else None}
 
     pending = [j for j in jobs

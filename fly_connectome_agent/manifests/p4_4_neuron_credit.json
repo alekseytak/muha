@@ -1,0 +1,257 @@
+{
+  "manifest_version": "1.0.0",
+  "protocol_id": "p4.4.spike-verb.neuron-credit.v1",
+  "created_at": "2026-10-31T11:10:00Z",
+  "pre_registered": true,
+  "supersedes": null,
+  "claims_allowed": [
+    "simulation_result",
+    "engineering_performance"
+  ],
+  "question": "Помогает ли пер-нейронное распределение третьей компоненты (по рангу массы eligibility, со средним 1) обогнать скаляр v1 и нулевую руку с переставленными факторами? Или вред контраста по пулам был проявлением общего правила «кредит нельзя срезать», и тогда форма третьей компоненты не важна?",
+  "frozen_inputs": {
+    "graph": "var/flywire-role",
+    "graph_provenance": "волна 6 (коммит a536977): подграф по пути вход->выход, 1515 узлов / 58 674 ребра, io_channel в манифесте",
+    "channel": {
+      "inputs_left": 138,
+      "inputs_right": 162,
+      "outputs_left": 596,
+      "outputs_right": 611
+    },
+    "plastic_edges": 47845,
+    "plastic_edge_rule": "select_plastic_edges: NT известен и его знак совпадает с edge_class",
+    "neuron_rule": {
+      "mass": "E_i = сумма |elig| по пластичным рёбрам e с post(e) = i, считается в момент доставки награды после закрытия окна",
+      "active_set": "нейроны с E_i > 0; при m < 2 поправка не применяется (скаляр v1)",
+      "rank": "по (E_i, id) по возрастанию среди активных нейронов",
+      "factor": "s_i = 1 - lambda + 2*lambda*rank_i/(m - 1); средний фактор по активным нейронам ровно 1",
+      "inactive": "s_i = 1 для нейронов с E_i = 0",
+      "applied_to": "постсинаптический нейрон ребра: M_ij = M * s_post(j)",
+      "zero_lambda": "при lambda = 0 рука бит-в-бит совпадает с plastic"
+    }
+  },
+  "seed_sets": {
+    "confirmatory": {
+      "id": "p4_4_confirmatory",
+      "values": [501, 511, 521],
+      "count": 3
+    },
+    "burned": [
+      {
+        "id": "p4_4_pilot",
+        "values": [182],
+        "note": "Пилот двух новых рук на рабочей точке. Seed сожжён: числа пилота не входят в гипотезы и ничего не подтверждают. Пилот — проверка отсутствия коллапса и насыщения; его критерии и результат записываются в протокол до подтверждающего прогона."
+      },
+      {
+        "id": "p4_4_smoke",
+        "values": [7],
+        "note": "Дым на 5 эпизодах: проверка, что руки различимы по весам. Ни в какие гипотезы не входит."
+      },
+      {
+        "id": "p4_3_v3_confirmatory",
+        "values": [401, 411, 421],
+        "note": "Подтверждение v3. В v4 не переиспользуются: сравнение правил идёт на свежих seed'ах."
+      },
+      {
+        "id": "p4_3_v2_confirmatory",
+        "values": [301, 311, 323],
+        "note": "Подтверждение v2."
+      },
+      {
+        "id": "p4_3_confirmatory",
+        "values": [201, 211, 223],
+        "note": "Подтверждение v1."
+      },
+      {
+        "id": "p4_3_pilots",
+        "values": [181, 182],
+        "note": "Пилоты P4.3."
+      },
+      {
+        "id": "p4_2_and_earlier",
+        "range": [0, 179],
+        "note": "0–119 заняты P4.1/P4.2, 120–179 — отменённым P4.2.v2 (см. p4_2_v1_burned_seeds.json)."
+      }
+    ]
+  },
+  "operating_point": {
+    "values": {
+      "episodes": 500,
+      "window_steps": 100,
+      "i_drive": 20.0,
+      "gain": 6.0,
+      "sigma": 3.0,
+      "eta": 0.03,
+      "pool_contrast": 0.0,
+      "neuron_credit": 0.5,
+      "tau_eligibility": 80.0,
+      "coherence_gain": 0.0,
+      "policy_penalty": 1.0,
+      "m_max": 10.0,
+      "alpha": 1.0,
+      "delta": 1.0,
+      "epsilon": 0.0,
+      "zeta": 0.0,
+      "max_decisions": 12,
+      "width": 7,
+      "height": 7,
+      "start": [1, 1],
+      "heading": 0,
+      "target": [5, 5],
+      "target_reward": 10.0,
+      "wall_penalty": -1.0,
+      "shaping_scale": 1.0
+    },
+    "derivation": {
+      "inherited_from_v1_and_v3": "Все числа, включая eta, tau_eligibility, m_max и поле, взяты из p4.3 без изменений. Контраст по пулам выключен (kappa = 0), чтобы руки v4 отличались от v1 только правилом третьей компоненты.",
+      "why_lambda_half": "lambda = 0.5 даёт тот же размах поправки, что отклонённый контраст (1 - kappa = 0.5 при kappa = 0.5). Различие между v3 и v4 — правило распределения, а не сила поправки. Число объявлено до прогона и не подбирается.",
+      "why_rank_not_mass": "Сырая масса eligibility тяжелохвостая: её прямое использование требует подобранного клипа. Ранг ограничен, не требует порога и даёт среднее ровно 1, то есть сохраняет суммарный кредит.",
+      "why_shuffled_null": "Без нулевой руки выигрыш нельзя отличить от «любой разброс по нейронам случайно помог». Перестановка сохраняет набор факторов и средний кредит и разрывает только привязку к участию.",
+      "pilot_declared_before_run": "Пилот на сожжённом seed'е 182 проверяет только отсутствие коллапса и насыщения у обеих новых рук: success первых 100 в [0.2, 0.7], у границы <= 0.5, в последних 100 эпизодах каждый из глаголов влево/вправо >= 20. Это проверка выполнимости, а не оценка эффекта; точечные числа пилота в гипотезах не используются. Результат пилота записывается в протокол, манифест после этого не меняется."
+    }
+  },
+  "perception": {
+    "rule": "bearing == left -> i_drive на inputs_left; bearing == right -> i_drive на inputs_right; ahead/behind -> входы не зажигаются",
+    "note": "Одинаково для всех рук. bearing — восприятие, не команда: среда не сообщает, какое действие верное."
+  },
+  "action": {
+    "rule": "За окно считаются спайки в пулах outputs_left/outputs_right; глагол = пул с большим счётом; равенство -> stay",
+    "verbs": {
+      "move_left": "поворачивает_налево",
+      "move_right": "поворачивает_направо",
+      "stay": "идёт_прямо"
+    },
+    "note": "Действие не назначается: оно читается из спайков. Оракул — единственная рука, где действие берётся из bearing."
+  },
+  "modulator": {
+    "formula": "M = alpha*task_reward - delta*policy_violation + epsilon*coherence",
+    "values": {"alpha": 1.0, "delta": 1.0, "epsilon": 0.0, "zeta": 0.0},
+    "pool_rule": {
+      "kappa": 0.0,
+      "note": "Контраст по пулам выключен: все рёбра получают скаляр M, как в v1."
+    },
+    "neuron_rule": {
+      "arm_neuron": "M_ij = M * s_post(j), s по рангу массы eligibility",
+      "arm_neuron_shuffled": "тот же набор факторов переставлен между теми же активными нейронами генератором по (seed, эпизод, шаг)",
+      "sign": "знак кредита сохраняется на всех рёбрах",
+      "degenerate": "m < 2 или M = 0 -> скаляр v1"
+    }
+  },
+  "arms": [
+    {"arm_id": "neuron", "learner": "stdp", "reward_coupled": true, "neuron_credit": "rank", "role": "treatment_v4", "gate": "required"},
+    {"arm_id": "neuron_shuffled", "learner": "stdp", "reward_coupled": true, "neuron_credit": "shuffled", "role": "null_control", "gate": "required"},
+    {"arm_id": "plastic", "learner": "stdp", "reward_coupled": true, "neuron_credit": "none", "role": "paired_control_v1", "gate": "required"},
+    {"arm_id": "no_plasticity", "learner": "none", "reward_coupled": true, "neuron_credit": "none", "role": "topology_control", "gate": "required"},
+    {"arm_id": "oracle", "learner": "none", "reward_coupled": false, "neuron_credit": "none", "role": "upper_bound_characterization", "gate": "none"}
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "kind": "required",
+      "statement": "У руки neuron success_rate последних 100 эпизодов выше, чем первых 100, на каждом из трёх seed'ов.",
+      "endpoint": "success_last_minus_first",
+      "direction": "greater"
+    },
+    {
+      "id": "H2",
+      "kind": "required",
+      "statement": "Прирост neuron больше прироста plastic (скаляр v1) на том же seed'е: пер-нейронное распределение кредита — починка, а не повтор v3.",
+      "endpoint": "delta_neuron_minus_delta_plastic",
+      "direction": "greater"
+    },
+    {
+      "id": "H3",
+      "kind": "required",
+      "statement": "Прирост neuron больше прироста neuron_shuffled на том же seed'е: важна привязка фактора к участию, а не сама неоднородность кредита.",
+      "endpoint": "delta_neuron_minus_delta_neuron_shuffled",
+      "direction": "greater"
+    },
+    {
+      "id": "H4",
+      "kind": "mechanism",
+      "statement": "Точность глагола у neuron растёт на всех seed'ах, а средний |dw| последних 100 эпизодов не ниже 0.9 от plastic на том же seed'е (C >= 0.9): кредит не срезан, как в v3.",
+      "endpoint": "decision_accuracy_last_minus_first",
+      "direction": "greater",
+      "relative_threshold": 0.9,
+      "note": "Порог величины эффекта объявлен до прогона. Величина C печатается отдельно и строку таблицы исходов не выбирает."
+    },
+    {
+      "id": "H5",
+      "kind": "characterization",
+      "statement": "Насколько neuron отличается от plastic, neuron_shuffled и oracle по абсолютному success последних 100, и каково отношение среднего |dw| neuron/plastic. Не гейт.",
+      "endpoint": "success_last_differences",
+      "direction": "difference"
+    }
+  ],
+  "statistics": {
+    "unit_of_observation": "seed",
+    "n_seeds": 3,
+    "blocks": "первые 100 и последние 100 эпизодов из 500",
+    "claim": "descriptive",
+    "note": "При n=3 парный знаковый тест даёт минимальное p=0.125 и значимости не достигает. H1–H3 считаются подтверждёнными, если знак совпал на всех трёх seed'ах, и формулируются как описание эффекта. Эпизоды внутри seed'а не увеличивают n."
+  },
+  "outcome_table": [
+    {"A": true, "B": true, "reading": "кредит по участию работает, и привязка к участию важна; рука становится рабочим правилом внутри этой физики"},
+    {"A": true, "B": false, "reading": "выигрыш даёт неоднородность кредита, а не привязка к участию; заявление о механизме не делается"},
+    {"A": false, "B": true, "reading": "привязка к участию важна, но пер-нейронный кредит слабее скаляра; рабочее правило остаётся v1"},
+    {"A": false, "B": false, "reading": "пер-нейронный кредит не помогает; линия «форма третьей компоненты» закрыта, рабочее правило — v1"}
+  ],
+  "guards": [
+    {
+      "id": "G1",
+      "name": "difficulty_band",
+      "rule": "success первых 100 эпизодов у neuron лежит в [0.2, 0.7]",
+      "on_fail": "прогон неинформативен (пол/потолок), H1 не интерпретируется"
+    },
+    {
+      "id": "G2",
+      "name": "saturation",
+      "rule": "доля весов на границе в конце последнего эпизода <= 0.5 у neuron и neuron_shuffled",
+      "on_fail": "обучение насыщено, H1 не интерпретируется как обучение политики"
+    },
+    {
+      "id": "G3",
+      "name": "governance",
+      "rule": "governance_violations == 0 и denied == 0 на всех клетках",
+      "on_fail": "прогон недействителен"
+    },
+    {
+      "id": "G4",
+      "name": "numerics",
+      "rule": "нет NaN/Inf в reward и mean_abs_dw",
+      "on_fail": "прогон недействителен"
+    },
+    {
+      "id": "G5",
+      "name": "oracle_ceiling",
+      "rule": "у oracle success последних 100 эпизодов == 1.0",
+      "on_fail": "среда или ворота сломаны, сравнение недействительно"
+    },
+    {
+      "id": "G6",
+      "name": "pool_not_collapsed",
+      "rule": "в последних 100 эпизодах neuron каждый из глаголов влево/вправо встречается >= 20 раз на seed",
+      "on_fail": "пул схлопнулся, H2/H3 не интерпретируются; результат публикуется как есть"
+    },
+    {
+      "id": "G7",
+      "name": "rule_identity",
+      "rule": "pool_contrast == 0 и neuron_credit == 0.5 в мете каждой клетки, а при lambda=0 каждая рука совпадает с plastic бит-в-бит (unit-тест)",
+      "on_fail": "прогон сделан не тем правилом, которое объявлено"
+    },
+    {
+      "id": "G8",
+      "name": "arm_mode_identity",
+      "rule": "neuron_credit в мете каждой клетки совпадает с объявленным для её руки (rank/shuffled/none)",
+      "on_fail": "рука считалась не тем режимом, сравнение недействительно"
+    }
+  ],
+  "known_limitations": [
+    "n=3 seed'а: вердикт описательный, значимость не заявляется.",
+    "Заявка ограничена simulation_result: это LIF-модель на замороженном подграфе, а не поведение мухи.",
+    "lambda = 0.5 фиксирована заранее; зависимость эффекта от lambda не измеряется.",
+    "Фактор строится по рангу массы eligibility; другие основания (сырая масса, число спайков, трассы) не проверяются.",
+    "Нулевая рука контролирует привязку к участию, но не форму распределения: вывод «важна привязка» не означает, что ранг — лучшая форма.",
+    "Контраст по пулам не переигрывается: числа v3 остаются на seed'ах 401/411/421 и с числами v4 не смешиваются."
+  ]
+}

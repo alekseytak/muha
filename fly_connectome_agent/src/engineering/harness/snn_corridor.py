@@ -28,6 +28,13 @@
 знаке M: на подкрепляющих или на наказывающих шагах. Разница каждой руки с
 v1 показывает, какой канал даёт выигрыш, а какой — вред.
 
+P4.4 (`neuron`, `neuron_shuffled`) уходит от пула к нейрону: третья компонента
+становится своей для каждого постсинаптического нейрона и строится по рангу
+его доли в массе eligibility окна. Сумма кредита сохраняется (средний фактор
+по активным нейронам ровно 1), поэтому правило не отнимает обучение, как
+контраст по пулам, а перераспределяет его. `neuron_shuffled` — нулевая рука:
+тот же набор факторов переставлен генератором по (seed, эпизод, шаг).
+
 Действие = спайк. Глагол не выбирается декодером «из головы»: он выводится из
 того, какой пул реально выстрелил, а `verb_for_action` называет совершённое.
 
@@ -68,6 +75,7 @@ ORACLE_ACTION = {"left": "move_left", "right": "move_right",
                  "ahead": "stay", "behind": "move_left"}
 
 ARMS = ("plastic", "pool", "pool_pos", "pool_neg",
+        "neuron", "neuron_shuffled",
         "no_plasticity", "no_modulator", "oracle")
 
 # Абляция v3: одна и та же поправка проигравшего, разведённая по знаку кредита.
@@ -76,6 +84,12 @@ ARMS = ("plastic", "pool", "pool_pos", "pool_neg",
 # наказывающих. Разница между `pool_pos` и v1 показывает, что даёт выигрыш
 # победителя, разница `pool_neg` и v1 — откуда берётся вред.
 POOL_ARMS = {"pool": "always", "pool_pos": "positive", "pool_neg": "negative"}
+
+# P4.4: кредит на постсинаптический нейрон вместо пула. `rank` — фактор по
+# рангу доли нейрона в массе eligibility окна; `shuffled` — та же выборка
+# факторов, переставленная между теми же нейронами (нулевая рука: проверяет,
+# важна ли привязка к участию, а не сама неоднородность кредита).
+NEURON_ARMS = {"neuron": "rank", "neuron_shuffled": "shuffled"}
 
 
 @dataclass(frozen=True)
@@ -110,6 +124,7 @@ class LoopSettings:
     policy_penalty: float = 1.0   # δ: отказ ворот — отдельный сигнал
     m_max: float = 10.0
     pool_contrast: float = 0.0     # κ: проигравший пул ×(1−κ); 0 → правило v1
+    neuron_credit: float = 0.0     # λ: размах пер-нейронного фактора; 0 → v1
     max_episode_steps: int = 40
     width: int = 7
     height: int = 7
@@ -131,6 +146,10 @@ class LoopSettings:
             raise ValueError(
                 "pool_contrast обязан лежать в [0, 1]: при κ=1 проигравший "
                 "пул не учится вовсе, κ=0 возвращает правило v1")
+        if not 0.0 <= self.neuron_credit <= 1.0:
+            raise ValueError(
+                "neuron_credit обязан лежать в [0, 1]: при λ=1 наименее "
+                "участвующий нейрон не учится вовсе, λ=0 возвращает v1")
 
 
 @dataclass
@@ -240,6 +259,7 @@ class CorridorAgent:
         self._last_action: str | None = None
         self.learner = self._make_learner()
         self.pool_when = POOL_ARMS.get(arm, "always")
+        self.neuron_credit_mode = NEURON_ARMS.get(arm, "none")
         post = self.learner.edge_index[:, 1]
         self._pool_left = np.isin(post, self._out_left)
         self._pool_right = np.isin(post, self._out_right)
@@ -327,6 +347,52 @@ class CorridorAgent:
         M = np.full(self.learner.n_plastic, modulator, dtype=np.float64)
         M[loser] *= 1.0 - self.settings.pool_contrast
         return M
+
+    def _neuron_modulator(self, modulator: float, episode: int,
+                          step: int) -> np.ndarray | None:
+        """Кредит на постсинаптический нейрон вместо пула (P4.4).
+
+        Участие нейрона — его масса eligibility в только что закрытом окне:
+        `E_i = сумма |elig| по пластичным рёбрам в i`. Фактор строится по
+        рангу, а не по сырой массе: масса тяжелохвостая, а ранг ограничен,
+        не требует подобранного порога и имеет среднее ровно 1 по активным
+        нейронам:
+
+            `s_i = 1 − λ + 2λ·rank_i/(m − 1)`,
+
+        rank — по `(E_i, id)` по возрастанию, `m` — число нейронов с `E_i > 0`.
+        Нейроны без eligibility в окне остаются с `s = 1`: их dw и так равен
+        нулю, поэтому фактор там ничего не решает.
+
+        В `neuron_shuffled` та же выборка факторов переставляется между теми же
+        нейронами: набор величин и средний кредит совпадают с `neuron`, но
+        привязка к участию разорвана. Разница рук и есть вклад привязки.
+        Перестановка детерминирована по `(seed, эпизод, шаг)` и не зависит от
+        масс.
+
+        Возвращает None, когда поправка тождественна скаляру v1: чужая рука,
+        λ = 0, `M = 0` или меньше двух активных нейронов.
+        """
+        if self.arm not in NEURON_ARMS or self.settings.neuron_credit <= 0.0:
+            return None
+        if modulator == 0.0:
+            return None
+        lam = self.settings.neuron_credit
+        post = self.learner.edge_index[:, 1]
+        mass = np.bincount(post, weights=np.abs(self.learner.eligibility),
+                           minlength=self.base.n_nodes)
+        active = np.flatnonzero(mass > 0.0)
+        if active.size < 2:
+            return None
+        order = np.lexsort((active, mass[active]))
+        rank = np.empty(active.size, dtype=np.float64)
+        rank[order] = np.arange(active.size, dtype=np.float64)
+        factors = np.ones(self.base.n_nodes, dtype=np.float64)
+        factors[active] = 1.0 - lam + 2.0 * lam * rank / (active.size - 1)
+        if NEURON_ARMS[self.arm] == "shuffled":
+            rng = np.random.default_rng([self.seed, episode, step])
+            factors[active] = factors[active][rng.permutation(active.size)]
+        return float(modulator) * factors[post]
 
     def _fraction_at_bound(self) -> float:
         w = np.asarray(self.learner.get_weights(), dtype=np.float64)
@@ -417,6 +483,8 @@ class CorridorAgent:
                 coherence=coherence,
             )
             M_edge = self._edge_modulator(M, proposal.action_type)
+            if M_edge is None:
+                M_edge = self._neuron_modulator(M, episode, step)
             dw = self.learner.apply_modulator(M if M_edge is None else M_edge)
             dw_abs.append(float(np.mean(np.abs(dw))) if dw.size else 0.0)
 
