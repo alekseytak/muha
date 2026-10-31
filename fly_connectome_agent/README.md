@@ -159,7 +159,34 @@ the working rule. Caveat found after the run: rank factors correlate with
 eligibility by construction, so `neuron` also delivers 1.28–1.36× more total
 credit than v1 while the shuffled null preserves only the unweighted mean;
 concentration and amplitude are therefore confounded, and the next discriminating
-run needs an eta-matched control or a renormalized factor. Protocol, pilot and
+run needs an eta-matched control or a renormalized factor (taken up by the v5
+entry below). Protocol, pilot and
 result: [docs/p4_4_neuron_credit_protocol.md](docs/p4_4_neuron_credit_protocol.md);
 run and report with `scripts/run_p4_loop.py --confirm --neuron-credit 0.5` and
 `scripts/report_p4_4_neuron_credit.py`.
+
+`P4.5 v5 — EQUAL AMPLITUDE, DIFFERENT DISTRIBUTION (pre-registered, pilot passed,
+confirmatory run in progress)`:
+removes the confound found after v4. The rank factor is unchanged
+(λ = 0.5, κ = 0), but every arm divides it by `rho = Σ s_i·E_i / Σ E_i` over the
+active neurons, which makes the credit delivered to the edges equal to the v1
+scalar at every step (`Σ |dw|` identical by construction), so the only difference
+left is how the same total is distributed. `neuron_renorm_shuffled` permutes the
+factors and then renormalizes, so treatment and null are amplitude-matched to each
+other and to v1; a random permutation gives `rho` ≈ 1, which is why this null is
+nearly the v4 null. Unit tests pin both directions of the confound before any run:
+with renormalization `Σ |M|·|elig|` equals v1 to 1e-12, without it the same pattern
+gives 28/24 = 1.17×. 500 episodes × 3 fresh seeds (601/611/621), 5 arms, 15 cells,
+protocol `p4.5.spike-verb.neuron-credit-amplitude.v1` frozen at sha256
+`55b8f747a6773d4b601b9ce83b3b18322d86d7cf582eb8f692aa323c9e1003d7`. Smoke (seed 7,
+5 episodes): `mean_abs_dw` 2.89·10⁻⁴ for `neuron_renorm` against 2.93·10⁻⁴ for v1
+and 3.53·10⁻⁴ for the un-renormalized `neuron` — the identity holds and the v4
+excess reproduces. Pilot on burned seed 182: `neuron_renorm` 0.31 → 0.89
+(Δ +0.580), accuracy 0.781 → 0.922, 0.019 at bound; the renormalized null
+0.34 → 0.72 (Δ +0.380). Both pass the declared feasibility gates, and neither the
+rule nor λ nor the outcome table was changed after the pilot. The verdict turns on
+two all-seed signs: A — the treatment beats v1 at equal amplitude, B — it beats the
+renormalized null. Result:
+[docs/p4_5_neuron_credit_amplitude.md](docs/p4_5_neuron_credit_amplitude.md); run
+and report with `scripts/run_p4_loop.py --confirm --neuron-credit 0.5` and
+`scripts/report_p4_5_neuron_credit_amplitude.py`.

@@ -76,6 +76,7 @@ ORACLE_ACTION = {"left": "move_left", "right": "move_right",
 
 ARMS = ("plastic", "pool", "pool_pos", "pool_neg",
         "neuron", "neuron_shuffled",
+        "neuron_renorm", "neuron_renorm_shuffled",
         "no_plasticity", "no_modulator", "oracle")
 
 # Абляция v3: одна и та же поправка проигравшего, разведённая по знаку кредита.
@@ -89,7 +90,14 @@ POOL_ARMS = {"pool": "always", "pool_pos": "positive", "pool_neg": "negative"}
 # рангу доли нейрона в массе eligibility окна; `shuffled` — та же выборка
 # факторов, переставленная между теми же нейронами (нулевая рука: проверяет,
 # важна ли привязка к участию, а не сама неоднородность кредита).
-NEURON_ARMS = {"neuron": "rank", "neuron_shuffled": "shuffled"}
+# P4.5: `*_renorm` делят факторы на `Σ s_i·E_i / Σ E_i`, поэтому доставленный
+# кредит шаг в шаг равен v1, а различие остаётся только в распределении.
+NEURON_ARMS = {
+    "neuron": "rank",
+    "neuron_shuffled": "shuffled",
+    "neuron_renorm": "rank_renorm",
+    "neuron_renorm_shuffled": "shuffled_renorm",
+}
 
 
 @dataclass(frozen=True)
@@ -370,6 +378,13 @@ class CorridorAgent:
         Перестановка детерминирована по `(seed, эпизод, шаг)` и не зависит от
         масс.
 
+        Среднее 1 по нейронам не означает равенства доставленного кредита: он
+        взвешен массой, и `neuron` даёт `Σ s_i·E_i > Σ E_i` (в v4 — в 1.28–1.36
+        раза). Руки `*_renorm` делят факторы на `rho = Σ s_i·E_i / Σ E_i`,
+        поэтому `Σ |M|·|elig|` шаг в шаг равен v1, а различие остаётся только
+        в распределении. Перенормировка идёт после перестановки, так что обе
+        renorm-руки держат одну и ту же амплитуду.
+
         Возвращает None, когда поправка тождественна скаляру v1: чужая рука,
         λ = 0, `M = 0` или меньше двух активных нейронов.
         """
@@ -389,9 +404,14 @@ class CorridorAgent:
         rank[order] = np.arange(active.size, dtype=np.float64)
         factors = np.ones(self.base.n_nodes, dtype=np.float64)
         factors[active] = 1.0 - lam + 2.0 * lam * rank / (active.size - 1)
-        if NEURON_ARMS[self.arm] == "shuffled":
+        mode = NEURON_ARMS[self.arm]
+        if mode.startswith("shuffled"):
             rng = np.random.default_rng([self.seed, episode, step])
             factors[active] = factors[active][rng.permutation(active.size)]
+        if mode.endswith("_renorm"):
+            mass_active = mass[active]
+            rho = float(np.dot(factors[active], mass_active) / mass_active.sum())
+            factors[active] /= rho
         return float(modulator) * factors[post]
 
     def _fraction_at_bound(self) -> float:

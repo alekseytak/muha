@@ -8,11 +8,17 @@
 
     s_i = 1 − λ + 2λ·rank_i/(m − 1),   rank по (E_i, id) по возрастанию
 
-Набор активных нейронов (`E_i > 0`) получает среднее ровно 1, поэтому суммарный
-кредит сохраняется, а не срезается, как в v3. `neuron_shuffled` — нулевая рука:
+Набор активных нейронов (`E_i > 0`) получает среднее ровно 1, поэтому средний
+фактор равен 1, а не срезается, как в v3. `neuron_shuffled` — нулевая рука:
 тот же набор факторов переставлен между теми же нейронами детерминированным
 ГПСЧ; разница `neuron` − `neuron_shuffled` показывает, важна ли привязка к
 участию, а не просто неоднородность кредита.
+
+Среднее 1 по нейронам не равно сохранению суммы кредита: фактор умножается на
+массу, поэтому `neuron` доставляет больше `|dw|`, чем v1 (в v4 это и оказалось
+конфаундом). Руки `neuron_renorm` и `neuron_renorm_shuffled` делят факторы на
+`rho = Σ s_i·E_i / Σ E_i`, то есть держат доставленный кредит равным v1 шаг в
+шаг; различие остаётся только в распределении.
 
 Проверяется:
 
@@ -22,6 +28,7 @@
 - фактор монотонен по массе eligibility и не трогает нейроны с нулевой массой;
 - перестановка сохраняет набор факторов и детерминирована по (seed, эпизод, шаг);
 - dw рёбер равен `eta·M·s_post·elig` — фактор применяется к посту, а не к ребру;
+- перенормировка держит `Σ |M|·|elig|` равным v1, а без неё сумма растёт;
 - руки кредита и руки контраста не пересекаются.
 """
 import numpy as np
@@ -73,7 +80,12 @@ def mass_pattern(agent: CorridorAgent) -> np.ndarray:
 
 
 def test_rezhim_kredita_obyavlen_dlya_kazhdoy_ruki():
-    assert NEURON_ARMS == {"neuron": "rank", "neuron_shuffled": "shuffled"}
+    assert NEURON_ARMS == {
+        "neuron": "rank",
+        "neuron_shuffled": "shuffled",
+        "neuron_renorm": "rank_renorm",
+        "neuron_renorm_shuffled": "shuffled_renorm",
+    }
     for arm, mode in NEURON_ARMS.items():
         assert arm in ARMS
         assert make_agent(arm, neuron_credit=0.5).neuron_credit_mode == mode
@@ -159,6 +171,48 @@ def test_dw_raven_eta_umnozhit_M_na_faktor_na_eligibility():
 
     assert np.allclose(dw, agent.settings.eta * M * elig)
     assert np.allclose(agent.learner.get_weights() - weights_before, dw)
+
+
+def test_perenormirovka_derzhit_kredit_ravnym_v1():
+    for arm in ("neuron_renorm", "neuron_renorm_shuffled"):
+        agent = make_agent(arm, neuron_credit=0.5)
+        mass_pattern(agent)
+        elig = np.abs(agent.learner.eligibility)
+
+        M = agent._neuron_modulator(2.0, episode=1, step=1)
+
+        assert M is not None
+        assert float(np.sum(np.abs(M) * elig)) == pytest.approx(
+            2.0 * float(np.sum(elig)), rel=1e-12)
+
+
+def test_bez_perenormirovki_kredit_usilen():
+    """Пин конфаунда v4: среднее 1 по нейронам всё равно даёт больше |dw|.
+
+    На шаблоне массы (4, 8, 12) факторы (0.5, 1, 1.5) дают
+    0.5·4 + 1·8 + 1.5·12 = 28 против 24 у v1.
+    """
+    agent = make_agent("neuron", neuron_credit=0.5)
+    mass_pattern(agent)
+    elig = np.abs(agent.learner.eligibility)
+
+    M = agent._neuron_modulator(2.0, episode=1, step=1)
+
+    assert float(np.sum(np.abs(M) * elig)) == pytest.approx(2.0 * 28.0)
+
+
+def test_perenormirovka_sohranyaet_poryadok_i_nol_massu():
+    agent = make_agent("neuron_renorm", neuron_credit=0.5)
+    post = mass_pattern(agent)
+
+    M = agent._neuron_modulator(4.0, episode=0, step=0)
+
+    by_neuron = {n: float(M[post == n][0]) for n in (4, 5, 6, 7, 8)}
+    assert by_neuron[4] < by_neuron[5] < by_neuron[6]
+    assert by_neuron[7] == pytest.approx(4.0)
+    assert by_neuron[8] == pytest.approx(4.0)
+    # После деления на rho нижняя граница уходит ниже 1−λ — это заявлено, не баг.
+    assert by_neuron[4] / 4.0 < 0.5
 
 
 def test_ruki_kredita_i_kontrasta_ne_peresekayutsya():
