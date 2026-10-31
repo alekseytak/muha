@@ -13,6 +13,9 @@ per-episode TSV, а не из памяти родителя.
     neuron_shuffled то же, но факторы переставлены между нейронами (нулевая рука)
     neuron_renorm  то же с факторами, перенормированными до кредита v1
     neuron_renorm_shuffled  renorm-нуль: перестановка плюс перенормировка
+    delay_live     правило v1, но кредит доезжает до живого следа через N шагов
+    delay_frozen   то же, но в слепок следа момента действия (амплитудный
+                   контроль задержки; разница рук — цена адресности)
     no_plasticity  та же сеть и проводка, Δw ≡ 0
     no_modulator   eligibility копится, M ≡ 0
     oracle         политика по сенсорике без сети — верхняя граница среды
@@ -38,6 +41,7 @@ sys.path.insert(0, str(REPO))
 
 from fly_connectome_agent.src.engineering.harness.snn_corridor import (  # noqa: E402
     ARMS,
+    DELAY_ARMS,
     NEURON_ARMS,
     POOL_ARMS,
     Channel,
@@ -116,6 +120,7 @@ def _cell(job: dict) -> dict:
     return {"arm": job["arm"], "seed": job["seed"],
             "episodes": [e.__dict__ for e in summary.episodes],
             "violations": summary.governance_violations,
+            "stats": dict(agent.prov_stats),
             "nan": summary.nan_seen}
 
 
@@ -173,12 +178,22 @@ def _read_cell(out_dir: str, arm: str, seed: int) -> dict:
         side = json.load(fh)
     return {"arm": arm, "seed": seed, "episodes": rows,
             "violations": side.get("governance_violations", 0),
+            "decisions": side.get("decisions", 0),
+            "deliveries": side.get("deliveries", 0),
+            "pending_at_end": side.get("pending_at_end", 0),
             "nan": side.get("nan_seen", False)}
 
 
 def verify_protocol(path: str, arms: list[str], seeds: list[int],
-                    settings: dict) -> dict:
-    """Сверка запуска с замороженным манифестом. Любое расхождение — отказ."""
+                    settings: dict, out_dir: str | None = None) -> dict:
+    """Сверка запуска с замороженным манифестом. Любое расхождение — отказ.
+
+    Манифест с полем `grids` описывает несколько прогонов с разной задержкой
+    доставки кредита (P4.6): набор рук тогда задаётся не верхним списком, а
+    записью grid'а, выбранной по `credit_delay_steps`, и каталог вывода обязан
+    совпасть с объявленным — иначе клетки с разной задержкой легли бы в один
+    файл, потому что имя клетки задержки не содержит.
+    """
     raw = open(path, "rb").read()
     manifest = json.loads(raw.decode("utf-8"))
     digest = hashlib.sha256(raw).hexdigest()
@@ -211,6 +226,22 @@ def verify_protocol(path: str, arms: list[str], seeds: list[int],
             problems.append(f"{key}: запуск {settings[key]!r} != протокол {declared[key]!r}")
 
     declared_arms = [a["arm_id"] for a in manifest["arms"]]
+    grid = None
+    grids = manifest.get("grids")
+    if grids:
+        delay = int(settings.get("credit_delay_steps", 0))
+        grid = next((g for g in grids
+                     if int(g["credit_delay_steps"]) == delay), None)
+        if grid is None:
+            problems.append(
+                f"задержке {delay} не соответствует ни один grid манифеста "
+                f"({[g['credit_delay_steps'] for g in grids]})")
+        else:
+            declared_arms = list(grid["arms"])
+            if out_dir is not None and str(out_dir) != str(grid["out"]):
+                problems.append(
+                    f"каталог вывода: запуск {out_dir!r} != grid "
+                    f"{grid['grid_id']!r} объявляет {grid['out']!r}")
     if sorted(arms) != sorted(declared_arms):
         problems.append(f"руки: запуск {sorted(arms)} != протокол {sorted(declared_arms)}")
     declared_seeds = manifest["seed_sets"]["confirmatory"]["values"]
@@ -233,8 +264,12 @@ def verify_protocol(path: str, arms: list[str], seeds: list[int],
 
     if problems:
         raise SystemExit("протокол не совпадает с запуском:\n  " + "\n  ".join(problems))
-    return {"path": str(path), "protocol_id": manifest["protocol_id"],
+    info = {"path": str(path), "protocol_id": manifest["protocol_id"],
             "sha256": digest}
+    if grid is not None:
+        info["grid_id"] = grid["grid_id"]
+        info["credit_delay_steps"] = int(grid["credit_delay_steps"])
+    return info
 
 
 def _block_rate(rows: list[dict], lo: int, hi: int) -> float:
@@ -266,6 +301,9 @@ def main() -> int:
                     help="контраст проигравшего пула в руке pool (0 = правило v1)")
     ap.add_argument("--neuron-credit", type=float, default=0.0,
                     help="размах пер-нейронного фактора λ в руках neuron* (0 = v1)")
+    ap.add_argument("--credit-delay", type=int, default=0,
+                    help="шагов симуляции между действием и доставкой кредита "
+                         "(0 = v1; объявленные значения — в grids манифеста)")
     ap.add_argument("--coherence", type=float, default=0.0)
     ap.add_argument("--steps", type=int, default=40, help="решений на эпизод")
     ap.add_argument("--size", type=int, default=7)
@@ -288,6 +326,7 @@ def main() -> int:
                     i_drive=args.drive, gain=args.gain, sigma=args.sigma,
                     eta=args.eta, pool_contrast=args.kappa,
                     neuron_credit=args.neuron_credit,
+                    credit_delay_steps=args.credit_delay,
                     coherence_gain=args.coherence,
                     max_episode_steps=args.steps, width=args.size,
                     height=args.size, start=tuple(int(v) for v in args.start.split(",")),
@@ -296,7 +335,7 @@ def main() -> int:
     if args.confirm:
         if not args.protocol:
             raise SystemExit("--confirm требует --protocol")
-        protocol = verify_protocol(args.protocol, arms, seeds, settings)
+        protocol = verify_protocol(args.protocol, arms, seeds, settings, args.out)
         protocol["verified"] = True
     elif args.protocol and os.path.exists(args.protocol):
         raw = open(args.protocol, "rb").read()
@@ -311,6 +350,7 @@ def main() -> int:
                              for k, v in job["settings"].items()},
                 "pool_when": POOL_ARMS.get(job["arm"], "always"),
                 "neuron_credit": NEURON_ARMS.get(job["arm"], "none"),
+                "delay_mode": DELAY_ARMS.get(job["arm"], "none"),
                 "protocol_sha256": protocol["sha256"] if protocol else None}
 
     pending = [j for j in jobs
@@ -329,7 +369,7 @@ def main() -> int:
                 job = next(j for j in pending
                            if j["arm"] == cell["arm"] and j["seed"] == cell["seed"])
                 meta = {**cell_meta(job), "governance_violations": cell["violations"],
-                        "nan_seen": cell["nan"]}
+                        "nan_seen": cell["nan"], **cell["stats"]}
                 _write_cell(args.out, cell, meta)
                 print(f"  готово {cell['arm']}-s{cell['seed']}", flush=True)
 
@@ -352,6 +392,8 @@ def main() -> int:
             "mean_abs_dw": sum(e["mean_abs_dw"] for e in eps) / n,
             "at_bound": eps[-1]["fraction_at_bound"],
             "violations": cell["violations"], "nan": cell["nan"],
+            "decisions": cell["decisions"], "deliveries": cell["deliveries"],
+            "pending_at_end": cell["pending_at_end"],
         })
     with open(os.path.join(args.out, "summary.json"), "w", encoding="utf-8") as fh:
         json.dump({"settings": settings, "args": vars(args), "protocol": protocol,

@@ -38,6 +38,26 @@ P4.4 (`neuron`, `neuron_shuffled`) уходит от пула к нейрону:
 Действие = спайк. Глагол не выбирается декодером «из головы»: он выводится из
 того, какой пул реально выстрелил, а `verb_for_action` называет совершённое.
 
+P4.6 (`delay_live`, `delay_frozen`) меняет не форму кредита, а время его
+доставки: модулятор приходит не в момент действия, а через `credit_delay_steps`
+шагов симуляции. Задержка бьёт по обучению двумя разными ударами, и их,
+по уроку v4/v5, надо разделять заранее. Первый — амплитуда: след eligibility
+угасает до `exp(-D/tau)`, кредита приходит меньше. Второй — адресность: в
+интервале задержки сеть продолжает стрелять, и кредит за прошлое действие
+ложится на след, уже наполненный поздними спайками. `delay_live` — честный
+случай (кредит доезжает до живого следа), `delay_frozen` — амплитудный контроль
+(кредит доезжает через столько же шагов, но в слепок следа момента действия,
+погашенный ровно на `exp(-D/tau)`). Разница рук и есть цена адресности при
+равной амплитуде; если её нет, задержка сводится к меньшей eta и вопрос о
+«времени» закрывается как не отдельный ресурс.
+
+При `credit_delay_steps = 0` обе delay-руки бит-в-бит совпадают с `plastic`
+(unit-тест), а задержка длиннее окна запрещена: доставка обязана попадать
+внутрь следующего окна, иначе недоставленный кредит переходил бы через
+границу эпизода непредсказуемо. Недоставленный хвост доезжает в следующем
+эпизоде (состояние обучателя и так общее), теряется только один кредит в самом
+конце прогона — он посчитан в мете клетки.
+
 Разделение обучения и симуляции. Веса, которые двигает STDP, нормированы в
 [0, 1] (валюта правила, границы не нарушаются). Симуляция идёт на тех же
 весах, умноженных на `gain` — физический масштаб проводимости; его изменение
@@ -77,6 +97,7 @@ ORACLE_ACTION = {"left": "move_left", "right": "move_right",
 ARMS = ("plastic", "pool", "pool_pos", "pool_neg",
         "neuron", "neuron_shuffled",
         "neuron_renorm", "neuron_renorm_shuffled",
+        "delay_live", "delay_frozen",
         "no_plasticity", "no_modulator", "oracle")
 
 # Абляция v3: одна и та же поправка проигравшего, разведённая по знаку кредита.
@@ -98,6 +119,13 @@ NEURON_ARMS = {
     "neuron_renorm": "rank_renorm",
     "neuron_renorm_shuffled": "shuffled_renorm",
 }
+
+# P4.6: время доставки кредита. `live` — кредит доезжает до живого следа
+# (угас + испачкан поздними спайками), `frozen` — до слепка следа момента
+# действия, погашенного ровно на `exp(-D/tau)`. Вторая рука — контроль
+# амплитуды первой: правило у обеих одно (скаляр v1), различие только в том,
+# на какой след ложится кредит.
+DELAY_ARMS = {"delay_live": "live", "delay_frozen": "frozen"}
 
 
 @dataclass(frozen=True)
@@ -133,6 +161,7 @@ class LoopSettings:
     m_max: float = 10.0
     pool_contrast: float = 0.0     # κ: проигравший пул ×(1−κ); 0 → правило v1
     neuron_credit: float = 0.0     # λ: размах пер-нейронного фактора; 0 → v1
+    credit_delay_steps: int = 0    # D: задержка доставки кредита, шаги симуляции
     max_episode_steps: int = 40
     width: int = 7
     height: int = 7
@@ -158,6 +187,13 @@ class LoopSettings:
             raise ValueError(
                 "neuron_credit обязан лежать в [0, 1]: при λ=1 наименее "
                 "участвующий нейрон не учится вовсе, λ=0 возвращает v1")
+        if self.credit_delay_steps < 0:
+            raise ValueError("credit_delay_steps не может быть отрицательным")
+        if self.credit_delay_steps > self.window_steps:
+            raise ValueError(
+                f"credit_delay_steps ({self.credit_delay_steps}) длиннее окна "
+                f"({self.window_steps}): доставка ушла бы за границу решения и "
+                "перестала быть отсчитываемой величиной")
 
 
 @dataclass
@@ -242,6 +278,10 @@ class CorridorAgent:
     ):
         if arm not in ARMS:
             raise ValueError(f"unknown arm: {arm!r}")
+        if settings.credit_delay_steps > 0 and arm not in DELAY_ARMS:
+            raise ValueError(
+                f"задержка кредита объявлена только в руках {sorted(DELAY_ARMS)}, "
+                f"рука {arm!r} с credit_delay_steps > 0 означала бы другое правило")
         self.base = graph
         self.channel = channel
         self.settings = settings
@@ -263,11 +303,17 @@ class CorridorAgent:
         )
         self.decoder = ActionDecoder(n_neurons=2)
         self.gatekeeper = GateKeeper()
-        self.prov_stats = {"decisions": 0, "denied": 0, "governance_violations": 0}
+        self.prov_stats = {"decisions": 0, "denied": 0, "governance_violations": 0,
+                           "deliveries": 0, "pending_at_end": 0}
         self._last_action: str | None = None
         self.learner = self._make_learner()
         self.pool_when = POOL_ARMS.get(arm, "always")
         self.neuron_credit_mode = NEURON_ARMS.get(arm, "none")
+        self.delay_mode = DELAY_ARMS.get(arm, "none")
+        # Очередь отложенного кредита живёт на агенте, а не в эпизоде: веса и
+        # след между эпизодами общие, поэтому хвост последнего решения
+        # доезжает в начале следующего, а не теряется на границе.
+        self._pending: list[dict] = []
         post = self.learner.edge_index[:, 1]
         self._pool_left = np.isin(post, self._out_left)
         self._pool_right = np.isin(post, self._out_right)
@@ -414,6 +460,63 @@ class CorridorAgent:
             factors[active] /= rho
         return float(modulator) * factors[post]
 
+    # --- время доставки ---------------------------------------------------
+    def schedule_credit(self, payload: float | np.ndarray) -> None:
+        """Поставить кредит в очередь доставки (P4.6).
+
+        `payload` — скаляр M (правило v1) или вектор по рёбрам (пульные и
+        пер-нейронные руки): механизм времени не зависит от формы кредита. В
+        `delay_frozen` дополнительно забирается слепок живого следа — именно он
+        останется адресом кредита, погашенный на `exp(-D/tau)` к моменту
+        доставки. В `delay_live` слепка нет: кредит доедет до того следа, какой
+        будет жив к моменту доставки.
+        """
+        item = {"payload": payload if isinstance(payload, np.ndarray)
+                else float(payload),
+                "snapshot": (self.learner.eligibility.copy()
+                             if self.delay_mode == "frozen" else None),
+                "age": 0}
+        self._pending.append(item)
+
+    def advance_credit(self) -> list[np.ndarray]:
+        """Один шаг времени: постарить очередь и выдать созревшее.
+
+        Доставка происходит ровно через `credit_delay_steps` шагов update после
+        момента действия: счётчик стареет на каждом шаге, а `update` сам гасит
+        eligibility своим константным множителем. Возвращает список dw, выданных
+        на этом шаге (обычно пустой или из одного элемента).
+        """
+        if not self._pending:
+            return []
+        delay = self.settings.credit_delay_steps
+        due: list[dict] = []
+        waiting: list[dict] = []
+        for item in self._pending:
+            item["age"] += 1
+            (due if item["age"] >= delay else waiting).append(item)
+        self._pending = waiting
+        return [self._deliver(item) for item in due]
+
+    def _deliver(self, item: dict) -> np.ndarray:
+        if item["snapshot"] is None:
+            dw = self.learner.apply_modulator(item["payload"])
+        else:
+            dw = self.learner.apply_modulator(
+                item["payload"], onto=item["snapshot"],
+                onto_delay_steps=item["age"])
+        self.prov_stats["deliveries"] += 1
+        return dw
+
+    def _apply_now(self, payload: float | np.ndarray) -> np.ndarray:
+        """Доставка в момент действия (D = 0) — тот же счётчик, что и у очереди.
+
+        Счётчик означает «кредит применён», а не «кредит прошёл через очередь»:
+        иначе гейт механики не отличил бы нулевую задержку от потерянных доставок.
+        """
+        dw = self.learner.apply_modulator(payload)
+        self.prov_stats["deliveries"] += 1
+        return dw
+
     def _fraction_at_bound(self) -> float:
         w = np.asarray(self.learner.get_weights(), dtype=np.float64)
         if w.size == 0:
@@ -460,6 +563,10 @@ class CorridorAgent:
                     self.learner.update(spikes, spikes, modulator=0.0)
                     left_spikes += int(np.count_nonzero(spikes[self._out_left]))
                     right_spikes += int(np.count_nonzero(spikes[self._out_right]))
+                    # P4.6: здесь же доезжает кредит за прошлые решения.
+                    for dw_late in self.advance_credit():
+                        dw_abs.append(float(np.mean(np.abs(dw_late)))
+                                      if dw_late.size else 0.0)
 
             proposal = self._propose(bearing, left_spikes, right_spikes, step, episode)
             verb_act = VerbAct.from_proposal(
@@ -505,8 +612,11 @@ class CorridorAgent:
             M_edge = self._edge_modulator(M, proposal.action_type)
             if M_edge is None:
                 M_edge = self._neuron_modulator(M, episode, step)
-            dw = self.learner.apply_modulator(M if M_edge is None else M_edge)
-            dw_abs.append(float(np.mean(np.abs(dw))) if dw.size else 0.0)
+            if s.credit_delay_steps == 0:
+                dw = self._apply_now(M if M_edge is None else M_edge)
+                dw_abs.append(float(np.mean(np.abs(dw))) if dw.size else 0.0)
+            else:
+                self.schedule_credit(M_edge if M_edge is not None else M)
 
             if terminated or truncated:
                 break
@@ -544,6 +654,10 @@ class CorridorAgent:
             prov: ProvenanceLog | None = None) -> RunSummary:
         n = self.settings.episodes if episodes is None else episodes
         outcomes = [self.run_episode(ep, prov=prov) for ep in range(n)]
+        # Хвост недоставленного кредита: при D <= window_steps это ровно одно
+        # последнее решение прогона. Теряется один кредит из 500x12 — величина
+        # записывается в мету клетки, чтобы гейт мог её увидеть.
+        self.prov_stats["pending_at_end"] = len(self._pending)
         nan_seen = any(not np.isfinite(e.reward) or not np.isfinite(e.mean_abs_dw)
                        for e in outcomes)
         return RunSummary(arm=self.arm, seed=self.seed, episodes=outcomes,

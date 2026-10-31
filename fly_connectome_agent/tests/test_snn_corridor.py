@@ -116,6 +116,7 @@ def test_nabor_ruk_obyavlen():
     assert ARMS == ("plastic", "pool", "pool_pos", "pool_neg",
                     "neuron", "neuron_shuffled",
                     "neuron_renorm", "neuron_renorm_shuffled",
+                    "delay_live", "delay_frozen",
                     "no_plasticity", "no_modulator", "oracle")
 
 

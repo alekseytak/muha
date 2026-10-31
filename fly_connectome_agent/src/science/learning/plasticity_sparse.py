@@ -237,7 +237,13 @@ class EdgeSparseSTDP:
 
         return dw
 
-    def apply_modulator(self, modulator: float | np.ndarray) -> np.ndarray:
+    def apply_modulator(
+        self,
+        modulator: float | np.ndarray,
+        *,
+        onto: np.ndarray | None = None,
+        onto_delay_steps: int = 0,
+    ) -> np.ndarray:
         """Apply accumulated eligibility once with a reward signal M.
 
         Separate from update(): spike timing (eligibility accumulation) belongs
@@ -245,8 +251,19 @@ class EdgeSparseSTDP:
         independent of whether spikes are present at the moment the reward
         arrives.
 
+        Delayed credit (P4.6). `onto` replaces the internal trace for this one
+        delivery: the caller hands back a snapshot of the trace taken earlier
+        (at the moment of the action), and `onto_delay_steps` says how many
+        simulation steps lie between that moment and this delivery. The
+        snapshot is then decayed by the learner's own per-step eligibility
+        decay, so the amplitude cost of the delay is computed with the same
+        constant the trace evolves under, not a re-derived one. `onto=None`
+        keeps the historical behaviour bit-for-bit: the live trace is used and
+        nothing is decayed here.
+
         Contract:
-        - dw = eta * clip(M, -M_max, M_max) * eligibility
+        - dw = eta * clip(M, -M_max, M_max) * trace, where trace is the live
+          eligibility (`onto=None`) or `onto * decay**onto_delay_steps`
         - weights updated with sign constraints
         - eligibility, traces and step_count are NOT modified: eligibility
           keeps decaying only through update() calls.
@@ -255,11 +272,28 @@ class EdgeSparseSTDP:
             modulator: scalar M for all edges, or a vector of shape
                 (E_plastic,) carrying a per-pool signal. A vector must be
                 finite and is clipped elementwise, like the scalar.
+            onto: delayed-credit trace of shape (E_plastic,); must be finite.
+            onto_delay_steps: non-negative age of `onto`, in simulation steps.
 
         Returns:
             Weight changes dw for plastic edges, shape (E_plastic,)
         """
         values = np.asarray(modulator, dtype=np.float64)
+        trace = self.eligibility
+        if onto is not None:
+            onto = np.asarray(onto, dtype=np.float64)
+            if onto.shape != self.eligibility.shape:
+                raise ValueError(
+                    f"onto must have shape {self.eligibility.shape}, "
+                    f"got {onto.shape}"
+                )
+            if not np.all(np.isfinite(onto)):
+                raise ValueError("onto contains non-finite values")
+            if onto_delay_steps < 0:
+                raise ValueError(
+                    f"onto_delay_steps must be non-negative, got {onto_delay_steps}"
+                )
+            trace = onto * (self._decay_elig ** int(onto_delay_steps))
         if values.ndim == 0:
             clipped = self._clip_modulator(float(values))
         else:
@@ -271,7 +305,7 @@ class EdgeSparseSTDP:
             if not np.all(np.isfinite(values)):
                 raise ValueError("modulator vector contains non-finite values")
             clipped = np.clip(values, -self.params.M_max, self.params.M_max)
-        dw = self.params.eta * clipped * self.eligibility
+        dw = self.params.eta * clipped * trace
         self.edge_weights = self._apply_sign_constraints(self.edge_weights + dw)
         return dw
 
@@ -474,13 +508,36 @@ class NoPlasticityBaseline:
         """Alias for update()."""
         return self.update(pre_spikes, post_spikes, modulator)
 
-    def apply_modulator(self, modulator: float | np.ndarray) -> np.ndarray:
-        """Interface-compatible reward application: always zero dw."""
+    def apply_modulator(
+        self,
+        modulator: float | np.ndarray,
+        *,
+        onto: np.ndarray | None = None,
+        onto_delay_steps: int = 0,
+    ) -> np.ndarray:
+        """Interface-compatible reward application: always zero dw.
+
+        Принимает те же аргументы отложенной доставки (P4.6), что и
+        EdgeSparseSTDP, чтобы контур не разветвлялся по руке: заморозка
+        весов не зависит от того, на какой след указывает кредит.
+        """
         values = np.asarray(modulator, dtype=np.float64)
         if values.ndim > 0 and values.shape != (self.n_plastic,):
             raise ValueError(
                 f"modulator vector must have shape ({self.n_plastic},), "
                 f"got {values.shape}"
+            )
+        if onto is not None:
+            onto = np.asarray(onto, dtype=np.float64)
+            if onto.shape != (self.n_plastic,):
+                raise ValueError(
+                    f"onto must have shape ({self.n_plastic},), got {onto.shape}"
+                )
+            if not np.all(np.isfinite(onto)):
+                raise ValueError("onto contains non-finite values")
+        if onto_delay_steps < 0:
+            raise ValueError(
+                f"onto_delay_steps must be non-negative, got {onto_delay_steps}"
             )
         return np.zeros(self.n_plastic, dtype=np.float64)
 

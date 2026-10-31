@@ -204,3 +204,41 @@ its sign is stable while its size is not. Result:
 [docs/p4_5_neuron_credit_amplitude.md](docs/p4_5_neuron_credit_amplitude.md); run
 and report with `scripts/run_p4_loop.py --confirm --neuron-credit 0.5` and
 `scripts/report_p4_5_neuron_credit_amplitude.py`.
+
+`P4.6 v6 — CREDIT DELIVERY TIMING (pre-registered, smoke/pilot/confirmatory pending)`:
+the closed line was the *form* of the third component, the working rule is the v1
+scalar, and every wave so far delivered the modulator in the same instant as the
+action. v6 moves one variable only — when credit arrives.
+`LoopSettings.credit_delay_steps` holds M in a queue and applies it D steps later;
+D is measured in 1 ms simulation steps, the same unit as `tau_eligibility = 80`.
+D ≤ window_steps is enforced, which keeps the queue at one item: the tail crosses
+into the next episode's first window and exactly one credit of the run is lost
+(counted in the cell meta, gate G9). A delay changes two things at once —
+amplitude (`elig·exp(−D/τ)`) and address (the trace has picked up the spikes of the
+delay interval) — the same confound structure that cost v4 its conclusion, so v6
+pre-registers an amplitude-matched internal control instead of an eta-scaled proxy
+run: `delay_live` delivers into the live trace, `delay_frozen` into the snapshot
+taken at the action moment, decayed by the learner's own `decay**D` constant, and at
+equal D the difference between the two arms *is* the price of addressing. Unit tests
+pin the contract before any number: D = 0 is bit-identical to `plastic` for both
+delay arms, delivery fires exactly D steps later, with no spikes in the interval live
+and frozen are bit-identical, and `Σ|dw_frozen| = exp(−D/τ)·Σ|dw_now|` to 1e-12.
+Declared levels: D = 0 (reference, with `no_plasticity` and `oracle`), D = 20
+(0.7788) and D = 80 = τ (0.3679); the 5-step level from the brief (0.9394) is
+excluded on record because at n = 3 it sits under the noise floor. Cell names cannot
+encode the delay, so each level is a separate runner invocation into its own
+directory (`--credit-delay`, `var/p4_6_d{0,20,80}`) and the manifest carries a
+`grids` section that `verify_protocol` selects by delay — it refuses an undeclared
+delay, a foreign arm set and a mismatched output directory, while manifests without
+`grids` keep the previous behaviour. Working point inherited from p4.5 unchanged
+(except `neuron_credit = 0`, i.e. rule v1, asserted against the p4.5 file by a test);
+confirmatory seeds 701/711/721, burned 182 for the pilot and 7 for smoke. The verdict
+turns on two all-seed signs: A — the D = 80 growth of `delay_live` is below
+`plastic`, B — below `delay_frozen`; H4 is a mechanism hypothesis (measured
+frozen/plastic last-100 `mean|Δw|` within ±15% of `exp(−1)`), and if it fails neither
+A nor B is read as a timing effect. Protocol, frozen manifest (sha256
+`d098378ed9966030f660bac9697284c08aac2cf947cf582ff84f9cee4d1ee241`), verdict tool and
+22 synthetic fixtures are written before any number:
+[docs/p4_6_credit_delay_protocol.md](docs/p4_6_credit_delay_protocol.md); run with
+`scripts/run_p4_loop.py --confirm --credit-delay 0|20|80` and report with
+`scripts/report_p4_6_credit_delay.py`.
