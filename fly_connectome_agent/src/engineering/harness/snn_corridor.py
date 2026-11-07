@@ -304,7 +304,8 @@ class CorridorAgent:
         self.decoder = ActionDecoder(n_neurons=2)
         self.gatekeeper = GateKeeper()
         self.prov_stats = {"decisions": 0, "denied": 0, "governance_violations": 0,
-                           "deliveries": 0, "pending_at_end": 0}
+                           "deliveries": 0, "pending_at_end": 0,
+                           "credit_at_action": 0.0, "credit_delivered": 0.0}
         self._last_action: str | None = None
         self.learner = self._make_learner()
         self.pool_when = POOL_ARMS.get(arm, "always")
@@ -470,11 +471,20 @@ class CorridorAgent:
         останется адресом кредита, погашенный на `exp(-D/tau)` к моменту
         доставки. В `delay_live` слепка нет: кредит доедет до того следа, какой
         будет жив к моменту доставки.
+
+        Здесь же фиксируется масса кредита на момент действия: то, сколько
+        весов сдвинул бы этот кредит, доставь мы его сразу, по тому же следу,
+        что лежит сейчас. Предпросмотр ничего не меняет в весах и в следе, но
+        без него отношение «доставлено / заработано» было бы нельзя посчитать
+        внутри клетки — только между руками, а между руками оно разъезжается
+        (см. протокол P4.6, вето H4).
         """
-        item = {"payload": payload if isinstance(payload, np.ndarray)
-                else float(payload),
+        value = payload if isinstance(payload, np.ndarray) else float(payload)
+        at_action = float(np.sum(np.abs(self.learner.dw_for(value))))
+        item = {"payload": value,
                 "snapshot": (self.learner.eligibility.copy()
                              if self.delay_mode == "frozen" else None),
+                "at_action": at_action,
                 "age": 0}
         self._pending.append(item)
 
@@ -505,6 +515,8 @@ class CorridorAgent:
                 item["payload"], onto=item["snapshot"],
                 onto_delay_steps=item["age"])
         self.prov_stats["deliveries"] += 1
+        self.prov_stats["credit_at_action"] += item["at_action"]
+        self.prov_stats["credit_delivered"] += float(np.sum(np.abs(dw)))
         return dw
 
     def _apply_now(self, payload: float | np.ndarray) -> np.ndarray:
@@ -512,9 +524,14 @@ class CorridorAgent:
 
         Счётчик означает «кредит применён», а не «кредит прошёл через очередь»:
         иначе гейт механики не отличил бы нулевую задержку от потерянных доставок.
+        При D = 0 заработанный и доставленный кредит — одно и то же число, оно
+        записывается в оба счётчика.
         """
         dw = self.learner.apply_modulator(payload)
+        mass = float(np.sum(np.abs(dw)))
         self.prov_stats["deliveries"] += 1
+        self.prov_stats["credit_at_action"] += mass
+        self.prov_stats["credit_delivered"] += mass
         return dw
 
     def _fraction_at_bound(self) -> float:

@@ -181,6 +181,8 @@ def _read_cell(out_dir: str, arm: str, seed: int) -> dict:
             "decisions": side.get("decisions", 0),
             "deliveries": side.get("deliveries", 0),
             "pending_at_end": side.get("pending_at_end", 0),
+            "credit_at_action": side.get("credit_at_action", 0.0),
+            "credit_delivered": side.get("credit_delivered", 0.0),
             "nan": side.get("nan_seen", False)}
 
 
@@ -394,6 +396,8 @@ def main() -> int:
             "violations": cell["violations"], "nan": cell["nan"],
             "decisions": cell["decisions"], "deliveries": cell["deliveries"],
             "pending_at_end": cell["pending_at_end"],
+            "credit_at_action": cell["credit_at_action"],
+            "credit_delivered": cell["credit_delivered"],
         })
     with open(os.path.join(args.out, "summary.json"), "w", encoding="utf-8") as fh:
         json.dump({"settings": settings, "args": vars(args), "protocol": protocol,

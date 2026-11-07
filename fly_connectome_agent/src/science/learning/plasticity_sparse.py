@@ -278,6 +278,50 @@ class EdgeSparseSTDP:
         Returns:
             Weight changes dw for plastic edges, shape (E_plastic,)
         """
+        trace, clipped = self._resolve_credit(modulator, onto=onto,
+                                              delay_steps=onto_delay_steps)
+        dw = self.params.eta * clipped * trace
+        self.edge_weights = self._apply_sign_constraints(self.edge_weights + dw)
+        return dw
+
+    def dw_for(
+        self,
+        modulator: float | np.ndarray,
+        *,
+        onto: np.ndarray | None = None,
+        decay_steps: int = 0,
+    ) -> np.ndarray:
+        """The dw that apply_modulator would produce, without moving weights.
+
+        Same formula, same validation, same arithmetic path as
+        apply_modulator(), so a preview is bit-identical to the delivery it
+        predicts. Used by P4.6 to record how much credit an action earned at
+        the moment it happened, before the delivery delay is paid.
+
+        Args:
+            modulator: scalar M or a per-edge vector, as in apply_modulator().
+            onto: trace to write the credit onto; None means the live trace.
+            decay_steps: non-negative age of `onto`, in simulation steps.
+
+        Returns:
+            Weight changes dw for plastic edges, shape (E_plastic,)
+        """
+        trace, clipped = self._resolve_credit(modulator, onto=onto,
+                                              delay_steps=decay_steps)
+        return self.params.eta * clipped * trace
+
+    def _resolve_credit(
+        self,
+        modulator: float | np.ndarray,
+        *,
+        onto: np.ndarray | None,
+        delay_steps: int,
+    ) -> tuple[np.ndarray, float | np.ndarray]:
+        """Validate a credit and resolve (trace, clipped modulator) for it.
+
+        Shared by apply_modulator() and dw_for(): the two must never drift
+        apart, otherwise a preview stops being a prediction of the delivery.
+        """
         values = np.asarray(modulator, dtype=np.float64)
         trace = self.eligibility
         if onto is not None:
@@ -289,11 +333,11 @@ class EdgeSparseSTDP:
                 )
             if not np.all(np.isfinite(onto)):
                 raise ValueError("onto contains non-finite values")
-            if onto_delay_steps < 0:
+            if delay_steps < 0:
                 raise ValueError(
-                    f"onto_delay_steps must be non-negative, got {onto_delay_steps}"
+                    f"onto_delay_steps must be non-negative, got {delay_steps}"
                 )
-            trace = onto * (self._decay_elig ** int(onto_delay_steps))
+            trace = onto * (self._decay_elig ** int(delay_steps))
         if values.ndim == 0:
             clipped = self._clip_modulator(float(values))
         else:
@@ -305,9 +349,7 @@ class EdgeSparseSTDP:
             if not np.all(np.isfinite(values)):
                 raise ValueError("modulator vector contains non-finite values")
             clipped = np.clip(values, -self.params.M_max, self.params.M_max)
-        dw = self.params.eta * clipped * trace
-        self.edge_weights = self._apply_sign_constraints(self.edge_weights + dw)
-        return dw
+        return trace, clipped
 
     def update_with_diagnostics(
         self,
@@ -540,6 +582,21 @@ class NoPlasticityBaseline:
                 f"onto_delay_steps must be non-negative, got {onto_delay_steps}"
             )
         return np.zeros(self.n_plastic, dtype=np.float64)
+
+    def dw_for(
+        self,
+        modulator: float | np.ndarray,
+        *,
+        onto: np.ndarray | None = None,
+        decay_steps: int = 0,
+    ) -> np.ndarray:
+        """Preview for apply_modulator(): zeros, with the same validation.
+
+        Kept interface-compatible so the loop can ask any learner what a
+        credit would weigh, and a frozen learner answers honestly: nothing.
+        """
+        return self.apply_modulator(modulator, onto=onto,
+                                    onto_delay_steps=decay_steps)
 
     def get_weights(self) -> np.ndarray:
         """Return a copy of edge weights."""
