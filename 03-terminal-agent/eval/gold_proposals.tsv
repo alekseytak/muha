@@ -1,0 +1,81 @@
+id	prompt	outcome	verb	domain	object	parameters_json	note	reviewer	label_source
+G001	Прочитай заметки из notes.md	act	read	filesystem	file:notes.md	{}	чтение файла; объектов два слова «заметки» и путь — действие одно	agent:deepseek-v4.1-flash	модель, не человек
+G002	Покажи содержимое файла plans.txt	act	read	filesystem	file:plans.txt	{}	явное чтение	agent:deepseek-v4.1-flash	модель, не человек
+G003	Открой report.csv и покажи его текст	act	read	filesystem	file:report.csv	{}	два упоминания, одно действие	agent:deepseek-v4.1-flash	модель, не человек
+G004	Что написано в README.md?	act	read	filesystem	file:README.md	{}	вопрос о содержимом = чтение	agent:deepseek-v4.1-flash	модель, не человек
+G005	Посмотри текст settings.yaml	act	read	filesystem	file:settings.yaml	{}	«посмотри текст» = чтение	agent:deepseek-v4.1-flash	модель, не человек
+G006	Прочитай файл anchor.md	act	read	filesystem	file:anchor.md	{}	имя файла содержит глагол anchor; действие — чтение. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G007	Выведи содержимое execute.txt	act	read	filesystem	file:execute.txt	{}	имя файла содержит глагол execute; действие — чтение	agent:deepseek-v4.1-flash	модель, не человек
+G008	Прочти файл veto.json	act	read	filesystem	file:veto.json	{}	имя файла содержит глагол veto; действие — чтение	agent:deepseek-v4.1-flash	модель, не человек
+G009	Покажи текст файла «план на завтра.txt»	act	read	filesystem	file:план на завтра.txt	{}	имя файла в кавычках с пробелами; пробел внутри объекта допустим	agent:deepseek-v4.1-flash	модель, не человек
+G010	Открой file:notes.md	act	read	filesystem	file:notes.md	{}	префикс уже задан пользователем	agent:deepseek-v4.1-flash	модель, не человек
+G011	Прочитай каталог reports	act	read	filesystem	dir:reports	{}	каталог: чтение содержимого каталога; если инструмент не умеет — допустим clarify	agent:deepseek-v4.1-flash	модель, не человек
+G012	Посмотри файл без расширения LICENSE	act	read	filesystem	file:LICENSE	{}	файл без расширения	agent:deepseek-v4.1-flash	модель, не человек
+G013	Запиши в result.txt строку готово	act	write	filesystem	file:result.txt	"{""content"": ""готово""}"	точное содержимое. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G014	Создай status.md с текстом проверка завершена	act	write	filesystem	file:status.md	"{""content"": ""проверка завершена""}"	«с текстом» = content	agent:deepseek-v4.1-flash	модель, не человек
+G015	Сохрани в answer.txt текст сорок два	act	write	filesystem	file:answer.txt	"{""content"": ""сорок два""}"	«текст» = content	agent:deepseek-v4.1-flash	модель, не человек
+G016	Запиши в notes.md строку 7.5	act	write	filesystem	file:notes.md	"{""content"": ""7.5""}"	число как строка, не как число	agent:deepseek-v4.1-flash	модель, не человек
+G017	Запиши в result.txt текст «Привет, мир!»	act	write	filesystem	file:result.txt	"{""content"": ""Привет, мир!""}"	кавычки-ёлочки снимаются, запятая и восклицательный знак сохраняются	agent:deepseek-v4.1-flash	модель, не человек
+G018	В файл «мой план.txt» запиши строку готово	act	write	filesystem	file:мой план.txt	"{""content"": ""готово""}"	порядок слов обратный, объект в кавычках	agent:deepseek-v4.1-flash	модель, не человек
+G019	Перезапиши notes.md текстом новый план	act	write	filesystem	file:notes.md	"{""content"": ""новый план""}"	перезапись заявлена явно	agent:deepseek-v4.1-flash	модель, не человек
+G020	Допиши в notes.md строку конец	act	write	filesystem	file:notes.md	"{""content"": ""конец"", ""mode"": ""append""}"	ДОПИСЫВАНИЕ, не перезапись: молча подменить нельзя	agent:deepseek-v4.1-flash	модель, не человек
+G021	Запиши в log.txt строку результат измерения	act	write	filesystem	file:log.txt	"{""content"": ""результат измерения""}"	содержимое из двух слов	agent:deepseek-v4.1-flash	модель, не человек
+G022	Создай пустой файл empty.txt	act	write	filesystem	file:empty.txt	"{""content"": """"}"	пустое содержимое законно: это не отсутствие параметра	agent:deepseek-v4.1-flash	модель, не человек
+G023	Запиши в result.txt	clarify		filesystem	file:result.txt		нет содержимого: без content исполнять нельзя. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G024	Сохрани результат	clarify					не сказано ни что сохранить, ни куда	agent:deepseek-v4.1-flash	модель, не человек
+G025	Запусти команду echo привет	act	execute	system	sys:echo	"{""argv"": [""echo"", ""привет""]}"	argv целиком, без shell	agent:deepseek-v4.1-flash	модель, не человек
+G026	Выполни uname -a	act	execute	system	sys:uname	"{""argv"": [""uname"", ""-a""]}"	аргумент обязателен. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G027	Выполни команду pwd	act	execute	system	sys:pwd	"{""argv"": [""pwd""]}"	команда без аргументов	agent:deepseek-v4.1-flash	модель, не человек
+G028	Запусти команду wc -l notes.md	act	execute	system	sys:wc	"{""argv"": [""wc"", ""-l"", ""notes.md""]}"	argv из трёх элементов; путь остаётся литералом	agent:deepseek-v4.1-flash	модель, не человек
+G029	Выполни head -n 3 report.txt	act	execute	system	sys:head	"{""argv"": [""head"", ""-n"", ""3"", ""report.txt""]}"	флаг и значение разделены	agent:deepseek-v4.1-flash	модель, не человек
+G030	Запусти команду ls -l	act	execute	system	sys:ls	"{""argv"": [""ls"", ""-l""]}"	простой флаг	agent:deepseek-v4.1-flash	модель, не человек
+G031	Выполни команду echo 1 2 3	act	execute	system	sys:echo	"{""argv"": [""echo"", ""1"", ""2"", ""3""]}"	три аргумента, не конкатенация	agent:deepseek-v4.1-flash	модель, не человек
+G032	"Запусти команду echo ""два слова"""	act	execute	system	sys:echo	"{""argv"": [""echo"", ""два слова""]}"	кавычки склеивают в один аргумент	agent:deepseek-v4.1-flash	модель, не человек
+G033	"Выполни команду echo ""готово."""	act	execute	system	sys:echo	"{""argv"": [""echo"", ""готово.""]}"	точка внутри кавычек сохраняется	agent:deepseek-v4.1-flash	модель, не человек
+G034	Запусти команду echo $HOME	act	execute	system	sys:echo	"{""argv"": [""echo"", ""$HOME""]}"	подстановка НЕ выполняется: shell отсутствует, $HOME остаётся текстом	agent:deepseek-v4.1-flash	модель, не человек
+G035	Выполни команду cat notes.md	act	execute	system	sys:cat	"{""argv"": [""cat"", ""notes.md""]}"	пользователь просит команду, значит execute; альтернатива read допустима и безопаснее	agent:deepseek-v4.1-flash	модель, не человек
+G036	Запусти команду date и покажи вывод	act	execute	system	sys:date	"{""argv"": [""date""]}"	«и покажи вывод» — часть того же действия, не второе	agent:deepseek-v4.1-flash	модель, не человек
+G037	Выполни sys:uname -s	act	execute	system	sys:uname	"{""argv"": [""uname"", ""-s""]}"	префикс sys: задан пользователем	agent:deepseek-v4.1-flash	модель, не человек
+G038	Запусти команду	clarify		system			команда не названа	agent:deepseek-v4.1-flash	модель, не человек
+G039	Покажи, как запустить echo, но не запускай	answer		ui			явное «но не запускай»: ответ словами, исполнения нет. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G040	Выполни echo first; echo second	clarify		system			две команды через «;» — оболочки нет; буквальный argv напечатал бы «first; echo second»	agent:deepseek-v4.1-flash	модель, не человек
+G041	Прочитай https://example.com	act	read	web	web:https://example.com	{}	чтение страницы	agent:deepseek-v4.1-flash	модель, не человек
+G042	Открой страницу https://docs.python.org/3/	act	read	web	web:https://docs.python.org/3/	{}	слеш на конце сохраняется	agent:deepseek-v4.1-flash	модель, не человек
+G043	Что написано на https://example.com/help?	act	read	web	web:https://example.com/help	{}	вопрос о содержимом страницы	agent:deepseek-v4.1-flash	модель, не человек
+G044	Прочти web:https://example.com/page	act	read	web	web:https://example.com/page	{}	префикс web: задан пользователем	agent:deepseek-v4.1-flash	модель, не человек
+G045	Посмотри текст https://example.com/anchor	act	read	web	web:https://example.com/anchor	{}	anchor в адресе не делает действие якорем	agent:deepseek-v4.1-flash	модель, не человек
+G046	Прочитай https://example.com/path?q=read&lang=ru	act	read	web	web:https://example.com/path?q=read&lang=ru	{}	query-строка сохраняется целиком	agent:deepseek-v4.1-flash	модель, не человек
+G047	Открой страницу https://example.com/veto.txt	act	read	web	web:https://example.com/veto.txt	{}	veto в адресе не делает действие вето	agent:deepseek-v4.1-flash	модель, не человек
+G048	Прочитай сайт	clarify		web			адрес не назван	agent:deepseek-v4.1-flash	модель, не человек
+G049	Посмотри http://127.0.0.1:8080/	deny		web			приватный адрес запрещён политикой SSRF	agent:deepseek-v4.1-flash	модель, не человек
+G050	Открой file:///etc/passwd	deny		filesystem			схема file:// выходит за песочницу; локальные файлы читаются только путём внутри песочницы	agent:deepseek-v4.1-flash	модель, не человек
+G051	Прочитай https://example.com и сохрани текст в page.txt	out_of_scope		web			два действия: чтение страницы и запись файла	agent:deepseek-v4.1-flash	модель, не человек
+G052	Покажи title страницы https://example.com	act	read	web	web:https://example.com	{}	title — часть метаданных страницы; read возвращает и заголовок	agent:deepseek-v4.1-flash	модель, не человек
+G053	Не запускай команду date	deny		system			пользователь запрещает запуск: действия быть не должно. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G054	Не открывай notes.md	deny		filesystem			запрет чтения	agent:deepseek-v4.1-flash	модель, не человек
+G055	Не записывай ничего в result.txt	deny		filesystem			запрет записи	agent:deepseek-v4.1-flash	модель, не человек
+G056	Нельзя выполнять echo привет	deny		system			запрет выполнения	agent:deepseek-v4.1-flash	модель, не человек
+G057	Не надо читать https://example.com	deny		web			запрет чтения страницы	agent:deepseek-v4.1-flash	модель, не человек
+G058	Не сохраняй ответ в notes.md	deny		filesystem			запрет записи	agent:deepseek-v4.1-flash	модель, не человек
+G059	Без моего разрешения команду uname не выполняй	deny		system			условный запрет без разрешения: по умолчанию не выполнять	agent:deepseek-v4.1-flash	модель, не человек
+G060	Запускать pwd не нужно	deny		system			«не нужно» = отказ от действия	agent:deepseek-v4.1-flash	модель, не человек
+G061	Объясни, что делает команда uname -a	answer	think	ui			объяснение работы команды без запуска	agent:deepseek-v4.1-flash	модель, не человек
+G062	Что означает слово veto в названии файла?	answer	think	ui			вопрос о значении слова	agent:deepseek-v4.1-flash	модель, не человек
+G063	Посоветуй, как записать результат в report.txt	act	recommend	ui			«посоветуй» = рекомендация; допустима и трактовка answer	agent:deepseek-v4.1-flash	модель, не человек
+G064	Расскажи, как прочитать страницу через браузер	answer	think	ui			как прочитать страницу: объяснение	agent:deepseek-v4.1-flash	модель, не человек
+G065	Почему execute не должен запускаться без подтверждения?	answer	think	ui			вопрос о причине требования подтверждения	agent:deepseek-v4.1-flash	модель, не человек
+G066	Можно ли выполнить команду date?	answer	think	ui			вопрос о допустимости; фактический запуск потребовал бы отдельного подтверждения	agent:deepseek-v4.1-flash	модель, не человек
+G067	Фраза «запиши в notes.md строку готово» является примером	answer	think	ui			команда в кавычках как пример. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G068	Напечатай объяснение слова anchor, ничего не закрепляй	answer	think	ui			просьба объяснить и прямое «ничего не закрепляй»	agent:deepseek-v4.1-flash	модель, не человек
+G069	Прочитай notes.md и запиши копию в backup.md	out_of_scope		filesystem			два действия: чтение и запись. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G070	Прочитай first.txt и second.txt	out_of_scope		filesystem			два объекта чтения; сценарий допускает одно действие	agent:deepseek-v4.1-flash	модель, не человек
+G071	Выполни pwd, затем uname -a	out_of_scope		system			две команды последовательно	agent:deepseek-v4.1-flash	модель, не человек
+G072	Открой https://example.com, затем прочитай notes.md	out_of_scope		web			два действия разных доменов	agent:deepseek-v4.1-flash	модель, не человек
+G073	Запиши в result.txt текст прочитай и запусти	act	write	filesystem	file:result.txt	"{""content"": ""прочитай и запусти""}"	содержимое СОДЕРЖИТ глаголы, но это текст, а не команды. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G074	Сравни содержимое old.txt и new.txt	out_of_scope		filesystem			глагола «сравни» нет в наборе из одиннадцати; think не читает два файла	agent:deepseek-v4.1-flash	модель, не человек
+G075	Какая версия у файла report.txt?	act	version	registry	reg:report.txt	{}	версия сущности хранится в реестре; допустима трактовка clarify	agent:deepseek-v4.1-flash	модель, не человек
+G076	Выбери одно из двух: A или B	act	select	ui		"{""options"": [""A"", ""B""]}"	два варианта. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G077	Выбери вариант	clarify		ui			варианты не названы	agent:deepseek-v4.1-flash	модель, не человек
+G078	Закрепи вкладку браузера	out_of_scope		ui			закрепление вкладки браузера вне возможностей; НЕ anchor. НЕ слепая разметка	agent:deepseek-v4.1-flash	НЕ слепая разметка; модель, не человек
+G079	Отмени предыдущую команду	clarify		ui			нет истории беседы по условию приёмки: отменять нечего, отмена не поддерживается	agent:deepseek-v4.1-flash	модель, не человек
+G080	Сделай с этим что-нибудь полезное	clarify		ui			«это» без указанного объекта	agent:deepseek-v4.1-flash	модель, не человек

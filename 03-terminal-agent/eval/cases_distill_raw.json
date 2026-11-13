@@ -1,0 +1,1657 @@
+{
+ "meta": {
+  "name": "distill-raw",
+  "purpose": "фразы БЕЗ разметки; метки ставит омега в label_cases.py",
+  "seed": 20260101,
+  "families": 28,
+  "count": 329,
+  "note": "разделение train/eval — по family, чтобы отложенная часть проверяла перенос на новую форму запроса"
+ },
+ "phrases": [
+  {
+   "id": "d000",
+   "family": "write-w1",
+   "phrase": "сохрани в settings.json результат"
+  },
+  {
+   "id": "d001",
+   "family": "write-w3",
+   "phrase": "добавь в otchet.txt новую строку"
+  },
+  {
+   "id": "d002",
+   "family": "read-r1",
+   "phrase": "прочти plans.md"
+  },
+  {
+   "id": "d003",
+   "family": "read-r1",
+   "phrase": "покажи содержимое notes.md"
+  },
+  {
+   "id": "d004",
+   "family": "read-r3",
+   "phrase": "открой config.yaml и скажи, что там"
+  },
+  {
+   "id": "d005",
+   "family": "read-r1",
+   "phrase": "прочитай plans.md"
+  },
+  {
+   "id": "d006",
+   "family": "write-w1",
+   "phrase": "запиши в data.csv строку готово"
+  },
+  {
+   "id": "d007",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти whoami"
+  },
+  {
+   "id": "d008",
+   "family": "log-l1",
+   "phrase": "залогируй результат работы"
+  },
+  {
+   "id": "d009",
+   "family": "ver-v2",
+   "phrase": "версию чего ты сейчас используешь?"
+  },
+  {
+   "id": "d010",
+   "family": "write-w1",
+   "phrase": "сохрани в main.py результат"
+  },
+  {
+   "id": "d011",
+   "family": "write-w3",
+   "phrase": "добавь в notes.md новую строку"
+  },
+  {
+   "id": "d012",
+   "family": "exec-e1",
+   "phrase": "выполни ps в терминале"
+  },
+  {
+   "id": "d013",
+   "family": "read-r2",
+   "phrase": "что написано в plans.md?"
+  },
+  {
+   "id": "d014",
+   "family": "read-r2",
+   "phrase": "что лежит в notes.md?"
+  },
+  {
+   "id": "d015",
+   "family": "select-s1",
+   "phrase": "какого размера файл data.csv?"
+  },
+  {
+   "id": "d016",
+   "family": "read-r2",
+   "phrase": "что лежит в main.py?"
+  },
+  {
+   "id": "d017",
+   "family": "anchor-a1",
+   "phrase": "закрепи запись правило-7"
+  },
+  {
+   "id": "d018",
+   "family": "select-s1",
+   "phrase": "какого размера файл readme.md?"
+  },
+  {
+   "id": "d019",
+   "family": "rec-r2",
+   "phrase": "дай совет, с чего начать"
+  },
+  {
+   "id": "d020",
+   "family": "write-w1",
+   "phrase": "запиши в registry.jsonl строку готово"
+  },
+  {
+   "id": "d021",
+   "family": "write-w2",
+   "phrase": "сделай config.yaml и положи туда список"
+  },
+  {
+   "id": "d022",
+   "family": "write-w3",
+   "phrase": "перезапиши notes.md целиком"
+  },
+  {
+   "id": "d023",
+   "family": "think-t2",
+   "phrase": "объясни, как работает глаголы"
+  },
+  {
+   "id": "d024",
+   "family": "veto-x1",
+   "phrase": "запрети запись канон"
+  },
+  {
+   "id": "d025",
+   "family": "veto-x2",
+   "phrase": "поставь запрет на канон-муха"
+  },
+  {
+   "id": "d026",
+   "family": "read-r2",
+   "phrase": "что лежит в config.yaml?"
+  },
+  {
+   "id": "d027",
+   "family": "read-r4",
+   "phrase": "покажи классы нейронов коннектома"
+  },
+  {
+   "id": "d028",
+   "family": "veto-x1",
+   "phrase": "наложи вето на запись версия-2"
+  },
+  {
+   "id": "d029",
+   "family": "select-s1",
+   "phrase": "какого размера файл plans.md?"
+  },
+  {
+   "id": "d030",
+   "family": "write-w2",
+   "phrase": "создай notes.md с планом на день"
+  },
+  {
+   "id": "d031",
+   "family": "write-w2",
+   "phrase": "сделай plans.md и положи туда список"
+  },
+  {
+   "id": "d032",
+   "family": "anchor-a2",
+   "phrase": "сделай версия-2 каноном"
+  },
+  {
+   "id": "d033",
+   "family": "anchor-a2",
+   "phrase": "сделай канон каноном"
+  },
+  {
+   "id": "d034",
+   "family": "veto-x2",
+   "phrase": "поставь запрет на канон"
+  },
+  {
+   "id": "d035",
+   "family": "read-r2",
+   "phrase": "что написано в settings.json?"
+  },
+  {
+   "id": "d036",
+   "family": "veto-x1",
+   "phrase": "наложи вето на запись канон"
+  },
+  {
+   "id": "d037",
+   "family": "exec-e1",
+   "phrase": "запусти команду ls"
+  },
+  {
+   "id": "d038",
+   "family": "select-s1",
+   "phrase": "какого размера файл settings.json?"
+  },
+  {
+   "id": "d039",
+   "family": "exec-e3",
+   "phrase": "покажи whoami командой"
+  },
+  {
+   "id": "d040",
+   "family": "read-r2",
+   "phrase": "что написано в readme.md?"
+  },
+  {
+   "id": "d041",
+   "family": "write-w1",
+   "phrase": "сохрани в log.txt результат"
+  },
+  {
+   "id": "d042",
+   "family": "esc-e1",
+   "phrase": "эскалируй это наверх оператору"
+  },
+  {
+   "id": "d043",
+   "family": "esc-e2",
+   "phrase": "позови человека, я не уверен"
+  },
+  {
+   "id": "d044",
+   "family": "write-w1",
+   "phrase": "сохрани в data.csv результат"
+  },
+  {
+   "id": "d045",
+   "family": "select-s3",
+   "phrase": "какой тип у файла otchet.txt?"
+  },
+  {
+   "id": "d046",
+   "family": "read-r5",
+   "phrase": "открой https://peps.python.org/ и перескажи"
+  },
+  {
+   "id": "d047",
+   "family": "ver-v1",
+   "phrase": "какая сейчас версия агента?"
+  },
+  {
+   "id": "d048",
+   "family": "write-w1",
+   "phrase": "сохрани в config.yaml результат"
+  },
+  {
+   "id": "d049",
+   "family": "write-w3",
+   "phrase": "перезапиши main.py целиком"
+  },
+  {
+   "id": "d050",
+   "family": "think-t2",
+   "phrase": "объясни, как работает рейестр"
+  },
+  {
+   "id": "d051",
+   "family": "select-s1",
+   "phrase": "сколько весит registry.jsonl?"
+  },
+  {
+   "id": "d052",
+   "family": "read-r1",
+   "phrase": "прочитай notes.md"
+  },
+  {
+   "id": "d053",
+   "family": "read-r4",
+   "phrase": "выведи нейроны-хабы из коннектома"
+  },
+  {
+   "id": "d054",
+   "family": "read-r3",
+   "phrase": "загляни в readme.md и перескажи"
+  },
+  {
+   "id": "d055",
+   "family": "anchor-a1",
+   "phrase": "закрепи запись версия-2"
+  },
+  {
+   "id": "d056",
+   "family": "veto-x2",
+   "phrase": "заблокируй правило-7 в реестре"
+  },
+  {
+   "id": "d057",
+   "family": "veto-x2",
+   "phrase": "заблокируй запись-abc в реестре"
+  },
+  {
+   "id": "d058",
+   "family": "write-w1",
+   "phrase": "запиши в config.yaml строку готово"
+  },
+  {
+   "id": "d059",
+   "family": "read-r2",
+   "phrase": "что написано в log.txt?"
+  },
+  {
+   "id": "d060",
+   "family": "select-s3",
+   "phrase": "какой формат у registry.jsonl?"
+  },
+  {
+   "id": "d061",
+   "family": "read-r5",
+   "phrase": "прочитай страницу https://arxiv.org/abs/1706.03762"
+  },
+  {
+   "id": "d062",
+   "family": "write-w2",
+   "phrase": "сделай readme.md и положи туда список"
+  },
+  {
+   "id": "d063",
+   "family": "rec-r1",
+   "phrase": "что посоветуешь делать дальше?"
+  },
+  {
+   "id": "d064",
+   "family": "read-r1",
+   "phrase": "покажи содержимое plans.md"
+  },
+  {
+   "id": "d065",
+   "family": "read-r3",
+   "phrase": "загляни в registry.jsonl и перескажи"
+  },
+  {
+   "id": "d066",
+   "family": "veto-x1",
+   "phrase": "запрети запись правило-7"
+  },
+  {
+   "id": "d067",
+   "family": "select-s1",
+   "phrase": "сколько весит settings.json?"
+  },
+  {
+   "id": "d068",
+   "family": "select-s3",
+   "phrase": "какой формат у main.py?"
+  },
+  {
+   "id": "d069",
+   "family": "read-r2",
+   "phrase": "что в plans.md?"
+  },
+  {
+   "id": "d070",
+   "family": "write-w3",
+   "phrase": "добавь в readme.md новую строку"
+  },
+  {
+   "id": "d071",
+   "family": "read-r3",
+   "phrase": "загляни в config.yaml и перескажи"
+  },
+  {
+   "id": "d072",
+   "family": "read-r3",
+   "phrase": "открой readme.md и скажи, что там"
+  },
+  {
+   "id": "d073",
+   "family": "exec-e1",
+   "phrase": "запусти команду ps"
+  },
+  {
+   "id": "d074",
+   "family": "exec-e2",
+   "phrase": "выполни uname"
+  },
+  {
+   "id": "d075",
+   "family": "anchor-a1",
+   "phrase": "заякорь канон-муха в реестре"
+  },
+  {
+   "id": "d076",
+   "family": "exec-e2",
+   "phrase": "прогони df и покажи вывод"
+  },
+  {
+   "id": "d077",
+   "family": "read-r2",
+   "phrase": "что лежит в data.csv?"
+  },
+  {
+   "id": "d078",
+   "family": "read-r2",
+   "phrase": "что написано в otchet.txt?"
+  },
+  {
+   "id": "d079",
+   "family": "select-s1",
+   "phrase": "сколько весит notes.md?"
+  },
+  {
+   "id": "d080",
+   "family": "write-w3",
+   "phrase": "добавь в config.yaml новую строку"
+  },
+  {
+   "id": "d081",
+   "family": "read-r4",
+   "phrase": "выведи статистику из коннектома"
+  },
+  {
+   "id": "d082",
+   "family": "read-r2",
+   "phrase": "что лежит в log.txt?"
+  },
+  {
+   "id": "d083",
+   "family": "read-r1",
+   "phrase": "прочитай otchet.txt"
+  },
+  {
+   "id": "d084",
+   "family": "write-w3",
+   "phrase": "перезапиши registry.jsonl целиком"
+  },
+  {
+   "id": "d085",
+   "family": "read-r2",
+   "phrase": "что в settings.json?"
+  },
+  {
+   "id": "d086",
+   "family": "exec-e1",
+   "phrase": "запусти команду git"
+  },
+  {
+   "id": "d087",
+   "family": "write-w2",
+   "phrase": "создай readme.md с планом на день"
+  },
+  {
+   "id": "d088",
+   "family": "exec-e2",
+   "phrase": "выполни whoami"
+  },
+  {
+   "id": "d089",
+   "family": "read-r1",
+   "phrase": "прочти readme.md"
+  },
+  {
+   "id": "d090",
+   "family": "write-w2",
+   "phrase": "создай settings.json с планом на день"
+  },
+  {
+   "id": "d091",
+   "family": "esc-e1",
+   "phrase": "передай вопрос выше"
+  },
+  {
+   "id": "d092",
+   "family": "ver-v2",
+   "phrase": "какая версия у settings.json?"
+  },
+  {
+   "id": "d093",
+   "family": "read-r5",
+   "phrase": "открой https://example.com и перескажи"
+  },
+  {
+   "id": "d094",
+   "family": "select-s1",
+   "phrase": "сколько весит readme.md?"
+  },
+  {
+   "id": "d095",
+   "family": "read-r1",
+   "phrase": "прочти otchet.txt"
+  },
+  {
+   "id": "d096",
+   "family": "write-w3",
+   "phrase": "перезапиши otchet.txt целиком"
+  },
+  {
+   "id": "d097",
+   "family": "think-t1",
+   "phrase": "зачем вообще нужны глаголы?"
+  },
+  {
+   "id": "d098",
+   "family": "exec-e1",
+   "phrase": "запусти команду df"
+  },
+  {
+   "id": "d099",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти git"
+  },
+  {
+   "id": "d100",
+   "family": "read-r2",
+   "phrase": "что лежит в readme.md?"
+  },
+  {
+   "id": "d101",
+   "family": "exec-e1",
+   "phrase": "запусти команду date"
+  },
+  {
+   "id": "d102",
+   "family": "exec-e1",
+   "phrase": "запусти команду pwd"
+  },
+  {
+   "id": "d103",
+   "family": "log-l2",
+   "phrase": "занеси в журнал, что задача готова"
+  },
+  {
+   "id": "d104",
+   "family": "write-w2",
+   "phrase": "создай main.py с планом на день"
+  },
+  {
+   "id": "d105",
+   "family": "veto-x2",
+   "phrase": "поставь запрет на запись-abc"
+  },
+  {
+   "id": "d106",
+   "family": "write-w3",
+   "phrase": "перезапиши config.yaml целиком"
+  },
+  {
+   "id": "d107",
+   "family": "think-t2",
+   "phrase": "объясни, как работает архитектура"
+  },
+  {
+   "id": "d108",
+   "family": "read-r2",
+   "phrase": "что лежит в registry.jsonl?"
+  },
+  {
+   "id": "d109",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти date"
+  },
+  {
+   "id": "d110",
+   "family": "select-s3",
+   "phrase": "какой тип у файла log.txt?"
+  },
+  {
+   "id": "d111",
+   "family": "select-s2",
+   "phrase": "что лучше: первый или второй?"
+  },
+  {
+   "id": "d112",
+   "family": "anchor-a1",
+   "phrase": "заякорь версия-2 в реестре"
+  },
+  {
+   "id": "d113",
+   "family": "write-w3",
+   "phrase": "добавь в registry.jsonl новую строку"
+  },
+  {
+   "id": "d114",
+   "family": "think-t2",
+   "phrase": "как устроен глаголы?"
+  },
+  {
+   "id": "d115",
+   "family": "read-r3",
+   "phrase": "загляни в plans.md и перескажи"
+  },
+  {
+   "id": "d116",
+   "family": "write-w1",
+   "phrase": "запиши в main.py строку готово"
+  },
+  {
+   "id": "d117",
+   "family": "write-w1",
+   "phrase": "запиши в plans.md строку готово"
+  },
+  {
+   "id": "d118",
+   "family": "think-t2",
+   "phrase": "как устроен архитектура?"
+  },
+  {
+   "id": "d119",
+   "family": "exec-e2",
+   "phrase": "прогони pwd и покажи вывод"
+  },
+  {
+   "id": "d120",
+   "family": "select-s2",
+   "phrase": "что лучше: быстрый или дешёвый?"
+  },
+  {
+   "id": "d121",
+   "family": "write-w1",
+   "phrase": "сохрани в plans.md результат"
+  },
+  {
+   "id": "d122",
+   "family": "read-r4",
+   "phrase": "выведи связи из коннектома"
+  },
+  {
+   "id": "d123",
+   "family": "read-r2",
+   "phrase": "что в data.csv?"
+  },
+  {
+   "id": "d124",
+   "family": "read-r1",
+   "phrase": "покажи содержимое settings.json"
+  },
+  {
+   "id": "d125",
+   "family": "exec-e2",
+   "phrase": "выполни df"
+  },
+  {
+   "id": "d126",
+   "family": "exec-e1",
+   "phrase": "выполни uname в терминале"
+  },
+  {
+   "id": "d127",
+   "family": "write-w2",
+   "phrase": "сделай otchet.txt и положи туда список"
+  },
+  {
+   "id": "d128",
+   "family": "select-s1",
+   "phrase": "сколько весит main.py?"
+  },
+  {
+   "id": "d129",
+   "family": "exec-e2",
+   "phrase": "прогони ls и покажи вывод"
+  },
+  {
+   "id": "d130",
+   "family": "select-s3",
+   "phrase": "какой формат у otchet.txt?"
+  },
+  {
+   "id": "d131",
+   "family": "select-s2",
+   "phrase": "выбери одно из двух: первый или второй"
+  },
+  {
+   "id": "d132",
+   "family": "select-s3",
+   "phrase": "какой тип у файла readme.md?"
+  },
+  {
+   "id": "d133",
+   "family": "write-w2",
+   "phrase": "создай registry.jsonl с планом на день"
+  },
+  {
+   "id": "d134",
+   "family": "select-s3",
+   "phrase": "какой формат у log.txt?"
+  },
+  {
+   "id": "d135",
+   "family": "read-r2",
+   "phrase": "что написано в notes.md?"
+  },
+  {
+   "id": "d136",
+   "family": "exec-e1",
+   "phrase": "запусти команду whoami"
+  },
+  {
+   "id": "d137",
+   "family": "write-w2",
+   "phrase": "создай data.csv с планом на день"
+  },
+  {
+   "id": "d138",
+   "family": "read-r2",
+   "phrase": "что в otchet.txt?"
+  },
+  {
+   "id": "d139",
+   "family": "read-r3",
+   "phrase": "открой data.csv и скажи, что там"
+  },
+  {
+   "id": "d140",
+   "family": "anchor-a1",
+   "phrase": "закрепи запись запись-abc"
+  },
+  {
+   "id": "d141",
+   "family": "think-t2",
+   "phrase": "объясни, как работает порог уверенности"
+  },
+  {
+   "id": "d142",
+   "family": "write-w3",
+   "phrase": "перезапиши data.csv целиком"
+  },
+  {
+   "id": "d143",
+   "family": "write-w3",
+   "phrase": "перезапиши settings.json целиком"
+  },
+  {
+   "id": "d144",
+   "family": "read-r3",
+   "phrase": "открой otchet.txt и скажи, что там"
+  },
+  {
+   "id": "d145",
+   "family": "read-r4",
+   "phrase": "покажи нейроны-хабы коннектома"
+  },
+  {
+   "id": "d146",
+   "family": "veto-x1",
+   "phrase": "наложи вето на запись правило-7"
+  },
+  {
+   "id": "d147",
+   "family": "read-r3",
+   "phrase": "загляни в notes.md и перескажи"
+  },
+  {
+   "id": "d148",
+   "family": "write-w2",
+   "phrase": "сделай log.txt и положи туда список"
+  },
+  {
+   "id": "d149",
+   "family": "veto-x2",
+   "phrase": "поставь запрет на версия-2"
+  },
+  {
+   "id": "d150",
+   "family": "write-w3",
+   "phrase": "перезапиши log.txt целиком"
+  },
+  {
+   "id": "d151",
+   "family": "veto-x2",
+   "phrase": "заблокируй версия-2 в реестре"
+  },
+  {
+   "id": "d152",
+   "family": "select-s3",
+   "phrase": "какой формат у config.yaml?"
+  },
+  {
+   "id": "d153",
+   "family": "read-r1",
+   "phrase": "прочитай settings.json"
+  },
+  {
+   "id": "d154",
+   "family": "exec-e2",
+   "phrase": "прогони whoami и покажи вывод"
+  },
+  {
+   "id": "d155",
+   "family": "anchor-a2",
+   "phrase": "сделай запись-abc каноном"
+  },
+  {
+   "id": "d156",
+   "family": "read-r1",
+   "phrase": "покажи содержимое registry.jsonl"
+  },
+  {
+   "id": "d157",
+   "family": "ver-v2",
+   "phrase": "какая версия у data.csv?"
+  },
+  {
+   "id": "d158",
+   "family": "exec-e1",
+   "phrase": "выполни pwd в терминале"
+  },
+  {
+   "id": "d159",
+   "family": "log-l2",
+   "phrase": "отметь в журнале начало работы"
+  },
+  {
+   "id": "d160",
+   "family": "exec-e2",
+   "phrase": "выполни pwd"
+  },
+  {
+   "id": "d161",
+   "family": "read-r1",
+   "phrase": "прочитай config.yaml"
+  },
+  {
+   "id": "d162",
+   "family": "exec-e1",
+   "phrase": "запусти команду uname"
+  },
+  {
+   "id": "d163",
+   "family": "exec-e2",
+   "phrase": "выполни git"
+  },
+  {
+   "id": "d164",
+   "family": "read-r5",
+   "phrase": "прочитай страницу https://github.com/D4Vinci/Scrapling"
+  },
+  {
+   "id": "d165",
+   "family": "anchor-a1",
+   "phrase": "заякорь запись-abc в реестре"
+  },
+  {
+   "id": "d166",
+   "family": "write-w2",
+   "phrase": "сделай main.py и положи туда список"
+  },
+  {
+   "id": "d167",
+   "family": "think-t1",
+   "phrase": "почему глагол важнее промпта?"
+  },
+  {
+   "id": "d168",
+   "family": "ver-v2",
+   "phrase": "какая версия у config.yaml?"
+  },
+  {
+   "id": "d169",
+   "family": "write-w1",
+   "phrase": "сохрани в otchet.txt результат"
+  },
+  {
+   "id": "d170",
+   "family": "select-s3",
+   "phrase": "какой тип у файла notes.md?"
+  },
+  {
+   "id": "d171",
+   "family": "select-s1",
+   "phrase": "какого размера файл otchet.txt?"
+  },
+  {
+   "id": "d172",
+   "family": "read-r3",
+   "phrase": "загляни в settings.json и перескажи"
+  },
+  {
+   "id": "d173",
+   "family": "read-r3",
+   "phrase": "загляни в data.csv и перескажи"
+  },
+  {
+   "id": "d174",
+   "family": "select-s3",
+   "phrase": "какой тип у файла main.py?"
+  },
+  {
+   "id": "d175",
+   "family": "read-r2",
+   "phrase": "что написано в registry.jsonl?"
+  },
+  {
+   "id": "d176",
+   "family": "write-w3",
+   "phrase": "добавь в settings.json новую строку"
+  },
+  {
+   "id": "d177",
+   "family": "write-w2",
+   "phrase": "создай config.yaml с планом на день"
+  },
+  {
+   "id": "d178",
+   "family": "veto-x2",
+   "phrase": "заблокируй канон в реестре"
+  },
+  {
+   "id": "d179",
+   "family": "select-s1",
+   "phrase": "какого размера файл config.yaml?"
+  },
+  {
+   "id": "d180",
+   "family": "think-t2",
+   "phrase": "объясни, как работает коннектом"
+  },
+  {
+   "id": "d181",
+   "family": "veto-x2",
+   "phrase": "заблокируй канон-муха в реестре"
+  },
+  {
+   "id": "d182",
+   "family": "write-w3",
+   "phrase": "перезапиши readme.md целиком"
+  },
+  {
+   "id": "d183",
+   "family": "read-r1",
+   "phrase": "прочитай log.txt"
+  },
+  {
+   "id": "d184",
+   "family": "anchor-a1",
+   "phrase": "закрепи запись канон"
+  },
+  {
+   "id": "d185",
+   "family": "read-r1",
+   "phrase": "прочти notes.md"
+  },
+  {
+   "id": "d186",
+   "family": "ver-v2",
+   "phrase": "какая версия у log.txt?"
+  },
+  {
+   "id": "d187",
+   "family": "read-r3",
+   "phrase": "открой plans.md и скажи, что там"
+  },
+  {
+   "id": "d188",
+   "family": "anchor-a2",
+   "phrase": "закрепи запись-abc как эталон"
+  },
+  {
+   "id": "d189",
+   "family": "select-s3",
+   "phrase": "какой тип у файла settings.json?"
+  },
+  {
+   "id": "d190",
+   "family": "exec-e2",
+   "phrase": "прогони date и покажи вывод"
+  },
+  {
+   "id": "d191",
+   "family": "read-r5",
+   "phrase": "открой https://arxiv.org/abs/1706.03762 и перескажи"
+  },
+  {
+   "id": "d192",
+   "family": "exec-e3",
+   "phrase": "покажи pwd командой"
+  },
+  {
+   "id": "d193",
+   "family": "anchor-a2",
+   "phrase": "закрепи канон-муха как эталон"
+  },
+  {
+   "id": "d194",
+   "family": "select-s2",
+   "phrase": "что лучше: A или B?"
+  },
+  {
+   "id": "d195",
+   "family": "select-s1",
+   "phrase": "какого размера файл main.py?"
+  },
+  {
+   "id": "d196",
+   "family": "veto-x1",
+   "phrase": "запрети запись запись-abc"
+  },
+  {
+   "id": "d197",
+   "family": "write-w2",
+   "phrase": "создай plans.md с планом на день"
+  },
+  {
+   "id": "d198",
+   "family": "write-w1",
+   "phrase": "запиши в otchet.txt строку готово"
+  },
+  {
+   "id": "d199",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти df"
+  },
+  {
+   "id": "d200",
+   "family": "write-w1",
+   "phrase": "запиши в log.txt строку готово"
+  },
+  {
+   "id": "d201",
+   "family": "write-w1",
+   "phrase": "запиши в settings.json строку готово"
+  },
+  {
+   "id": "d202",
+   "family": "veto-x1",
+   "phrase": "наложи вето на запись запись-abc"
+  },
+  {
+   "id": "d203",
+   "family": "ver-v2",
+   "phrase": "какая версия у main.py?"
+  },
+  {
+   "id": "d204",
+   "family": "exec-e3",
+   "phrase": "покажи ps командой"
+  },
+  {
+   "id": "d205",
+   "family": "think-t2",
+   "phrase": "как устроен рейестр?"
+  },
+  {
+   "id": "d206",
+   "family": "read-r3",
+   "phrase": "открой registry.jsonl и скажи, что там"
+  },
+  {
+   "id": "d207",
+   "family": "esc-e2",
+   "phrase": "сообщи оператору, что нужна помощь"
+  },
+  {
+   "id": "d208",
+   "family": "read-r2",
+   "phrase": "что в log.txt?"
+  },
+  {
+   "id": "d209",
+   "family": "exec-e3",
+   "phrase": "покажи git командой"
+  },
+  {
+   "id": "d210",
+   "family": "select-s1",
+   "phrase": "сколько весит data.csv?"
+  },
+  {
+   "id": "d211",
+   "family": "select-s2",
+   "phrase": "выбери одно из двух: быстрый или дешёвый"
+  },
+  {
+   "id": "d212",
+   "family": "read-r3",
+   "phrase": "открой log.txt и скажи, что там"
+  },
+  {
+   "id": "d213",
+   "family": "read-r2",
+   "phrase": "что в main.py?"
+  },
+  {
+   "id": "d214",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти ls"
+  },
+  {
+   "id": "d215",
+   "family": "select-s3",
+   "phrase": "какой формат у settings.json?"
+  },
+  {
+   "id": "d216",
+   "family": "anchor-a2",
+   "phrase": "закрепи версия-2 как эталон"
+  },
+  {
+   "id": "d217",
+   "family": "read-r1",
+   "phrase": "прочти settings.json"
+  },
+  {
+   "id": "d218",
+   "family": "exec-e2",
+   "phrase": "прогони uname и покажи вывод"
+  },
+  {
+   "id": "d219",
+   "family": "ver-v2",
+   "phrase": "какая версия у notes.md?"
+  },
+  {
+   "id": "d220",
+   "family": "select-s3",
+   "phrase": "какой формат у data.csv?"
+  },
+  {
+   "id": "d221",
+   "family": "select-s1",
+   "phrase": "какого размера файл log.txt?"
+  },
+  {
+   "id": "d222",
+   "family": "read-r1",
+   "phrase": "покажи содержимое config.yaml"
+  },
+  {
+   "id": "d223",
+   "family": "write-w2",
+   "phrase": "сделай registry.jsonl и положи туда список"
+  },
+  {
+   "id": "d224",
+   "family": "read-r5",
+   "phrase": "открой https://github.com/D4Vinci/Scrapling и перескажи"
+  },
+  {
+   "id": "d225",
+   "family": "exec-e3",
+   "phrase": "покажи df командой"
+  },
+  {
+   "id": "d226",
+   "family": "veto-x1",
+   "phrase": "запрети запись канон-муха"
+  },
+  {
+   "id": "d227",
+   "family": "read-r2",
+   "phrase": "что в config.yaml?"
+  },
+  {
+   "id": "d228",
+   "family": "ver-v2",
+   "phrase": "какая версия у registry.jsonl?"
+  },
+  {
+   "id": "d229",
+   "family": "anchor-a1",
+   "phrase": "заякорь канон в реестре"
+  },
+  {
+   "id": "d230",
+   "family": "exec-e2",
+   "phrase": "выполни ls"
+  },
+  {
+   "id": "d231",
+   "family": "write-w1",
+   "phrase": "сохрани в registry.jsonl результат"
+  },
+  {
+   "id": "d232",
+   "family": "ver-v1",
+   "phrase": "покажи версию системы"
+  },
+  {
+   "id": "d233",
+   "family": "read-r4",
+   "phrase": "покажи статистику коннектома"
+  },
+  {
+   "id": "d234",
+   "family": "select-s1",
+   "phrase": "сколько весит config.yaml?"
+  },
+  {
+   "id": "d235",
+   "family": "read-r2",
+   "phrase": "что написано в main.py?"
+  },
+  {
+   "id": "d236",
+   "family": "write-w3",
+   "phrase": "добавь в main.py новую строку"
+  },
+  {
+   "id": "d237",
+   "family": "read-r5",
+   "phrase": "прочитай страницу https://example.com"
+  },
+  {
+   "id": "d238",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти pwd"
+  },
+  {
+   "id": "d239",
+   "family": "anchor-a2",
+   "phrase": "закрепи канон как эталон"
+  },
+  {
+   "id": "d240",
+   "family": "read-r1",
+   "phrase": "прочти registry.jsonl"
+  },
+  {
+   "id": "d241",
+   "family": "select-s3",
+   "phrase": "какой тип у файла plans.md?"
+  },
+  {
+   "id": "d242",
+   "family": "select-s3",
+   "phrase": "какой формат у plans.md?"
+  },
+  {
+   "id": "d243",
+   "family": "select-s2",
+   "phrase": "выбери одно из двух: A или B"
+  },
+  {
+   "id": "d244",
+   "family": "read-r1",
+   "phrase": "покажи содержимое data.csv"
+  },
+  {
+   "id": "d245",
+   "family": "select-s3",
+   "phrase": "какой тип у файла registry.jsonl?"
+  },
+  {
+   "id": "d246",
+   "family": "read-r3",
+   "phrase": "открой main.py и скажи, что там"
+  },
+  {
+   "id": "d247",
+   "family": "anchor-a1",
+   "phrase": "закрепи запись канон-муха"
+  },
+  {
+   "id": "d248",
+   "family": "write-w2",
+   "phrase": "создай log.txt с планом на день"
+  },
+  {
+   "id": "d249",
+   "family": "write-w3",
+   "phrase": "добавь в data.csv новую строку"
+  },
+  {
+   "id": "d250",
+   "family": "read-r1",
+   "phrase": "покажи содержимое log.txt"
+  },
+  {
+   "id": "d251",
+   "family": "write-w2",
+   "phrase": "создай otchet.txt с планом на день"
+  },
+  {
+   "id": "d252",
+   "family": "read-r2",
+   "phrase": "что в notes.md?"
+  },
+  {
+   "id": "d253",
+   "family": "anchor-a2",
+   "phrase": "сделай канон-муха каноном"
+  },
+  {
+   "id": "d254",
+   "family": "exec-e2",
+   "phrase": "прогони ps и покажи вывод"
+  },
+  {
+   "id": "d255",
+   "family": "select-s3",
+   "phrase": "какой тип у файла data.csv?"
+  },
+  {
+   "id": "d256",
+   "family": "select-s3",
+   "phrase": "какой формат у readme.md?"
+  },
+  {
+   "id": "d257",
+   "family": "select-s1",
+   "phrase": "сколько весит otchet.txt?"
+  },
+  {
+   "id": "d258",
+   "family": "read-r4",
+   "phrase": "выведи классы нейронов из коннектома"
+  },
+  {
+   "id": "d259",
+   "family": "read-r1",
+   "phrase": "прочти data.csv"
+  },
+  {
+   "id": "d260",
+   "family": "select-s3",
+   "phrase": "какой формат у notes.md?"
+  },
+  {
+   "id": "d261",
+   "family": "read-r2",
+   "phrase": "что в readme.md?"
+  },
+  {
+   "id": "d262",
+   "family": "ver-v2",
+   "phrase": "какая версия у otchet.txt?"
+  },
+  {
+   "id": "d263",
+   "family": "write-w3",
+   "phrase": "добавь в log.txt новую строку"
+  },
+  {
+   "id": "d264",
+   "family": "exec-e1",
+   "phrase": "выполни git в терминале"
+  },
+  {
+   "id": "d265",
+   "family": "read-r2",
+   "phrase": "что лежит в settings.json?"
+  },
+  {
+   "id": "d266",
+   "family": "exec-e3",
+   "phrase": "покажи date командой"
+  },
+  {
+   "id": "d267",
+   "family": "read-r2",
+   "phrase": "что написано в data.csv?"
+  },
+  {
+   "id": "d268",
+   "family": "select-s1",
+   "phrase": "какого размера файл notes.md?"
+  },
+  {
+   "id": "d269",
+   "family": "read-r2",
+   "phrase": "что лежит в otchet.txt?"
+  },
+  {
+   "id": "d270",
+   "family": "rec-r1",
+   "phrase": "что рекомендуешь в первую очередь?"
+  },
+  {
+   "id": "d271",
+   "family": "read-r5",
+   "phrase": "прочитай страницу https://docs.python.org/3/"
+  },
+  {
+   "id": "d272",
+   "family": "exec-e3",
+   "phrase": "покажи uname командой"
+  },
+  {
+   "id": "d273",
+   "family": "write-w2",
+   "phrase": "сделай notes.md и положи туда список"
+  },
+  {
+   "id": "d274",
+   "family": "write-w1",
+   "phrase": "сохрани в notes.md результат"
+  },
+  {
+   "id": "d275",
+   "family": "read-r2",
+   "phrase": "что лежит в plans.md?"
+  },
+  {
+   "id": "d276",
+   "family": "anchor-a2",
+   "phrase": "закрепи правило-7 как эталон"
+  },
+  {
+   "id": "d277",
+   "family": "read-r3",
+   "phrase": "загляни в main.py и перескажи"
+  },
+  {
+   "id": "d278",
+   "family": "write-w1",
+   "phrase": "запиши в readme.md строку готово"
+  },
+  {
+   "id": "d279",
+   "family": "read-r1",
+   "phrase": "прочти log.txt"
+  },
+  {
+   "id": "d280",
+   "family": "read-r3",
+   "phrase": "загляни в log.txt и перескажи"
+  },
+  {
+   "id": "d281",
+   "family": "veto-x1",
+   "phrase": "запрети запись версия-2"
+  },
+  {
+   "id": "d282",
+   "family": "think-t2",
+   "phrase": "как устроен порог уверенности?"
+  },
+  {
+   "id": "d283",
+   "family": "read-r4",
+   "phrase": "покажи связи коннектома"
+  },
+  {
+   "id": "d284",
+   "family": "log-l1",
+   "phrase": "сделай пометку в журнале о завершении"
+  },
+  {
+   "id": "d285",
+   "family": "veto-x2",
+   "phrase": "поставь запрет на правило-7"
+  },
+  {
+   "id": "d286",
+   "family": "select-s1",
+   "phrase": "какого размера файл registry.jsonl?"
+  },
+  {
+   "id": "d287",
+   "family": "think-t2",
+   "phrase": "как устроен коннектом?"
+  },
+  {
+   "id": "d288",
+   "family": "read-r1",
+   "phrase": "прочитай main.py"
+  },
+  {
+   "id": "d289",
+   "family": "select-s1",
+   "phrase": "сколько весит plans.md?"
+  },
+  {
+   "id": "d290",
+   "family": "exec-e3",
+   "phrase": "покажи ls командой"
+  },
+  {
+   "id": "d291",
+   "family": "veto-x1",
+   "phrase": "наложи вето на запись канон-муха"
+  },
+  {
+   "id": "d292",
+   "family": "select-s3",
+   "phrase": "какой тип у файла config.yaml?"
+  },
+  {
+   "id": "d293",
+   "family": "read-r1",
+   "phrase": "покажи содержимое main.py"
+  },
+  {
+   "id": "d294",
+   "family": "select-s1",
+   "phrase": "сколько весит log.txt?"
+  },
+  {
+   "id": "d295",
+   "family": "exec-e1",
+   "phrase": "выполни ls в терминале"
+  },
+  {
+   "id": "d296",
+   "family": "exec-e2",
+   "phrase": "выполни date"
+  },
+  {
+   "id": "d297",
+   "family": "anchor-a2",
+   "phrase": "сделай правило-7 каноном"
+  },
+  {
+   "id": "d298",
+   "family": "exec-e1",
+   "phrase": "выполни date в терминале"
+  },
+  {
+   "id": "d299",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти uname"
+  },
+  {
+   "id": "d300",
+   "family": "read-r5",
+   "phrase": "открой https://docs.python.org/3/ и перескажи"
+  },
+  {
+   "id": "d301",
+   "family": "write-w1",
+   "phrase": "запиши в notes.md строку готово"
+  },
+  {
+   "id": "d302",
+   "family": "read-r2",
+   "phrase": "что написано в config.yaml?"
+  },
+  {
+   "id": "d303",
+   "family": "read-r3",
+   "phrase": "открой settings.json и скажи, что там"
+  },
+  {
+   "id": "d304",
+   "family": "read-r1",
+   "phrase": "прочитай data.csv"
+  },
+  {
+   "id": "d305",
+   "family": "exec-e1",
+   "phrase": "выполни whoami в терминале"
+  },
+  {
+   "id": "d306",
+   "family": "anchor-a1",
+   "phrase": "заякорь правило-7 в реестре"
+  },
+  {
+   "id": "d307",
+   "family": "exec-e2",
+   "phrase": "выполни ps"
+  },
+  {
+   "id": "d308",
+   "family": "write-w2",
+   "phrase": "сделай settings.json и положи туда список"
+  },
+  {
+   "id": "d309",
+   "family": "write-w1",
+   "phrase": "сохрани в readme.md результат"
+  },
+  {
+   "id": "d310",
+   "family": "exec-e1",
+   "phrase": "выполни df в терминале"
+  },
+  {
+   "id": "d311",
+   "family": "exec-e2",
+   "phrase": "прогони git и покажи вывод"
+  },
+  {
+   "id": "d312",
+   "family": "rec-r2",
+   "phrase": "посоветуй, что улучшить"
+  },
+  {
+   "id": "d313",
+   "family": "read-r3",
+   "phrase": "открой notes.md и скажи, что там"
+  },
+  {
+   "id": "d314",
+   "family": "ver-v2",
+   "phrase": "какая версия у readme.md?"
+  },
+  {
+   "id": "d315",
+   "family": "write-w3",
+   "phrase": "добавь в plans.md новую строку"
+  },
+  {
+   "id": "d316",
+   "family": "write-w2",
+   "phrase": "сделай data.csv и положи туда список"
+  },
+  {
+   "id": "d317",
+   "family": "read-r1",
+   "phrase": "прочти main.py"
+  },
+  {
+   "id": "d318",
+   "family": "read-r3",
+   "phrase": "загляни в otchet.txt и перескажи"
+  },
+  {
+   "id": "d319",
+   "family": "ver-v2",
+   "phrase": "какая версия у plans.md?"
+  },
+  {
+   "id": "d320",
+   "family": "read-r5",
+   "phrase": "прочитай страницу https://peps.python.org/"
+  },
+  {
+   "id": "d321",
+   "family": "read-r1",
+   "phrase": "прочти config.yaml"
+  },
+  {
+   "id": "d322",
+   "family": "exec-e3",
+   "phrase": "какая сейчас директория? запусти ps"
+  },
+  {
+   "id": "d323",
+   "family": "read-r1",
+   "phrase": "покажи содержимое readme.md"
+  },
+  {
+   "id": "d324",
+   "family": "read-r2",
+   "phrase": "что в registry.jsonl?"
+  },
+  {
+   "id": "d325",
+   "family": "read-r1",
+   "phrase": "прочитай registry.jsonl"
+  },
+  {
+   "id": "d326",
+   "family": "write-w3",
+   "phrase": "перезапиши plans.md целиком"
+  },
+  {
+   "id": "d327",
+   "family": "read-r1",
+   "phrase": "прочитай readme.md"
+  },
+  {
+   "id": "d328",
+   "family": "read-r1",
+   "phrase": "покажи содержимое otchet.txt"
+  }
+ ]
+}

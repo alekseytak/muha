@@ -1,0 +1,1378 @@
+{
+ "answered": 119,
+ "correct": 109,
+ "abstained": 33,
+ "failed": 0,
+ "cost_usd": 0.000188,
+ "tokens": 10032,
+ "rows": [
+  {
+   "phrase": "сохрани в settings.json результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.78,
+   "mass": 0.418,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "добавь в otchet.txt новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.781,
+   "mass": 0.763,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочти plans.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.991,
+   "mass": 0.99,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "покажи содержимое notes.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.928,
+   "mass": 0.908,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "открой config.yaml и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.939,
+   "mass": 0.819,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прочитай plans.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.997,
+   "mass": 0.993,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запиши в data.csv строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.942,
+   "mass": 0.984,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "залогируй результат работы",
+   "want": "log",
+   "scorer": "log",
+   "margin": 0.996,
+   "mass": 0.996,
+   "confident": true,
+   "cascade": "log"
+  },
+  {
+   "phrase": "сохрани в main.py результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.696,
+   "mass": 0.539,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "добавь в notes.md новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.831,
+   "mass": 0.432,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "дай совет, с чего начать",
+   "want": "recommend",
+   "scorer": "recommend",
+   "margin": 0.788,
+   "mass": 0.151,
+   "confident": false,
+   "cascade": "recommend"
+  },
+  {
+   "phrase": "запиши в registry.jsonl строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.947,
+   "mass": 0.972,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "перезапиши notes.md целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.903,
+   "mass": 0.958,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "запрети запись канон",
+   "want": "veto",
+   "scorer": "write",
+   "margin": 0.25,
+   "mass": 0.022,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "наложи вето на запись версия-2",
+   "want": "veto",
+   "scorer": "veto",
+   "margin": 0.011,
+   "mass": 0.003,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "сделай версия-2 каноном",
+   "want": "anchor",
+   "scorer": "version",
+   "margin": 0.799,
+   "mass": 0.894,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "сделай канон каноном",
+   "want": "anchor",
+   "scorer": "write",
+   "margin": 0.055,
+   "mass": 0.653,
+   "confident": false,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "наложи вето на запись канон",
+   "want": "veto",
+   "scorer": "veto",
+   "margin": 0.006,
+   "mass": 0.004,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "сохрани в log.txt результат",
+   "want": "write",
+   "scorer": "log",
+   "margin": 0.971,
+   "mass": 0.996,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "позови человека, я не уверен",
+   "want": "escalate",
+   "scorer": "select",
+   "margin": 0.058,
+   "mass": 0.496,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "сохрани в data.csv результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.377,
+   "mass": 0.605,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "открой https://peps.python.org/ и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.894,
+   "mass": 0.493,
+   "confident": false,
+   "cascade": "read"
+  },
+  {
+   "phrase": "какая сейчас версия агента?",
+   "want": "version",
+   "scorer": "version",
+   "margin": 0.996,
+   "mass": 0.992,
+   "confident": true,
+   "cascade": "version"
+  },
+  {
+   "phrase": "сохрани в config.yaml результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.695,
+   "mass": 0.506,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "перезапиши main.py целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.942,
+   "mass": 0.947,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай notes.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.993,
+   "mass": 0.993,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "загляни в readme.md и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.966,
+   "mass": 0.964,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запиши в config.yaml строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.979,
+   "mass": 0.98,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай страницу https://arxiv.org/abs/1706.03762",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.956,
+   "mass": 0.968,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "покажи содержимое plans.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.916,
+   "mass": 0.914,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "загляни в registry.jsonl и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.959,
+   "mass": 0.996,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запрети запись правило-7",
+   "want": "veto",
+   "scorer": "veto",
+   "margin": 0.009,
+   "mass": 0.008,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "добавь в readme.md новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.834,
+   "mass": 0.463,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "загляни в config.yaml и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.958,
+   "mass": 0.945,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "открой readme.md и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.92,
+   "mass": 0.782,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "выполни uname",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.662,
+   "mass": 0.937,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "прогони df и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.698,
+   "mass": 0.896,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "добавь в config.yaml новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.995,
+   "mass": 0.673,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай otchet.txt",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.998,
+   "mass": 0.99,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "перезапиши registry.jsonl целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.808,
+   "mass": 0.962,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "выполни whoami",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.799,
+   "mass": 0.901,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "прочти readme.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.808,
+   "mass": 0.991,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "открой https://example.com и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.931,
+   "mass": 0.631,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прочти otchet.txt",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.994,
+   "mass": 0.989,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "перезапиши otchet.txt целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.902,
+   "mass": 0.985,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "зачем вообще нужны глаголы?",
+   "want": "think",
+   "scorer": "write",
+   "margin": 0.341,
+   "mass": 0.479,
+   "confident": false,
+   "cascade": "think"
+  },
+  {
+   "phrase": "перезапиши config.yaml целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.891,
+   "mass": 0.973,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "что лучше: первый или второй?",
+   "want": "select",
+   "scorer": "select",
+   "margin": 0.911,
+   "mass": 0.651,
+   "confident": true,
+   "cascade": "select"
+  },
+  {
+   "phrase": "добавь в registry.jsonl новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.497,
+   "mass": 0.245,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "загляни в plans.md и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.974,
+   "mass": 0.979,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запиши в main.py строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.986,
+   "mass": 0.975,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "запиши в plans.md строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.991,
+   "mass": 0.972,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прогони pwd и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.606,
+   "mass": 0.9,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "что лучше: быстрый или дешёвый?",
+   "want": "think",
+   "scorer": "select",
+   "margin": 0.762,
+   "mass": 0.45,
+   "confident": false,
+   "cascade": "select"
+  },
+  {
+   "phrase": "сохрани в plans.md результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.684,
+   "mass": 0.318,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "покажи содержимое settings.json",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.807,
+   "mass": 0.959,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "выполни df",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.961,
+   "mass": 0.948,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "прогони ls и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.703,
+   "mass": 0.914,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "выбери одно из двух: первый или второй",
+   "want": "select",
+   "scorer": "select",
+   "margin": 0.832,
+   "mass": 0.713,
+   "confident": true,
+   "cascade": "select"
+  },
+  {
+   "phrase": "открой data.csv и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.985,
+   "mass": 0.912,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "перезапиши data.csv целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.927,
+   "mass": 0.982,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "перезапиши settings.json целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.996,
+   "mass": 0.976,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "открой otchet.txt и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.992,
+   "mass": 0.907,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "наложи вето на запись правило-7",
+   "want": "veto",
+   "scorer": "veto",
+   "margin": 0.215,
+   "mass": 0.002,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "загляни в notes.md и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.905,
+   "mass": 0.966,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "перезапиши log.txt целиком",
+   "want": "write",
+   "scorer": "log",
+   "margin": 0.228,
+   "mass": 0.986,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай settings.json",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.998,
+   "mass": 0.99,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прогони whoami и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.137,
+   "mass": 0.789,
+   "confident": false,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "сделай запись-abc каноном",
+   "want": "anchor",
+   "scorer": "write",
+   "margin": 0.285,
+   "mass": 0.945,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "покажи содержимое registry.jsonl",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.865,
+   "mass": 0.975,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "выполни pwd",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.809,
+   "mass": 0.691,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "прочитай config.yaml",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.999,
+   "mass": 0.996,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "выполни git",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.975,
+   "mass": 0.948,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "прочитай страницу https://github.com/D4Vinci/Scrapling",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.976,
+   "mass": 0.974,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "почему глагол важнее промпта?",
+   "want": "think",
+   "scorer": "think",
+   "margin": 0.235,
+   "mass": 0.476,
+   "confident": false,
+   "cascade": "think"
+  },
+  {
+   "phrase": "сохрани в otchet.txt результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.623,
+   "mass": 0.945,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "загляни в settings.json и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.893,
+   "mass": 0.965,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "загляни в data.csv и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.969,
+   "mass": 0.974,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "добавь в settings.json новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.989,
+   "mass": 0.722,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "перезапиши readme.md целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.674,
+   "mass": 0.983,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай log.txt",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.965,
+   "mass": 0.991,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прочти notes.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.984,
+   "mass": 0.983,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "открой plans.md и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.973,
+   "mass": 0.643,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "закрепи запись-abc как эталон",
+   "want": "anchor",
+   "scorer": "anchor",
+   "margin": 0.823,
+   "mass": 0.888,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "прогони date и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.612,
+   "mass": 0.817,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "открой https://arxiv.org/abs/1706.03762 и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.927,
+   "mass": 0.877,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "закрепи канон-муха как эталон",
+   "want": "anchor",
+   "scorer": "anchor",
+   "margin": 0.725,
+   "mass": 0.77,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "что лучше: A или B?",
+   "want": "select",
+   "scorer": "select",
+   "margin": 0.899,
+   "mass": 0.33,
+   "confident": false,
+   "cascade": "select"
+  },
+  {
+   "phrase": "запрети запись запись-abc",
+   "want": "veto",
+   "scorer": "write",
+   "margin": 0.112,
+   "mass": 0.009,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "запиши в otchet.txt строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.889,
+   "mass": 0.986,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "запиши в log.txt строку готово",
+   "want": "write",
+   "scorer": "log",
+   "margin": 0.915,
+   "mass": 0.994,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "запиши в settings.json строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.934,
+   "mass": 0.962,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "наложи вето на запись запись-abc",
+   "want": "veto",
+   "scorer": "veto",
+   "margin": 0.052,
+   "mass": 0.002,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "открой registry.jsonl и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.936,
+   "mass": 0.886,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "сообщи оператору, что нужна помощь",
+   "want": "escalate",
+   "scorer": "log",
+   "margin": 0.045,
+   "mass": 0.137,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "выбери одно из двух: быстрый или дешёвый",
+   "want": "select",
+   "scorer": "select",
+   "margin": 0.722,
+   "mass": 0.726,
+   "confident": true,
+   "cascade": "select"
+  },
+  {
+   "phrase": "открой log.txt и скажи, что там",
+   "want": "read",
+   "scorer": "log",
+   "margin": 0.647,
+   "mass": 0.986,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "закрепи версия-2 как эталон",
+   "want": "anchor",
+   "scorer": "anchor",
+   "margin": 0.043,
+   "mass": 0.656,
+   "confident": false,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "прочти settings.json",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.986,
+   "mass": 0.994,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прогони uname и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.612,
+   "mass": 0.751,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "покажи содержимое config.yaml",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.889,
+   "mass": 0.583,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "открой https://github.com/D4Vinci/Scrapling и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.737,
+   "mass": 0.215,
+   "confident": false,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запрети запись канон-муха",
+   "want": "veto",
+   "scorer": "write",
+   "margin": 0.063,
+   "mass": 0.012,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "выполни ls",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.941,
+   "mass": 0.962,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "сохрани в registry.jsonl результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.421,
+   "mass": 0.41,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "покажи версию системы",
+   "want": "version",
+   "scorer": "version",
+   "margin": 0.983,
+   "mass": 0.978,
+   "confident": true,
+   "cascade": "version"
+  },
+  {
+   "phrase": "добавь в main.py новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.84,
+   "mass": 0.367,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай страницу https://example.com",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.996,
+   "mass": 0.939,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "закрепи канон как эталон",
+   "want": "anchor",
+   "scorer": "anchor",
+   "margin": 0.898,
+   "mass": 0.822,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "прочти registry.jsonl",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.982,
+   "mass": 0.995,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "выбери одно из двух: A или B",
+   "want": "select",
+   "scorer": "select",
+   "margin": 0.776,
+   "mass": 0.608,
+   "confident": true,
+   "cascade": "select"
+  },
+  {
+   "phrase": "покажи содержимое data.csv",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.917,
+   "mass": 0.952,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "открой main.py и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.664,
+   "mass": 0.749,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "добавь в data.csv новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.748,
+   "mass": 0.353,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "покажи содержимое log.txt",
+   "want": "read",
+   "scorer": "log",
+   "margin": 0.336,
+   "mass": 0.975,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "сделай канон-муха каноном",
+   "want": "anchor",
+   "scorer": "write",
+   "margin": 0.161,
+   "mass": 0.742,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "прогони ps и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.885,
+   "mass": 0.809,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "прочти data.csv",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.995,
+   "mass": 0.989,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "добавь в log.txt новую строку",
+   "want": "log",
+   "scorer": "log",
+   "margin": 0.801,
+   "mass": 0.915,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай страницу https://docs.python.org/3/",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.992,
+   "mass": 0.987,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "сохрани в notes.md результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.58,
+   "mass": 0.36,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "закрепи правило-7 как эталон",
+   "want": "anchor",
+   "scorer": "anchor",
+   "margin": 0.921,
+   "mass": 0.859,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "загляни в main.py и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.847,
+   "mass": 0.926,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запиши в readme.md строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.456,
+   "mass": 0.987,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочти log.txt",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.488,
+   "mass": 0.992,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "загляни в log.txt и перескажи",
+   "want": "read",
+   "scorer": "log",
+   "margin": 0.496,
+   "mass": 0.996,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запрети запись версия-2",
+   "want": "veto",
+   "scorer": "write",
+   "margin": 0.236,
+   "mass": 0.015,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "сделай пометку в журнале о завершении",
+   "want": "log",
+   "scorer": "log",
+   "margin": 0.995,
+   "mass": 0.996,
+   "confident": true,
+   "cascade": "log"
+  },
+  {
+   "phrase": "прочитай main.py",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.992,
+   "mass": 0.993,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "наложи вето на запись канон-муха",
+   "want": "veto",
+   "scorer": "veto",
+   "margin": 0.609,
+   "mass": 0.002,
+   "confident": false,
+   "cascade": null
+  },
+  {
+   "phrase": "покажи содержимое main.py",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.549,
+   "mass": 0.932,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "выполни date",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.964,
+   "mass": 0.971,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "сделай правило-7 каноном",
+   "want": "anchor",
+   "scorer": "write",
+   "margin": 0.217,
+   "mass": 0.645,
+   "confident": true,
+   "cascade": "anchor"
+  },
+  {
+   "phrase": "открой https://docs.python.org/3/ и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.872,
+   "mass": 0.656,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "запиши в notes.md строку готово",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.985,
+   "mass": 0.982,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "открой settings.json и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.84,
+   "mass": 0.744,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прочитай data.csv",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.996,
+   "mass": 0.987,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "выполни ps",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.969,
+   "mass": 0.925,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "сохрани в readme.md результат",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.276,
+   "mass": 0.93,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прогони git и покажи вывод",
+   "want": "execute",
+   "scorer": "execute",
+   "margin": 0.537,
+   "mass": 0.639,
+   "confident": true,
+   "cascade": "execute"
+  },
+  {
+   "phrase": "посоветуй, что улучшить",
+   "want": "recommend",
+   "scorer": "recommend",
+   "margin": 0.677,
+   "mass": 0.058,
+   "confident": false,
+   "cascade": "recommend"
+  },
+  {
+   "phrase": "открой notes.md и скажи, что там",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.961,
+   "mass": 0.735,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "добавь в plans.md новую строку",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.792,
+   "mass": 0.347,
+   "confident": false,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочти main.py",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.983,
+   "mass": 0.992,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "загляни в otchet.txt и перескажи",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.974,
+   "mass": 0.969,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прочитай страницу https://peps.python.org/",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.992,
+   "mass": 0.985,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прочти config.yaml",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.995,
+   "mass": 0.99,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "покажи содержимое readme.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.913,
+   "mass": 0.984,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "прочитай registry.jsonl",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.993,
+   "mass": 0.996,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "перезапиши plans.md целиком",
+   "want": "write",
+   "scorer": "write",
+   "margin": 0.867,
+   "mass": 0.966,
+   "confident": true,
+   "cascade": "write"
+  },
+  {
+   "phrase": "прочитай readme.md",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.958,
+   "mass": 0.99,
+   "confident": true,
+   "cascade": "read"
+  },
+  {
+   "phrase": "покажи содержимое otchet.txt",
+   "want": "read",
+   "scorer": "read",
+   "margin": 0.932,
+   "mass": 0.952,
+   "confident": true,
+   "cascade": "read"
+  }
+ ]
+}

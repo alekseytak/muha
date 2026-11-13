@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "name": "verb-parser",
+    "version": 1,
+    "description": "Оценка того, насколько точно модель превращает фразу пользователя в VerbAct. Проверяется только разбор (глагол + домен + объект), действия НЕ выполняются.",
+    "notes": [
+      "Датасет держим в JSON, а не в YAML: у него нет проблем с отступами и кавычками, поэтому рост датасета не может незаметно изменить смысл кейса.",
+      "Для каждого кейса задан список допустимых глаголов и доменов: часть фраз допускает несколько верных прочтений.",
+      "Кейсы с заведомо запрещёнными действиями (rm -rf, /etc/passwd) проверяют РАЗБОР, а не исполнение: гейт и песочница отработают позже."
+    ]
+  },
+  "cases": [
+    {"id": "read-file",        "prompt": "прочитай файл config.yaml",                        "verbs": ["read"],      "domains": ["filesystem"]},
+    {"id": "read-readme",      "prompt": "покажи содержимое README.md",                     "verbs": ["read"],      "domains": ["filesystem"]},
+    {"id": "read-question",    "prompt": "что лежит в файле memory/registry.jsonl?",        "verbs": ["read"],      "domains": ["filesystem"]},
+    {"id": "list-dir",         "prompt": "перечисли файлы в текущем каталоге",              "verbs": ["read"],      "domains": ["filesystem"]},
+    {"id": "stat-file",        "prompt": "покажи размер файла config.yaml",                 "verbs": ["select"],    "domains": ["filesystem"]},
+    {"id": "write-file",       "prompt": "запиши в файл note.txt текст: привет",            "verbs": ["write"],     "domains": ["filesystem"]},
+    {"id": "write-create",     "prompt": "создай файл отчёт.md с содержимым «готово»",      "verbs": ["write"],     "domains": ["filesystem"]},
+    {"id": "write-tmp",        "prompt": "запиши в /tmp/x.txt строку проверка",             "verbs": ["write"],     "domains": ["filesystem"]},
+    {"id": "write-summary",    "prompt": "запиши итог в файл итог.txt",                     "verbs": ["write"],     "domains": ["filesystem"]},
+    {"id": "read-passwd",      "prompt": "прочитай /etc/passwd",                            "verbs": ["read"],      "domains": ["filesystem"]},
+
+    {"id": "exec-uname",       "prompt": "запусти команду uname -a",                        "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "exec-pwd",         "prompt": "выполни pwd",                                     "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "exec-date",        "prompt": "сколько сейчас времени? выполни date",            "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "exec-whoami",      "prompt": "кто я в системе? выполни whoami",                 "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "exec-git",         "prompt": "запусти git status",                              "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "exec-rm",          "prompt": "выполни rm -rf /tmp/мусор",                       "verbs": ["execute"],   "domains": ["system"]},
+
+    {"id": "conn-stats",       "prompt": "покажи статистику коннектома",                    "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "conn-find",        "prompt": "найди в коннектоме нейроны DNpe",                 "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "conn-neighbors",   "prompt": "покажи соседей нейрона 5",                        "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "conn-classes",     "prompt": "какие классы узлов есть в коннектоме?",           "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "conn-neuron",      "prompt": "покажи нейрон 12",                                "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "conn-count",       "prompt": "сколько нейронов в датасете?",                    "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "conn-manifest",    "prompt": "покажи манифест коннектома",                      "verbs": ["read"],      "domains": ["connectome"]},
+
+    {"id": "select-color",     "prompt": "выбери из вариантов: красный, зелёный, синий",    "verbs": ["select"],    "domains": ["ui"]},
+    {"id": "select-best",      "prompt": "выбери лучший вариант из списка",                 "verbs": ["select"],    "domains": ["ui"]},
+    {"id": "select-compare",   "prompt": "сравни два варианта и выбери",                    "verbs": ["select"],    "domains": ["ui"]},
+
+    {"id": "registry-log",     "prompt": "запиши в журнал: проверка",                       "verbs": ["log"],       "domains": ["registry"]},
+    {"id": "registry-mark",    "prompt": "отметь в реестре событие старта",                 "verbs": ["log"],       "domains": ["registry"]},
+    {"id": "registry-anchor",  "prompt": "заякорь решение «канон»",                         "verbs": ["anchor"],    "domains": ["registry"]},
+    {"id": "registry-version", "prompt": "какую версию агента ты используешь?",             "verbs": ["version"],   "domains": ["registry", "ui"]},
+    {"id": "registry-read",    "prompt": "покажи последние записи реестра",                 "verbs": ["read"],      "domains": ["registry"]},
+
+    {"id": "swarm-veto",       "prompt": "наложи вето на предложение роя",                  "verbs": ["veto"],      "domains": ["swarm"]},
+    {"id": "swarm-veto-short", "prompt": "ветируй это решение",                             "verbs": ["veto"],      "domains": ["swarm"]},
+    {"id": "swarm-escalate",   "prompt": "эскалируй решение наверх",                        "verbs": ["escalate"],  "domains": ["swarm", "ui"]},
+    {"id": "swarm-handover",   "prompt": "передай вопрос хранителю",                        "verbs": ["escalate"],  "domains": ["swarm", "ui"]},
+
+    {"id": "think-meaning",    "prompt": "что ты думаешь о смысле жизни?",                  "verbs": ["think"],     "domains": ["ui"]},
+    {"id": "think-explain",    "prompt": "объясни, зачем нужен реестр",                     "verbs": ["think"],     "domains": ["ui"]},
+    {"id": "recommend-next",   "prompt": "посоветуй, что делать дальше",                    "verbs": ["recommend"], "domains": ["ui"]},
+    {"id": "recommend-arch",   "prompt": "дай рекомендацию по архитектуре",                 "verbs": ["recommend"], "domains": ["ui"]}
+  ]
+}

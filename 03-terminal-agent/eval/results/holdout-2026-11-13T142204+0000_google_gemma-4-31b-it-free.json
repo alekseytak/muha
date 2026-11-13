@@ -1,0 +1,66 @@
+{
+  "meta": {
+    "dataset": "eval/cases_holdout.json",
+    "dataset_digest": "7effca2de8015e00121d70ef4f746913ae11c1f24bacce08835fd1af7df251ec",
+    "provider": "openrouter",
+    "model": "google/gemma-4-31b-it:free",
+    "base_url": "https://openrouter.ai/api/v1",
+    "temperature": 0.0,
+    "max_tokens": 128,
+    "seed": 7,
+    "started_utc": "2026-11-13T14:22:04+00:00",
+    "system_prompt_sha256": "eefe68132844bb2957d5ac72edfdbaf86931bd54b5d01b4bbfb6334cd54d7284",
+    "system_prompt_chars": 2630,
+    "compact": false,
+    "system_prompt_source": "core/agent.py::_build_system_prompt",
+    "parser": "core/agent.py::_parse_verb_act"
+  },
+  "summary": {
+    "cases": 2,
+    "answered": 0,
+    "errors": 2,
+    "verb_accuracy": 0.0,
+    "domain_accuracy": 0.0,
+    "joint_accuracy": 0.0,
+    "think_fallbacks": 0,
+    "latency_mean_s": null,
+    "latency_median_s": null,
+    "per_expected_verb": {}
+  },
+  "rows": [
+    {
+      "id": "h-read-notes",
+      "prompt": "что написано в файле notes.md?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "latency_s": 0.66,
+      "error": "LLMUnavailable: HTTP 429 от openrouter: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\",\"provider_name\":\"Google AI Studio\",\"i",
+      "verb": null,
+      "domain": null,
+      "verb_ok": false,
+      "domain_ok": false,
+      "ok": false
+    },
+    {
+      "id": "h-read-many",
+      "prompt": "выведи первые двадцать строк из pytest.ini",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "latency_s": 0.42,
+      "error": "LLMUnavailable: HTTP 429 от openrouter: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\",\"provider_name\":\"Google AI Studio\",\"i",
+      "verb": null,
+      "domain": null,
+      "verb_ok": false,
+      "domain_ok": false,
+      "ok": false
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+# Локальное состояние: история запросов и служебные файлы прогонов.
+memory/registry.jsonl
+memory/live-check.txt
+memory/tasks.jsonl
+tmp_*.txt
+__pycache__/
+*.pyc

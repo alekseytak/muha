@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "name": "probe-микромодели",
+    "purpose": "чистый замер каскада микромоделей: составлен ПОСЛЕ диагностики ошибок на holdout, поэтому holdout для финального вывода больше не годится",
+    "author": "агент",
+    "note": "18 фраз, по одной-две на каждый глагол; придуманы заново, не взяты из cases.json и cases_holdout.json"
+  },
+  "cases": [
+    {"id": "p-read-1", "prompt": "прочитай содержимое README.md", "verbs": ["read"], "domains": ["filesystem"]},
+    {"id": "p-read-2", "prompt": "открой файл config.yaml и скажи, что там", "verbs": ["read"], "domains": ["filesystem"]},
+    {"id": "p-read-conn", "prompt": "сколько связей в коннектоме?", "verbs": ["read"], "domains": ["connectome"]},
+    {"id": "p-read-web", "prompt": "прочитай страницу https://example.com", "verbs": ["read"], "domains": ["web"]},
+    {"id": "p-write-1", "prompt": "запиши в файл report.md строку готово", "verbs": ["write"], "domains": ["filesystem"]},
+    {"id": "p-write-2", "prompt": "создай файл plans.md с планом на день", "verbs": ["write"], "domains": ["filesystem"]},
+    {"id": "p-exec-1", "prompt": "запусти команду date", "verbs": ["execute"], "domains": ["system"]},
+    {"id": "p-exec-2", "prompt": "выполни uname в терминале", "verbs": ["execute"], "domains": ["system"]},
+    {"id": "p-select-size", "prompt": "какого размера файл registry.jsonl?", "verbs": ["select"], "domains": ["filesystem"]},
+    {"id": "p-select-choose", "prompt": "выбери вариант A или вариант B", "verbs": ["select"], "domains": ["ui"]},
+    {"id": "p-log", "prompt": "сделай пометку в журнале о завершении", "verbs": ["log"], "domains": ["registry"]},
+    {"id": "p-version", "prompt": "какая сейчас версия агента?", "verbs": ["version"], "domains": ["registry"]},
+    {"id": "p-anchor", "prompt": "закрепи запись канон", "verbs": ["anchor"], "domains": ["registry"]},
+    {"id": "p-veto", "prompt": "наложи вето на эту запись", "verbs": ["veto"], "domains": ["registry"]},
+    {"id": "p-escalate", "prompt": "эскалируй это наверх оператору", "verbs": ["escalate"], "domains": ["ui"]},
+    {"id": "p-recommend", "prompt": "что посоветуешь делать дальше?", "verbs": ["recommend"], "domains": ["ui"]},
+    {"id": "p-think", "prompt": "зачем нужны глаголы в системе?", "verbs": ["think"], "domains": ["ui"]},
+    {"id": "p-read-classes", "prompt": "выведи классы нейронов из коннектома", "verbs": ["read"], "domains": ["connectome"]}
+  ]
+}

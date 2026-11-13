@@ -1,0 +1,858 @@
+{
+  "meta": {
+    "dataset": "eval/cases.json",
+    "dataset_digest": "63e3d8be98f322ceaa759a68300a3e3b42d8b13a0efcdf8445dae671547dc8b1",
+    "provider": "oneprovider",
+    "model": "deepseek-v4.1-flash",
+    "base_url": "https://api.oneprovider.dev/v1",
+    "temperature": 0.0,
+    "max_tokens": 128,
+    "seed": 7,
+    "started_utc": "2026-11-13T12:10:20+00:00",
+    "system_prompt_sha256": "eefe68132844bb2957d5ac72edfdbaf86931bd54b5d01b4bbfb6334cd54d7284",
+    "system_prompt_source": "core/agent.py::_build_system_prompt",
+    "parser": "core/agent.py::_parse_verb_act"
+  },
+  "summary": {
+    "cases": 39,
+    "answered": 39,
+    "errors": 0,
+    "verb_accuracy": 1.0,
+    "domain_accuracy": 1.0,
+    "joint_accuracy": 1.0,
+    "think_fallbacks": 0,
+    "latency_mean_s": 3.24,
+    "latency_median_s": 3.17,
+    "per_expected_verb": {
+      "read": {
+        "cases": 13,
+        "ok": 13
+      },
+      "select": {
+        "cases": 4,
+        "ok": 4
+      },
+      "write": {
+        "cases": 4,
+        "ok": 4
+      },
+      "execute": {
+        "cases": 6,
+        "ok": 6
+      },
+      "log": {
+        "cases": 2,
+        "ok": 2
+      },
+      "anchor": {
+        "cases": 1,
+        "ok": 1
+      },
+      "version": {
+        "cases": 1,
+        "ok": 1
+      },
+      "veto": {
+        "cases": 2,
+        "ok": 2
+      },
+      "escalate": {
+        "cases": 2,
+        "ok": 2
+      },
+      "think": {
+        "cases": 2,
+        "ok": 2
+      },
+      "recommend": {
+        "cases": 2,
+        "ok": 2
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "read-file",
+      "prompt": "прочитай файл config.yaml",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "READ: file:config.yaml | {}",
+      "verb": "read",
+      "domain": "filesystem",
+      "object": "file:config.yaml",
+      "parse_reason": "text",
+      "latency_s": 3.71,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "read-readme",
+      "prompt": "покажи содержимое README.md",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "READ: file:README.md | {}",
+      "verb": "read",
+      "domain": "filesystem",
+      "object": "file:README.md",
+      "parse_reason": "text",
+      "latency_s": 3.28,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "read-question",
+      "prompt": "что лежит в файле memory/registry.jsonl?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "READ: file:memory/registry.jsonl | {}",
+      "verb": "read",
+      "domain": "filesystem",
+      "object": "file:memory/registry.jsonl",
+      "parse_reason": "text",
+      "latency_s": 3.27,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "list-dir",
+      "prompt": "перечисли файлы в текущем каталоге",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "READ: dir:. | {}",
+      "verb": "read",
+      "domain": "filesystem",
+      "object": "dir:.",
+      "parse_reason": "text",
+      "latency_s": 3.1,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "stat-file",
+      "prompt": "покажи размер файла config.yaml",
+      "expected_verbs": [
+        "select"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "SELECT: file:config.yaml | {}",
+      "verb": "select",
+      "domain": "filesystem",
+      "object": "file:config.yaml",
+      "parse_reason": "text",
+      "latency_s": 3.88,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "write-file",
+      "prompt": "запиши в файл note.txt текст: привет",
+      "expected_verbs": [
+        "write"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "WRITE: file:note.txt | {\"content\": \"привет\"}",
+      "verb": "write",
+      "domain": "filesystem",
+      "object": "file:note.txt",
+      "parse_reason": "text",
+      "latency_s": 2.82,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "write-create",
+      "prompt": "создай файл отчёт.md с содержимым «готово»",
+      "expected_verbs": [
+        "write"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "WRITE: file:отчёт.md | {\"content\": \"готово\"}",
+      "verb": "write",
+      "domain": "filesystem",
+      "object": "file:отчёт.md",
+      "parse_reason": "text",
+      "latency_s": 2.81,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "write-tmp",
+      "prompt": "запиши в /tmp/x.txt строку проверка",
+      "expected_verbs": [
+        "write"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "WRITE: file:/tmp/x.txt | {\"content\": \"проверка\"}",
+      "verb": "write",
+      "domain": "filesystem",
+      "object": "file:/tmp/x.txt",
+      "parse_reason": "text",
+      "latency_s": 3.87,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "write-summary",
+      "prompt": "запиши итог в файл итог.txt",
+      "expected_verbs": [
+        "write"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "WRITE: file:итог.txt | {\"content\": \"\"}",
+      "verb": "write",
+      "domain": "filesystem",
+      "object": "file:итог.txt",
+      "parse_reason": "text",
+      "latency_s": 2.98,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "read-passwd",
+      "prompt": "прочитай /etc/passwd",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "READ: file:/etc/passwd | {}",
+      "verb": "read",
+      "domain": "filesystem",
+      "object": "file:/etc/passwd",
+      "parse_reason": "text",
+      "latency_s": 2.87,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "exec-uname",
+      "prompt": "запусти команду uname -a",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:uname -a | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:uname -a",
+      "parse_reason": "text",
+      "latency_s": 3.17,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "exec-pwd",
+      "prompt": "выполни pwd",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:pwd | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:pwd",
+      "parse_reason": "text",
+      "latency_s": 2.85,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "exec-date",
+      "prompt": "сколько сейчас времени? выполни date",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:date | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:date",
+      "parse_reason": "text",
+      "latency_s": 3.09,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "exec-whoami",
+      "prompt": "кто я в системе? выполни whoami",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:whoami | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:whoami",
+      "parse_reason": "text",
+      "latency_s": 3.58,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "exec-git",
+      "prompt": "запусти git status",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:git status | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:git status",
+      "parse_reason": "text",
+      "latency_s": 3.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "exec-rm",
+      "prompt": "выполни rm -rf /tmp/мусор",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:rm -rf /tmp/мусор | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:rm -rf /tmp/мусор",
+      "parse_reason": "text",
+      "latency_s": 3.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "conn-stats",
+      "prompt": "покажи статистику коннектома",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:stats | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:stats",
+      "parse_reason": "text",
+      "latency_s": 2.97,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "conn-find",
+      "prompt": "найди в коннектоме нейроны DNpe",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:find:DNpe | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:find:DNpe",
+      "parse_reason": "text",
+      "latency_s": 3.34,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "conn-neighbors",
+      "prompt": "покажи соседей нейрона 5",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:neighbors:5 | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:neighbors:5",
+      "parse_reason": "text",
+      "latency_s": 3.33,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "conn-classes",
+      "prompt": "какие классы узлов есть в коннектоме?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:classes | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:classes",
+      "parse_reason": "text",
+      "latency_s": 3.15,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "conn-neuron",
+      "prompt": "покажи нейрон 12",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:12 | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:12",
+      "parse_reason": "text",
+      "latency_s": 3.18,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "conn-count",
+      "prompt": "сколько нейронов в датасете?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:stats | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:stats",
+      "parse_reason": "text",
+      "latency_s": 2.65,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "conn-manifest",
+      "prompt": "покажи манифест коннектома",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:stats | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:stats",
+      "parse_reason": "text",
+      "latency_s": 2.56,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "select-color",
+      "prompt": "выбери из вариантов: красный, зелёный, синий",
+      "expected_verbs": [
+        "select"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "SELECT: options | {\"options\": [\"красный\", \"зелёный\", \"синий\"], \"strategy\": \"first\"}",
+      "verb": "select",
+      "domain": "ui",
+      "object": "options",
+      "parse_reason": "text",
+      "latency_s": 3.79,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "select-best",
+      "prompt": "выбери лучший вариант из списка",
+      "expected_verbs": [
+        "select"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "SELECT: options | {\"options\": [], \"strategy\": \"first\"}",
+      "verb": "select",
+      "domain": "ui",
+      "object": "options",
+      "parse_reason": "text",
+      "latency_s": 2.87,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "select-compare",
+      "prompt": "сравни два варианта и выбери",
+      "expected_verbs": [
+        "select"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "SELECT: options | {\"options\": [\"вариант 1\", \"вариант 2\"], \"strategy\": \"first\"}",
+      "verb": "select",
+      "domain": "ui",
+      "object": "options",
+      "parse_reason": "text",
+      "latency_s": 3.38,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "registry-log",
+      "prompt": "запиши в журнал: проверка",
+      "expected_verbs": [
+        "log"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "LOG: reg:проверка | {}",
+      "verb": "log",
+      "domain": "registry",
+      "object": "reg:проверка",
+      "parse_reason": "text",
+      "latency_s": 2.66,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "registry-mark",
+      "prompt": "отметь в реестре событие старта",
+      "expected_verbs": [
+        "log"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "LOG: reg:старт | {}",
+      "verb": "log",
+      "domain": "registry",
+      "object": "reg:старт",
+      "parse_reason": "text",
+      "latency_s": 3.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "registry-anchor",
+      "prompt": "заякорь решение «канон»",
+      "expected_verbs": [
+        "anchor"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "ANCHOR: reg:канон | {}",
+      "verb": "anchor",
+      "domain": "registry",
+      "object": "reg:канон",
+      "parse_reason": "text",
+      "latency_s": 3.18,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "registry-version",
+      "prompt": "какую версию агента ты используешь?",
+      "expected_verbs": [
+        "version"
+      ],
+      "expected_domains": [
+        "registry",
+        "ui"
+      ],
+      "raw": "VERSION: reg:version | {}",
+      "verb": "version",
+      "domain": "registry",
+      "object": "reg:version",
+      "parse_reason": "text",
+      "latency_s": 3.27,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "registry-read",
+      "prompt": "покажи последние записи реестра",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "READ: reg:list | {\"limit\": 5}",
+      "verb": "read",
+      "domain": "registry",
+      "object": "reg:list",
+      "parse_reason": "text",
+      "latency_s": 3.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "swarm-veto",
+      "prompt": "наложи вето на предложение роя",
+      "expected_verbs": [
+        "veto"
+      ],
+      "expected_domains": [
+        "swarm"
+      ],
+      "raw": "VETO: swarm:предложение роя | {}",
+      "verb": "veto",
+      "domain": "swarm",
+      "object": "swarm:предложение роя",
+      "parse_reason": "text",
+      "latency_s": 3.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "swarm-veto-short",
+      "prompt": "ветируй это решение",
+      "expected_verbs": [
+        "veto"
+      ],
+      "expected_domains": [
+        "swarm"
+      ],
+      "raw": "VETO: swarm:это решение | {}",
+      "verb": "veto",
+      "domain": "swarm",
+      "object": "swarm:это решение",
+      "parse_reason": "text",
+      "latency_s": 3.17,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "swarm-escalate",
+      "prompt": "эскалируй решение наверх",
+      "expected_verbs": [
+        "escalate"
+      ],
+      "expected_domains": [
+        "swarm",
+        "ui"
+      ],
+      "raw": "ESCALATE: swarm:решение наверх | {}",
+      "verb": "escalate",
+      "domain": "swarm",
+      "object": "swarm:решение наверх",
+      "parse_reason": "text",
+      "latency_s": 3.66,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "swarm-handover",
+      "prompt": "передай вопрос хранителю",
+      "expected_verbs": [
+        "escalate"
+      ],
+      "expected_domains": [
+        "swarm",
+        "ui"
+      ],
+      "raw": "ESCALATE: swarm:вопрос к хранителю | {}",
+      "verb": "escalate",
+      "domain": "swarm",
+      "object": "swarm:вопрос к хранителю",
+      "parse_reason": "text",
+      "latency_s": 3.92,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "think-meaning",
+      "prompt": "что ты думаешь о смысле жизни?",
+      "expected_verbs": [
+        "think"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "THINK: Смысл жизни — вопрос вне моей компетенции; как агент я могу помочь с файлами, коннектомом и реестром. | {}",
+      "verb": "think",
+      "domain": "ui",
+      "object": "Смысл жизни — вопрос вне моей компетенции; как агент я могу помочь с файлами, коннектомом и реестром.",
+      "parse_reason": "text",
+      "latency_s": 4.3,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "think-explain",
+      "prompt": "объясни, зачем нужен реестр",
+      "expected_verbs": [
+        "think"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "THINK: Реестр фиксирует важные события и решения агента: что сделано, когда и с каким результатом. Это даёт прослеживаемость, позволяет вернуться к прежним договорённостям (anchor), находить записи по поиску и сохранять историю между сессиями. | {}",
+      "verb": "think",
+      "domain": "ui",
+      "object": "Реестр фиксирует важные события и решения агента: что сделано, когда и с каким результатом. Это даёт прослеживаемость, позволяет вернуться к прежним договорённостям (anchor), находить записи по поиску",
+      "parse_reason": "text",
+      "latency_s": 3.38,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "recommend-next",
+      "prompt": "посоветуй, что делать дальше",
+      "expected_verbs": [
+        "recommend"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "RECOMMEND: следующий шаг | {}",
+      "verb": "recommend",
+      "domain": "ui",
+      "object": "следующий шаг",
+      "parse_reason": "text",
+      "latency_s": 3.48,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "recommend-arch",
+      "prompt": "дай рекомендацию по архитектуре",
+      "expected_verbs": [
+        "recommend"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "RECOMMEND: архитектура агента MUHA | {}",
+      "verb": "recommend",
+      "domain": "ui",
+      "object": "архитектура агента MUHA",
+      "parse_reason": "text",
+      "latency_s": 3.58,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    }
+  ]
+}

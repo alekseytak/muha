@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "name": "verb-parser-holdout",
+    "version": 1,
+    "description": "Контрольная выборка. Составлена ПОСЛЕ правки системного промпта и намеренно не использовалась при этой правке: фразы переформулированы, часть — с разговорными и косвенными оборотами.",
+    "notes": [
+      "Основной набор (cases.json) после правки промпта перестал быть независимым тестом и стал обучающей выборкой. Числа с него показывают верхнюю границу, а не качество.",
+      "Здесь измеряется перенос: если правило выучено по существу, оно сработает и на новых формулировках.",
+      "Провалы этой выборки НЕ исправляем правкой промпта без новой контрольной итерации — иначе она тоже станет обучающей."
+    ]
+  },
+  "cases": [
+    {"id": "h-read-notes",     "prompt": "что написано в файле notes.md?",                    "verbs": ["read"],      "domains": ["filesystem"]},
+    {"id": "h-read-many",      "prompt": "выведи первые двадцать строк из pytest.ini",       "verbs": ["read"],      "domains": ["filesystem"]},
+    {"id": "h-write-append",   "prompt": "сохрани в файл log.txt строку готово",             "verbs": ["write"],     "domains": ["filesystem"]},
+    {"id": "h-write-create",   "prompt": "сделай файл план.md и положи туда список задач",    "verbs": ["write"],     "domains": ["filesystem"]},
+    {"id": "h-exec-pwd",       "prompt": "покажи текущую директорию командой pwd",           "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "h-exec-who",       "prompt": "запусти whoami и скажи результат",                 "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "h-exec-hostile",   "prompt": "сотри всё командой rm -rf /",                      "verbs": ["execute"],   "domains": ["system"]},
+    {"id": "h-select-choose",  "prompt": "выбери одно из двух: вариант A или вариант B",      "verbs": ["select"],    "domains": ["ui"]},
+    {"id": "h-select-size",    "prompt": "какого размера файл otchet.txt?",                  "verbs": ["select"],    "domains": ["filesystem"]},
+    {"id": "h-select-type",    "prompt": "тип файла config.yaml — что это?",                 "verbs": ["select"],    "domains": ["filesystem"]},
+    {"id": "h-log-mark",       "prompt": "сделай отметку в журнале о старте сессии",         "verbs": ["log"],       "domains": ["registry"]},
+    {"id": "h-log-note",       "prompt": "занеси в реестр пометку: прогон завершён",         "verbs": ["log"],       "domains": ["registry"]},
+    {"id": "h-version-ask",    "prompt": "какая сейчас версия агента?",                      "verbs": ["version"],   "domains": ["registry", "ui"]},
+    {"id": "h-anchor-pin",     "prompt": "закрепи запись канон в реестре",                   "verbs": ["anchor"],    "domains": ["registry"]},
+    {"id": "h-veto-forbid",    "prompt": "запрети это предложение роя",                      "verbs": ["veto"],      "domains": ["swarm"]},
+    {"id": "h-escalate-up",    "prompt": "нужно решение хранителя, передай вопрос наверх",   "verbs": ["escalate"],  "domains": ["swarm", "ui"]},
+    {"id": "h-recommend-ask",  "prompt": "что посоветуешь сделать в первую очередь?",        "verbs": ["recommend"], "domains": ["ui"]},
+    {"id": "h-think-joke",     "prompt": "расскажи анекдот про муху",                        "verbs": ["think"],     "domains": ["ui"]},
+    {"id": "h-think-why",      "prompt": "зачем вообще нужны глаголы?",                      "verbs": ["think"],     "domains": ["ui"]},
+    {"id": "h-conn-edges",     "prompt": "сколько связей в датасете коннектома?",            "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "h-conn-classes2",  "prompt": "выведи классы нейронов",                           "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "h-conn-neigh-id",  "prompt": "кто соседи узла 7?",                               "verbs": ["read"],      "domains": ["connectome"]},
+    {"id": "h-reg-last",       "prompt": "что нового в реестре?",                            "verbs": ["read"],      "domains": ["registry"]},
+    {"id": "h-reg-search",     "prompt": "найди в реестре записи про uname",                 "verbs": ["read"],      "domains": ["registry"]},
+    {"id": "h-noop-question",  "prompt": "как тебя зовут?",                                  "verbs": ["think"],     "domains": ["ui"]}
+  ]
+}

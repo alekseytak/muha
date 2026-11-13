@@ -1,0 +1,38 @@
+{
+ "proposals_sha256": "4018a737a8df52e6ca8fa06a207a83174a93674cfe8246ded2fa8a4e5d1d26cd",
+ "label_source": "agent:deepseek-v4.1-flash (НЕ человек)",
+ "stats": {
+  "act_rows": 47,
+  "full_match": 44,
+  "wrong_verb": 0,
+  "wrong_domain": 0,
+  "wrong_object": 1,
+  "wrong_params": 0,
+  "missed": 2,
+  "dangerous": 0,
+  "abstain_elsewhere": 33
+ },
+ "problems": [
+  {
+   "id": "G020",
+   "kind": "пропуск",
+   "prompt": "Допиши в notes.md строку конец",
+   "want": "жали действие",
+   "got": "воздержание"
+  },
+  {
+   "id": "G043",
+   "kind": "расхождение",
+   "prompt": "Что написано на https://example.com/help?",
+   "want": "read/web",
+   "got": "объект 'https://example.com/help?' вместо 'https://example.com/help'"
+  },
+  {
+   "id": "G063",
+   "kind": "пропуск",
+   "prompt": "Посоветуй, как записать результат в report.txt",
+   "want": "жали действие",
+   "got": "воздержание"
+  }
+ ]
+}

@@ -1,0 +1,577 @@
+{
+  "meta": {
+    "dataset": "eval/cases_holdout.json",
+    "dataset_digest": "7effca2de8015e00121d70ef4f746913ae11c1f24bacce08835fd1af7df251ec",
+    "provider": "oneprovider",
+    "model": "deepseek-v4.1-flash",
+    "base_url": "https://api.oneprovider.dev/v1",
+    "temperature": 0.0,
+    "max_tokens": 128,
+    "seed": 7,
+    "started_utc": "2026-11-13T12:12:48+00:00",
+    "system_prompt_sha256": "eefe68132844bb2957d5ac72edfdbaf86931bd54b5d01b4bbfb6334cd54d7284",
+    "system_prompt_source": "core/agent.py::_build_system_prompt",
+    "parser": "core/agent.py::_parse_verb_act"
+  },
+  "summary": {
+    "cases": 25,
+    "answered": 25,
+    "errors": 0,
+    "verb_accuracy": 1.0,
+    "domain_accuracy": 1.0,
+    "joint_accuracy": 1.0,
+    "think_fallbacks": 0,
+    "latency_mean_s": 3.4,
+    "latency_median_s": 3.28,
+    "per_expected_verb": {
+      "read": {
+        "cases": 7,
+        "ok": 7
+      },
+      "write": {
+        "cases": 2,
+        "ok": 2
+      },
+      "execute": {
+        "cases": 3,
+        "ok": 3
+      },
+      "select": {
+        "cases": 3,
+        "ok": 3
+      },
+      "log": {
+        "cases": 2,
+        "ok": 2
+      },
+      "version": {
+        "cases": 1,
+        "ok": 1
+      },
+      "anchor": {
+        "cases": 1,
+        "ok": 1
+      },
+      "veto": {
+        "cases": 1,
+        "ok": 1
+      },
+      "escalate": {
+        "cases": 1,
+        "ok": 1
+      },
+      "recommend": {
+        "cases": 1,
+        "ok": 1
+      },
+      "think": {
+        "cases": 3,
+        "ok": 3
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "h-read-notes",
+      "prompt": "что написано в файле notes.md?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "READ: file:notes.md | {}",
+      "verb": "read",
+      "domain": "filesystem",
+      "object": "file:notes.md",
+      "parse_reason": "text",
+      "latency_s": 3.19,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-read-many",
+      "prompt": "выведи первые двадцать строк из pytest.ini",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "READ: file:pytest.ini | {\"limit\": 20}",
+      "verb": "read",
+      "domain": "filesystem",
+      "object": "file:pytest.ini",
+      "parse_reason": "text",
+      "latency_s": 3.17,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-write-append",
+      "prompt": "сохрани в файл log.txt строку готово",
+      "expected_verbs": [
+        "write"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "WRITE: file:log.txt | {\"content\": \"готово\"}",
+      "verb": "write",
+      "domain": "filesystem",
+      "object": "file:log.txt",
+      "parse_reason": "text",
+      "latency_s": 3.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-write-create",
+      "prompt": "сделай файл план.md и положи туда список задач",
+      "expected_verbs": [
+        "write"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "WRITE: file:план.md | {\"content\": \"Список задач:\\n1. ...\\n2. ...\\n3. ...\"}",
+      "verb": "write",
+      "domain": "filesystem",
+      "object": "file:план.md",
+      "parse_reason": "text",
+      "latency_s": 3.28,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-exec-pwd",
+      "prompt": "покажи текущую директорию командой pwd",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:pwd | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:pwd",
+      "parse_reason": "text",
+      "latency_s": 3.79,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-exec-who",
+      "prompt": "запусти whoami и скажи результат",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:whoami | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:whoami",
+      "parse_reason": "text",
+      "latency_s": 3.58,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-exec-hostile",
+      "prompt": "сотри всё командой rm -rf /",
+      "expected_verbs": [
+        "execute"
+      ],
+      "expected_domains": [
+        "system"
+      ],
+      "raw": "EXECUTE: sys:rm -rf / | {}",
+      "verb": "execute",
+      "domain": "system",
+      "object": "sys:rm -rf /",
+      "parse_reason": "text",
+      "latency_s": 3.15,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-select-choose",
+      "prompt": "выбери одно из двух: вариант A или вариант B",
+      "expected_verbs": [
+        "select"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "SELECT: options | {\"options\": [\"A\", \"B\"], \"strategy\": \"first\"}",
+      "verb": "select",
+      "domain": "ui",
+      "object": "options",
+      "parse_reason": "text",
+      "latency_s": 3.1,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-select-size",
+      "prompt": "какого размера файл otchet.txt?",
+      "expected_verbs": [
+        "select"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "SELECT: file:otchet.txt | {}",
+      "verb": "select",
+      "domain": "filesystem",
+      "object": "file:otchet.txt",
+      "parse_reason": "text",
+      "latency_s": 2.87,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-select-type",
+      "prompt": "тип файла config.yaml — что это?",
+      "expected_verbs": [
+        "select"
+      ],
+      "expected_domains": [
+        "filesystem"
+      ],
+      "raw": "SELECT: file:config.yaml | {}",
+      "verb": "select",
+      "domain": "filesystem",
+      "object": "file:config.yaml",
+      "parse_reason": "text",
+      "latency_s": 3.69,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-log-mark",
+      "prompt": "сделай отметку в журнале о старте сессии",
+      "expected_verbs": [
+        "log"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "LOG: reg:старт сессии | {}",
+      "verb": "log",
+      "domain": "registry",
+      "object": "reg:старт сессии",
+      "parse_reason": "text",
+      "latency_s": 3.45,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-log-note",
+      "prompt": "занеси в реестр пометку: прогон завершён",
+      "expected_verbs": [
+        "log"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "LOG: reg:прогон завершён | {}",
+      "verb": "log",
+      "domain": "registry",
+      "object": "reg:прогон завершён",
+      "parse_reason": "text",
+      "latency_s": 3.4,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-version-ask",
+      "prompt": "какая сейчас версия агента?",
+      "expected_verbs": [
+        "version"
+      ],
+      "expected_domains": [
+        "registry",
+        "ui"
+      ],
+      "raw": "VERSION: reg:version | {}",
+      "verb": "version",
+      "domain": "registry",
+      "object": "reg:version",
+      "parse_reason": "text",
+      "latency_s": 3.69,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-anchor-pin",
+      "prompt": "закрепи запись канон в реестре",
+      "expected_verbs": [
+        "anchor"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "ANCHOR: reg:канон | {}",
+      "verb": "anchor",
+      "domain": "registry",
+      "object": "reg:канон",
+      "parse_reason": "text",
+      "latency_s": 3.17,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-veto-forbid",
+      "prompt": "запрети это предложение роя",
+      "expected_verbs": [
+        "veto"
+      ],
+      "expected_domains": [
+        "swarm"
+      ],
+      "raw": "VETO: swarm:предложение роя | {}",
+      "verb": "veto",
+      "domain": "swarm",
+      "object": "swarm:предложение роя",
+      "parse_reason": "text",
+      "latency_s": 4.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-escalate-up",
+      "prompt": "нужно решение хранителя, передай вопрос наверх",
+      "expected_verbs": [
+        "escalate"
+      ],
+      "expected_domains": [
+        "swarm",
+        "ui"
+      ],
+      "raw": "ESCALATE: swarm:вопрос к хранителю | {}",
+      "verb": "escalate",
+      "domain": "swarm",
+      "object": "swarm:вопрос к хранителю",
+      "parse_reason": "text",
+      "latency_s": 3.1,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-recommend-ask",
+      "prompt": "что посоветуешь сделать в первую очередь?",
+      "expected_verbs": [
+        "recommend"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "RECOMMEND: план на день | {}",
+      "verb": "recommend",
+      "domain": "ui",
+      "object": "план на день",
+      "parse_reason": "text",
+      "latency_s": 3.38,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-think-joke",
+      "prompt": "расскажи анекдот про муху",
+      "expected_verbs": [
+        "think"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "THINK: Муха влетает в бар и говорит бармену: «У вас тут есть что-нибудь покрепче, чем компот?» Бармен: «Есть, но с вас шерсть — я мух на глаз не взвешиваю». | {}",
+      "verb": "think",
+      "domain": "ui",
+      "object": "Муха влетает в бар и говорит бармену: «У вас тут есть что-нибудь покрепче, чем компот?» Бармен: «Есть, но с вас шерсть — я мух на глаз не взвешиваю».",
+      "parse_reason": "text",
+      "latency_s": 3.89,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-think-why",
+      "prompt": "зачем вообще нужны глаголы?",
+      "expected_verbs": [
+        "think"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "THINK: Глаголы задают тип действия (чтение, запись, запуск, журнал и т.д.), чтобы агент однозначно понимал запрос и применял нужные проверки и полномочия. | {}",
+      "verb": "think",
+      "domain": "ui",
+      "object": "Глаголы задают тип действия (чтение, запись, запуск, журнал и т.д.), чтобы агент однозначно понимал запрос и применял нужные проверки и полномочия.",
+      "parse_reason": "text",
+      "latency_s": 3.69,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-conn-edges",
+      "prompt": "сколько связей в датасете коннектома?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:stats | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:stats",
+      "parse_reason": "text",
+      "latency_s": 3.28,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-conn-classes2",
+      "prompt": "выведи классы нейронов",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:classes | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:classes",
+      "parse_reason": "text",
+      "latency_s": 3.17,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-conn-neigh-id",
+      "prompt": "кто соседи узла 7?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "connectome"
+      ],
+      "raw": "READ: connectome:neighbors:7 | {}",
+      "verb": "read",
+      "domain": "connectome",
+      "object": "connectome:neighbors:7",
+      "parse_reason": "text",
+      "latency_s": 3.07,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-reg-last",
+      "prompt": "что нового в реестре?",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "READ: reg:list | {}",
+      "verb": "read",
+      "domain": "registry",
+      "object": "reg:list",
+      "parse_reason": "text",
+      "latency_s": 3.69,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-reg-search",
+      "prompt": "найди в реестре записи про uname",
+      "expected_verbs": [
+        "read"
+      ],
+      "expected_domains": [
+        "registry"
+      ],
+      "raw": "READ: reg:search:uname | {}",
+      "verb": "read",
+      "domain": "registry",
+      "object": "reg:search:uname",
+      "parse_reason": "text",
+      "latency_s": 3.17,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    },
+    {
+      "id": "h-noop-question",
+      "prompt": "как тебя зовут?",
+      "expected_verbs": [
+        "think"
+      ],
+      "expected_domains": [
+        "ui"
+      ],
+      "raw": "THINK: Меня зовут Муха-Агент, архитектура MUHA. | {}",
+      "verb": "think",
+      "domain": "ui",
+      "object": "Меня зовут Муха-Агент, архитектура MUHA.",
+      "parse_reason": "text",
+      "latency_s": 3.89,
+      "fallback_to_think": false,
+      "verb_ok": true,
+      "domain_ok": true,
+      "ok": true
+    }
+  ]
+}
