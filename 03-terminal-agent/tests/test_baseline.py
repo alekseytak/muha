@@ -32,6 +32,35 @@ def test_command_arguments_reach_real_process():
     assert '--- stdout ---\nBASELINE_ARG_42' in result, result
 
 
+def test_content_action_words_are_written_verbatim():
+    agent = make_agent()
+    act = agent.propose_action_fast('Запиши в result.txt текст прочитай и запусти')
+    assert act is not None and act.verb.value == 'write', act
+    result = agent.execute(act)
+    assert act.success, result
+    assert (agent.fs_sandbox.root / 'result.txt').read_text() == 'прочитай и запусти'
+
+
+def test_fallback_cannot_overwrite_when_append_was_requested():
+    agent = make_agent()
+    target = agent.fs_sandbox.root / 'notes.md'
+    target.write_text('СОХРАНИТЬ')
+    agent.think = lambda *a, **kw: 'WRITE: file:notes.md | {"content":"конец"}'
+    act = agent.propose_action('Допиши в notes.md строку конец')
+    result = agent.execute(act)
+    assert not act.success, result
+    assert target.read_text() == 'СОХРАНИТЬ'
+
+
+def test_fallback_cannot_ignore_do_not_save():
+    agent = make_agent()
+    agent.think = lambda *a, **kw: 'WRITE: file:notes.md | {"content":"ошибка"}'
+    act = agent.propose_action('Не сохраняй ответ в notes.md')
+    result = agent.execute(act)
+    assert not act.success, result
+    assert not (agent.fs_sandbox.root / 'notes.md').exists()
+
+
 def test_negation_does_not_reach_confirmation_or_process():
     agent = make_agent()
     confirmations = []
