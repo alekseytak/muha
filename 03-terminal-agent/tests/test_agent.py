@@ -641,6 +641,57 @@ def test_micromodel_vocab_is_cleared_on_refit():
     assert model.known_ratio("alpha.txt") < before, "vocab не очистился"
 
 
+def test_image_goes_to_the_model_as_parts_not_as_text():
+    """Картинка должна уходить частями content, а не строкой.
+
+    Без этого «зрение» было бы пересказом имени файла: модель не увидела бы
+    ни одного пикселя.
+    """
+    import base64 as _b64
+    from core.llm_client import LLMMessage
+
+    agent = make_agent()
+    shot = os.path.join(str(agent.fs_sandbox.root), "shot.png")
+    with open(shot, "wb") as handle:
+        handle.write(_b64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8"
+            "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))
+
+    captured = {}
+
+    def fake_post(url, payload):
+        captured["payload"] = payload
+        return {"choices": [{"message": {"content": "ТИП: текст"},
+                             "finish_reason": "stop"}], "usage": {}}
+
+    agent.llm._post = fake_post
+    agent.llm.generate([LLMMessage("user", "смотри", images=[shot])])
+    content = captured["payload"]["messages"][0]["content"]
+    assert isinstance(content, list), content
+    assert [part["type"] for part in content] == ["text", "image_url"]
+    assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+def test_vision_answer_is_parsed_and_becomes_a_phrase():
+    """Разбор ответа зрения: тип, текст, подсказка — и фраза для грамматики."""
+    from core.vision import Observation, parse
+
+    answer = ("ТИП: ошибка\n"
+              "ТЕКСТ:\n"
+              "$ python3 run.py\n"
+              "ModuleNotFoundError: No module named \"yaml\"\n"
+              "ПОДСКАЗКА: установить PyYAML")
+    kind, text, hint = parse(answer)
+    assert kind == "ошибка", kind
+    assert "ModuleNotFoundError" in text, text
+    assert "PyYAML" in hint, hint
+    observation = Observation(kind=kind, text=text, hint=hint)
+    phrase = observation.as_phrase()
+    assert phrase.startswith("Объясни ошибку:"), phrase
+    # Непонятный ответ не выдумывается.
+    assert parse("что-то невнятное")[0] == "неизвестно"
+
+
 def test_version_of_a_file_comes_from_the_newest_one():
     """G075: версия файла — это самая свежая запись о нём, а не версия агента.
 

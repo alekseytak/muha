@@ -350,6 +350,26 @@ class Agent:
         self.fs_sandbox.root = path
         self.system_sandbox.cwd = path
 
+    def perceive(self, image: str, model: Optional[str] = None):
+        """Посмотреть на картинку и вернуть наблюдение.
+
+        Зрение — это восприятие, а не действие: здесь ничего не исполняется.
+        Наблюдение превращается в текст задачи, и дальше решает та же
+        грамматика глаголов, что и для набранной руками фразы.
+        """
+        from .vision import VISION_MODEL, perceive as _perceive
+
+        if self.llm is None:
+            raise RuntimeError("зрение требует модели: llm не настроен")
+        return _perceive(self.llm, image, model or VISION_MODEL)
+
+    def propose_from_image(self, image: str, model: Optional[str] = None):
+        """Увидеть картинку и предложить действие. (наблюдение, действие)."""
+        observation = self.perceive(image, model)
+        phrase = observation.as_phrase()
+        act = self.propose_action(phrase)
+        return observation, act
+
     def propose_action_swarm(self, user_input: str) -> Optional[VerbAct]:
         """Разбор роем: несколько мух голосуют, омега — только при расколе.
 

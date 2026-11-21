@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 import urllib.error
@@ -20,10 +21,34 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+def _as_data_url(image: str) -> str:
+    """Путь к файлу или готовый data-URL — в вид, понятный провайдеру.
+
+    Если строка уже начинается с `data:`, она возвращается как есть: так
+    вызывающий может передать готовый URL и не заставлять нас читать файл.
+    """
+    if image.startswith("data:"):
+        return image
+    if image.startswith("http://") or image.startswith("https://"):
+        return image
+    path = Path(image)
+    if not path.exists():
+        raise LLMUnavailable(f"картинка не найдена: {image}")
+    suffix = path.suffix.lower().lstrip(".") or "png"
+    if suffix == "jpg":
+        suffix = "jpeg"
+    payload = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:image/{suffix};base64,{payload}"
+
+
 @dataclass
 class LLMMessage:
     role: str  # "system" | "user" | "assistant"
     content: str
+    # Картинки, которые нужно показать модели. Пути к файлам или готовые
+    # data-URL. Без этого поля сообщение остаётся строкой и уходит как
+    # строка: обычный текстовый путь не меняется.
+    images: Optional[List[str]] = None
 
 
 @dataclass
@@ -318,10 +343,23 @@ class LLMClient:
                 f"нет ключа для {self.provider}: задайте переменную "
                 f"{self.api_key_env or '<api_key_env>'} или credentials_file"
             )
-        chat: List[Dict[str, str]] = []
+        chat: List[Dict[str, Any]] = []
         if system_prompt:
             chat.append({"role": "system", "content": system_prompt})
-        chat.extend({"role": m.role, "content": m.content} for m in messages)
+        for message in messages:
+            if message.images:
+                # Мультимодальное сообщение: текст и картинки одним списком
+                # частей, как того требует OpenAI-совместимый API.
+                parts: List[Dict[str, Any]] = [
+                    {"type": "text", "text": message.content}]
+                for image in message.images:
+                    parts.append({
+                        "type": "image_url",
+                        "image_url": {"url": _as_data_url(image)},
+                    })
+                chat.append({"role": message.role, "content": parts})
+            else:
+                chat.append({"role": message.role, "content": message.content})
 
         payload: Dict[str, Any] = {
             "model": self.model,

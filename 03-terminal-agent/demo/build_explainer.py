@@ -336,6 +336,7 @@ TEMPLATE = """<!doctype html>
     <div id="items"></div>
   </div>
   <main id="detail"></main>
+  <div id="vision"></div>
 </div>
 <footer>
   <b>Что здесь правда.</b> Вердикт каждого шага снят теми же функциями, что
@@ -348,6 +349,7 @@ TEMPLATE = """<!doctype html>
 </footer>
 <script>
 const DATA = __DATA__;
+window.VISION_DATA = __VISION__;
 let filter = "all";
 let current = 0;
 
@@ -492,8 +494,88 @@ renderItems();
 renderDetail();
 </script>
 </body>
+<script>
+(function () {
+  const V = window.VISION_DATA || null;
+  const host = document.getElementById("vision");
+  if (!host || !V) return;
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  };
+  const card = el("div", "card");
+  card.appendChild(el("h2", null, "как муха видит"));
+  if (V.error) {
+    card.appendChild(el("div", "reason", "зрение не сработало: " + V.error));
+    host.appendChild(card);
+    return;
+  }
+  card.appendChild(el("div", "meta",
+    "модель " + V.model + " · токены " + V.tokens.join(" / ")));
+  const img = document.createElement("img");
+  img.src = V.image;
+  img.alt = "скриншот ошибки";
+  img.style.maxWidth = "100%";
+  img.style.borderRadius = "8px";
+  img.style.margin = "10px 0";
+  card.appendChild(img);
+  const vt = el("table", "steps");
+  [["что увидела", V.kind],
+   ["распознанный текст", V.text.replace(/\n/g, " ⏎ ")],
+   ["подсказка", V.hint || "нет"],
+   ["фраза для грамматики", V.phrase],
+   ["предложенное действие", (V.act || "воздержание") +
+     (V.object ? " · " + V.object : "")]].forEach(([name, value]) => {
+    const tr = el("tr", "pass");
+    tr.appendChild(el("td", "i", "•"));
+    const td = el("td");
+    td.appendChild(el("div", null, name + ": " + value));
+    tr.appendChild(td);
+    vt.appendChild(tr);
+  });
+  card.appendChild(vt);
+  card.appendChild(el("div", "reason",
+    "зрение даёт вход, а не решение: дальше работает та же грамматика " +
+    "из одиннадцати глаголов и та же граница готовности"));
+  host.appendChild(card);
+})();
+</script>
+</body>
 </html>
 """
+
+
+def look() -> dict:
+    """Посмотреть на скриншот ОДИН раз, при сборке.
+
+    Страница не должна тратить деньги при просмотре: наблюдение записывается
+    здесь, а в страницу попадает уже готовым текстом вместе с картинкой.
+    """
+    shot = DEMO / "shots" / "terminal_error.png"
+    if not shot.exists():
+        return {"error": "скриншота нет"}
+    try:
+        from core.agent import Agent
+        agent = Agent(config_path=str(ROOT / "config.yaml"),
+                      confirm_policy="allow")
+        observation, act = agent.propose_from_image(str(shot))
+        import base64
+        return {
+            "image": "data:image/png;base64,"
+                     + base64.b64encode(shot.read_bytes()).decode("ascii"),
+            "kind": observation.kind,
+            "text": observation.text,
+            "hint": observation.hint,
+            "phrase": observation.as_phrase(),
+            "act": (act.verb.value if act is not None else None),
+            "object": (act.object if act is not None else ""),
+            "model": observation.model,
+            "tokens": list(observation.tokens),
+        }
+    except Exception as exc:                            # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}"}
 
 
 def main() -> int:
@@ -510,6 +592,7 @@ def main() -> int:
             .replace("__N__", str(len(rows)))
             .replace("__MISMATCH__", str(mismatch))
             .replace("__DIGEST__", digest)
+            .replace("__VISION__", json.dumps(look(), ensure_ascii=False))
             .replace("__BUILT__", time.strftime("%Y-%m-%d %H:%M")))
     out = DEMO / "muha.html"
     out.write_text(html, encoding="utf-8")
