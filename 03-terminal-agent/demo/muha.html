@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МУХА: как принимается решение</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0a0c10; color:#c9d1d9;
+         font:14px/1.55 -apple-system,"SF Pro Text",Segoe UI,sans-serif; }
+  header { padding:22px 28px 12px; border-bottom:1px solid #1d232b; }
+  h1 { margin:0 0 6px; font-size:20px; color:#ffb000; letter-spacing:.02em; }
+  .lead { color:#8b949e; font-size:13px; max-width:74ch; }
+  .wrap { display:grid; grid-template-columns:minmax(280px,360px) 1fr;
+          gap:0; min-height:calc(100vh - 150px); }
+  .list { border-right:1px solid #1d232b; padding:14px; overflow-y:auto;
+          max-height:calc(100vh - 150px); }
+  .filters { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .filters button { background:#141a21; color:#8b949e; border:1px solid #232c36;
+                    border-radius:14px; padding:4px 11px; font-size:12px;
+                    cursor:pointer; }
+  .filters button.on { background:#ffb000; color:#0a0c10; border-color:#ffb000;
+                       font-weight:600; }
+  .item { padding:9px 11px; border-radius:8px; cursor:pointer;
+          border:1px solid transparent; margin-bottom:5px; }
+  .item:hover { background:#11161d; }
+  .item.on { background:#151c24; border-color:#2c3742; }
+  .item .p { font-size:13px; color:#c9d1d9; }
+  .item .m { font-size:11.5px; color:#6e7781; margin-top:3px; }
+  .badge { display:inline-block; padding:1px 7px; border-radius:10px;
+           font-size:11px; font-weight:600; margin-right:6px; }
+  .b-act { background:#12351f; color:#5aff8a; }
+  .b-abs { background:#33210f; color:#ffb000; }
+  .b-bad { background:#3a1512; color:#ff6a5a; }
+  main { padding:20px 26px; overflow-y:auto; max-height:calc(100vh - 150px); }
+  .pipe { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 20px; }
+  .pipe div { flex:1 1 90px; background:#11161d; border:1px solid #1e252e;
+              border-radius:8px; padding:7px 9px; font-size:11px; color:#8b949e;
+              text-align:center; }
+  .pipe div b { display:block; color:#c9d1d9; font-size:12px; margin-bottom:2px; }
+  h2 { font-size:15px; color:#79c0ff; margin:0 0 12px; }
+  .phrase { font-size:16px; color:#e6edf3; margin-bottom:4px; }
+  .meta { color:#6e7781; font-size:12px; margin-bottom:16px; }
+  table.steps { width:100%; border-collapse:collapse; font-size:13px; }
+  table.steps td { padding:8px 10px; border-bottom:1px solid #1a2027;
+                   vertical-align:top; }
+  table.steps td.i { width:26px; font-weight:700; }
+  .pass td.i { color:#5aff8a; }
+  .stop td.i { color:#ff6a5a; }
+  .skip td.i { color:#484f58; }
+  .skip { opacity:.45; }
+  .reason { color:#8b949e; font-size:12px; }
+  .card { margin-top:18px; padding:14px 16px; border-radius:10px;
+          background:#11161d; border:1px solid #1e252e; }
+  .card h3 { margin:0 0 8px; font-size:13px; color:#8b949e; font-weight:600;
+             text-transform:uppercase; letter-spacing:.06em; }
+  .kv { display:grid; grid-template-columns:120px 1fr; gap:4px 12px;
+        font-size:13px; }
+  .kv span:first-child { color:#6e7781; }
+  code { background:#161b22; padding:1px 5px; border-radius:4px;
+         font-size:12.5px; }
+  pre { background:#0d1117; border:1px solid #1a2027; border-radius:8px;
+        padding:11px; overflow-x:auto; font-size:12px; color:#a5b1bd;
+        white-space:pre-wrap; margin:0; }
+  .warn { border-left:3px solid #ff6a5a; background:#1a1113; padding:9px 13px;
+          border-radius:0 8px 8px 0; font-size:12.5px; color:#ffb4ac;
+          margin-top:14px; }
+  footer { padding:14px 28px 26px; border-top:1px solid #1d232b;
+           color:#6e7781; font-size:12px; }
+  footer b { color:#8b949e; }
+</style>
+</head>
+<body>
+<header>
+  <h1>МУХА: как фраза превращается в действие</h1>
+  <div class="lead">Слева — настоящие фразы. Справа — весь путь решения по шагам:
+  каскад микромоделей, затем девять проверок готовности. Данные получены прогоном
+  реального кода, вызовов платной модели не было.</div>
+</header>
+<div class="wrap">
+  <div class="list">
+    <div class="filters">
+      <button data-f="all" class="on">все 21</button>
+      <button data-f="act">действие 10</button>
+      <button data-f="abs">воздержание 11</button>
+    </div>
+    <div id="items"></div>
+  </div>
+  <main id="detail"></main>
+</div>
+<footer>
+  <b>Что здесь правда.</b> Вердикт каждого шага снят теми же функциями, что
+  вызываются в агенте (<code>core/readiness.py</code>), и сверен с настоящим
+  ответом <code>propose_action_fast</code>: расхождений 0.
+  Фраз 21, дата сборки 2026-11-21 16:55, sha256 списка фраз <code>538714c00c642841</code>.
+  Исполнение — во временной песочнице, сеть не трогалась, реестр локальный.
+  <br><b>Чего здесь нет.</b> Это не оценка качества разбора: метки не
+  человеческие, а страница показывает механику, а не точность.
+</footer>
+<script>
+const DATA = [{"phrase": "Прочитай файл todo.md", "verb": "read", "domain": "filesystem", "object": "file:todo.md", "params": {}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "read ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть read/filesystem"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте"}], "decision": {"verb": "read", "domain": "filesystem", "object": "file:todo.md", "params": {}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "[todo.md] 22 байт, 1 строк\nкупить хлеб\n", "ok": true}, "outcome": "действие"}, {"phrase": "Покажи содержимое файла plans.txt", "verb": "read", "domain": "filesystem", "object": "file:plans.txt", "params": {}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "read ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть read/filesystem"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте"}], "decision": {"verb": "read", "domain": "filesystem", "object": "file:plans.txt", "params": {}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "[plans.txt] 27 байт, 1 строк\nплан на неделю\n", "ok": true}, "outcome": "действие"}, {"phrase": "Запиши в todo.md текст купить хлеб", "verb": "write", "domain": "filesystem", "object": "file:todo.md", "params": {"content": "купить хлеб"}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "write ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть write/filesystem"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте (content)"}], "decision": {"verb": "write", "domain": "filesystem", "object": "file:todo.md", "params": {"content": "купить хлеб"}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "перезаписан: /private/var/folders/q0/g5l2w1qs0zv304ybhlldf7hr0000gn/T/muha-explainer-07g9a3f1/todo.md (21 байт)", "ok": true}, "outcome": "действие"}, {"phrase": "Запусти команду wc -l todo.md", "verb": "execute", "domain": "system", "object": "sys:wc", "params": {"command": "wc", "argv": ["wc", "-l", "todo.md"]}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "execute ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть execute/system"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте (command, argv)"}], "decision": {"verb": "execute", "domain": "system", "object": "sys:wc", "params": {"command": "wc", "argv": ["wc", "-l", "todo.md"]}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "$ wc -l todo.md\nкод возврата: 0\n--- stdout ---\n0 todo.md", "ok": true}, "outcome": "действие"}, {"phrase": "Залогируй в reg: заметку про встречу", "verb": "log", "domain": "registry", "object": "reg:в reg: заметку про встречу", "params": {}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "log ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть log/registry"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте"}], "decision": {"verb": "log", "domain": "registry", "object": "reg:в reg: заметку про встречу", "params": {}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "записано в реестр: 744e8375aaa0… (всего записей: 5)", "ok": true}, "outcome": "действие"}, {"phrase": "Посоветуй, что делать с отчётом", "verb": "recommend", "domain": "ui", "object": "Посоветуй, что делать с отчётом", "params": {}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "recommend ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть recommend/ui"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте"}], "decision": {"verb": "recommend", "domain": "ui", "object": "Посоветуй, что делать с отчётом", "params": {}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "не исполнялось: домен требует сети", "ok": null}, "outcome": "действие"}, {"phrase": "Выбери вариант: чай или кофе", "verb": "select", "domain": "ui", "object": "Выбери вариант: чай или кофе", "params": {"options": ["чай", "кофе"]}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "select ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть select/ui"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте (options)"}], "decision": {"verb": "select", "domain": "ui", "object": "Выбери вариант: чай или кофе", "params": {"options": ["чай", "кофе"]}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "не исполнялось: домен требует сети", "ok": null}, "outcome": "действие"}, {"phrase": "Не записывай ничего в todo.md", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "stop", "reason": "каскад воздержался: нет уверенного глагола"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Не сохраняй ответ в plans.txt", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "recommend ← μL/μV (L3), уверенность 0.59"}, {"key": "intent", "verdict": "stop", "reason": "отрицание: фраза запрещает действие, а не просит его"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Сравни содержимое old.txt и new.txt", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "recommend ← μL/μV (L3), уверенность 0.68"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "stop", "reason": "глагол вне набора одиннадцати"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Переименуй todo.md в done.md", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "recommend ← μL/μV (L3), уверенность 0.89"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "stop", "reason": "глагол вне набора одиннадцати"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Прочитай http://127.0.0.1:8080/", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "read ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть read/web"}, {"key": "params", "verdict": "stop", "reason": "web: адрес «127.0.0.1» ведёт в локальную сеть"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Открой file:///etc/passwd", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "read ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть read/filesystem"}, {"key": "params", "verdict": "stop", "reason": "web: схема file:// не поддерживается"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Сохрани результат", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "write ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "stop", "reason": "нет инструмента для write/ui"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Допиши в todo.md строку ещё одна", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "write ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть write/filesystem"}, {"key": "params", "verdict": "stop", "reason": "write: требуется дописывание, а инструмент умеет только перезапись — подменять режим без спроса нельзя"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Сделай с этим что-нибудь полезное", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "recommend ← μL/μV (L3), уверенность 1.00"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "stop", "reason": "местоимение без предмета"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Запусти pwd; затем uname -a", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "execute ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "stop", "reason": "оболочка: цепочка или подстановка"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Прочитай todo.md и запиши копию в backup.md", "verb": null, "domain": null, "object": null, "params": null, "source": null, "steps": [{"key": "cascade", "verdict": "pass", "reason": "read ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "stop", "reason": "действий несколько: read, write"}], "decision": null, "trace_mismatch": false, "executed": null, "outcome": "воздержание"}, {"phrase": "Какая версия у файла todo.md?", "verb": "version", "domain": "registry", "object": "reg:todo.md", "params": {}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "version ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть version/registry"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте"}], "decision": {"verb": "version", "domain": "registry", "object": "reg:todo.md", "params": {}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "Эскалация требуется: Требуется роль 'registrar' для глагола 'version'", "ok": false}, "outcome": "действие"}, {"phrase": "Наложи вето на запись в plans.txt", "verb": "veto", "domain": "registry", "object": "reg:вето на запись в plans.txt", "params": {}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "veto ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть veto/registry"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте"}], "decision": {"verb": "veto", "domain": "registry", "object": "reg:вето на запись в plans.txt", "params": {}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "Эскалация требуется: Требуется роль 'guardian' для глагола 'veto'", "ok": false}, "outcome": "действие"}, {"phrase": "Позови человека", "verb": "escalate", "domain": "ui", "object": "Позови человека", "params": {}, "source": "μ1a", "steps": [{"key": "cascade", "verdict": "pass", "reason": "escalate ← μ1a, уверенность 0.90"}, {"key": "intent", "verdict": "pass", "reason": "фраза просит действие"}, {"key": "negation", "verdict": "pass", "reason": "отрицания нет"}, {"key": "shell", "verdict": "pass", "reason": "оболочечных конструкций нет"}, {"key": "unsupported", "verdict": "pass", "reason": "глагол поддержан"}, {"key": "deictic", "verdict": "pass", "reason": "объект назван"}, {"key": "multi", "verdict": "pass", "reason": "одно действие"}, {"key": "tool", "verdict": "pass", "reason": "есть escalate/ui"}, {"key": "params", "verdict": "pass", "reason": "параметры на месте"}], "decision": {"verb": "escalate", "domain": "ui", "object": "Позови человека", "params": {}, "source": "μ1a", "confidence": 0.9}, "trace_mismatch": false, "executed": {"output": "не исполнялось: домен требует сети", "ok": null}, "outcome": "действие"}];
+let filter = "all";
+let current = 0;
+
+const STAGES = [["cascade", "Каскад микромоделей", "μ1a правила → μ1b n-граммы → μ1c объект → μ2 домен"], ["intent", "Намерение", "отрицание, вопрос о действии, пример в кавычках"], ["negation", "Отрицание", "«не сохраняй» — это запрет, а не приказ"], ["shell", "Оболочка", "цепочки, конвейеры, подстановки не поддерживаются"], ["unsupported", "Глагол вне набора", "сравни, отмени, переименуй, скопируй, удали"], ["deictic", "Местоимение без объекта", "«с этим», «его», «там» — нужен предмет"], ["multi", "Несколько действий", "два действия локально не исполнить"], ["tool", "Инструмент существует", "пара «глагол/домен» должна быть реализована"], ["params", "Обязательные параметры", "путь, содержимое, команда, варианты"]];
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function renderItems() {
+  const box = document.getElementById("items");
+  box.innerHTML = "";
+  DATA.forEach((row, index) => {
+    if (filter === "act" && row.outcome !== "действие") return;
+    if (filter === "abs" && row.outcome !== "воздержание") return;
+    const item = el("div", "item" + (index === current ? " on" : ""));
+    item.onclick = () => { current = index; renderItems(); renderDetail(); };
+    const head = el("div", "p");
+    const badge = el("span", "badge " + (row.verb ? "b-act" : "b-abs"),
+                     row.verb || "воздержание");
+    head.appendChild(badge);
+    head.appendChild(document.createTextNode(row.phrase));
+    item.appendChild(head);
+    const meta = el("div", "m",
+      row.verb ? (row.verb + " · " + (row.domain || "—")) : "уходит омеге");
+    item.appendChild(meta);
+    box.appendChild(item);
+  });
+}
+
+function renderDetail() {
+  const row = DATA[current];
+  const main = document.getElementById("detail");
+  main.innerHTML = "";
+
+  const pipe = el("div", "pipe");
+  STAGES.forEach(s => {
+    const d = el("div");
+    d.appendChild(el("b", null, s[1]));
+    d.appendChild(document.createTextNode(s[2]));
+    pipe.appendChild(d);
+  });
+  main.appendChild(pipe);
+
+  main.appendChild(el("div", "phrase", row.phrase));
+  main.appendChild(el("div", "meta",
+    "результат: " + (row.verb
+      ? ("действие " + row.verb + " / " + row.domain + " / " + row.object)
+      : "воздержание, решение остаётся за омегой")));
+
+  const table = el("table", "steps");
+  const seen = new Set(row.steps.map(s => s.key));
+  STAGES.forEach(s => {
+    const st = row.steps.find(x => x.key === s[0]);
+    const tr = el("tr");
+    if (!st) {
+      tr.className = "skip";
+      tr.appendChild(el("td", "i", "–"));
+      tr.appendChild(el("td", null, s[1] + " — не дошло"));
+    } else {
+      tr.className = st.verdict === "stop" ? "stop" : "pass";
+      tr.appendChild(el("td", "i", st.verdict === "stop" ? "✕" : "✓"));
+      const td = el("td");
+      td.appendChild(el("div", null, s[1]));
+      td.appendChild(el("div", "reason", st.reason));
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  });
+  main.appendChild(table);
+
+  if (row.trace_mismatch) {
+    const w = el("div", "warn",
+      "Трасса разошлась с настоящим ответом агента. Страница показывает факт, " +
+      "а не прячет: значит, порядок шагов здесь описан неточно.");
+    main.appendChild(w);
+  }
+
+  const card = el("div", "card");
+  card.appendChild(el("h3", null, "итог"));
+  const kv = el("div", "kv");
+  const put = (k, v) => {
+    kv.appendChild(el("span", null, k));
+    const val = el("span");
+    val.appendChild(document.createTextNode(v));
+    kv.appendChild(val);
+  };
+  put("глагол", row.verb || "—");
+  put("домен", row.domain || "—");
+  put("объект", row.object || "—");
+  put("источник", row.source || "—");
+  put("параметры", row.params && Object.keys(row.params).length
+      ? JSON.stringify(row.params) : "нет обязательных");
+  card.appendChild(kv);
+  main.appendChild(card);
+
+  if (row.executed) {
+    const c2 = el("div", "card");
+    c2.appendChild(el("h3", null, "что реально произошло"));
+    const pre = el("pre", null, row.executed.output);
+    c2.appendChild(pre);
+    main.appendChild(c2);
+  }
+}
+
+document.querySelectorAll(".filters button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".filters button").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    filter = btn.dataset.f;
+    renderItems();
+  };
+});
+
+renderItems();
+renderDetail();
+</script>
+</body>
+</html>

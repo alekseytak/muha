@@ -26,6 +26,7 @@ from modules.filesystem import (
 )
 from modules.system import SystemSandbox, run_command
 from modules.web import WebFetcher, page_info, read_web
+import time
 
 Handler = Callable[[str, Dict], str]
 
@@ -272,8 +273,96 @@ def _registry_log(obj: str, params: Dict, ctx: ToolContext) -> str:
     return f"записано в реестр: {entry_hash[:12]}… (всего записей: {total})"
 
 
+def _newest_record_for(obj: str, ctx: ToolContext) -> Optional[object]:
+    """Самая свежая запись реестра по этому объекту.
+
+    Правило источника версии: если объект назван, версия — это последняя
+    запись о нём по времени создания. Раньше `registry.version` игнорировал
+    объект и печатал версию агента, поэтому «какая версия у файла todo.md?»
+    получало ответ не про todo.md.
+    """
+    registry = ctx.registry
+    if registry is None or not obj:
+        return None
+    wanted = _strip_prefix(obj, ("file:", "reg:", "registry:", "fs:"))
+    if not wanted:
+        return None
+    try:
+        found = registry.search(wanted)
+    except Exception:                              # noqa: BLE001
+        return None
+    if not found:
+        return None
+    return max(found, key=lambda entry: entry.timestamp)
+
+
+def _newest_file_for(obj: str, ctx: ToolContext) -> Optional[object]:
+    """Самая свежая файловая запись по объекту, если реестр молчит.
+
+    Берётся время создания (`st_birthtime`), а при его отсутствии —
+    изменения. На macOS `st_birthtime` есть; на других системах честно
+    откатываемся на mtime, а не выдумываем дату.
+    """
+    # Объект приходит и как `reg:todo.md`: глагол `version` живёт в домене
+    # registry, поэтому префикс реестра надо снимать тоже, иначе файл не
+    # найдётся и ответ будет «версии нет» при существующем файле.
+    wanted = _strip_prefix(obj, ("file:", "fs:", "reg:", "registry:"))
+    if not wanted:
+        return None
+    root = getattr(ctx.fs, "root", None)
+    if root is None:
+        return None
+    root = Path(root)
+    if not root.exists():
+        return None
+    name = Path(wanted).name
+    candidates = []
+    try:
+        for path in root.rglob(name):
+            if not path.is_file():
+                continue
+            stat = path.stat()
+            created = getattr(stat, "st_birthtime", None) or stat.st_mtime
+            candidates.append((created, stat.st_mtime, path))
+    except OSError:
+        return None
+    if not candidates:
+        return None
+    best = max(candidates, key=lambda item: (item[0], item[1]))
+    return best[0], best[1], best[2], len(candidates)
+
+
 def _registry_version(obj: str, params: Dict, ctx: ToolContext) -> str:
     parts = [f"Муха-Агент v{ctx.version}"]
+
+    # Источник версии названного объекта — самая свежая запись о нём.
+    # «Смотри по дате создания: последний и нужен» — правило, а не догадка.
+    record = _newest_record_for(obj, ctx)
+    if record is not None:
+        when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.timestamp))
+        parts.append(
+            f"объект {obj!r}: последняя запись [{record.hash[:8]}] от {when} "
+            f"({record.action}, {'ok' if record.success else 'FAIL'}) — "
+            f"она и считается текущей версией"
+        )
+    else:
+        newest = _newest_file_for(obj, ctx)
+        if newest is not None:
+            created, _modified, path, count = newest
+            when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(created))
+            plural = ("кандидат" if count == 1 else
+                      "кандидата" if count < 5 else "кандидатов")
+            parts.append(
+                f"объект {obj!r}: записей в реестре нет, но на диске найден "
+                f"{path} от {when} (создан) — он и считается текущим, "
+                f"потому что версия берётся по дате создания; "
+                f"файлов-{plural} с таким именем: {count}"
+            )
+        elif obj:
+            parts.append(
+                f"объект {obj!r}: ни записей в реестре, ни файла с таким "
+                f"именем не найдено — версии нет"
+            )
     if ctx.registry is not None:
         stats = ctx.registry.stats()
         parts.append(

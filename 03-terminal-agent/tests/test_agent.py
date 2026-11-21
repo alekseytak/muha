@@ -641,6 +641,35 @@ def test_micromodel_vocab_is_cleared_on_refit():
     assert model.known_ratio("alpha.txt") < before, "vocab не очистился"
 
 
+def test_version_of_a_file_comes_from_the_newest_one():
+    """G075: версия файла — это самая свежая запись о нём, а не версия агента.
+
+    Решение владельца: «смотри по дате создания, последний и нужен». Значит
+    источник версии назван правилом, и уточнять у пользователя нечего.
+    """
+    import time as _time
+    agent = make_agent()
+    tmp = str(agent.fs_sandbox.root)
+    older = os.path.join(tmp, "sub")
+    os.makedirs(older, exist_ok=True)
+    with open(os.path.join(older, "todo.md"), "w", encoding="utf-8") as fh:
+        fh.write("старый\n")
+    os.utime(os.path.join(older, "todo.md"), (1_000_000_000, 1_000_000_000))
+    with open(os.path.join(tmp, "todo.md"), "w", encoding="utf-8") as fh:
+        fh.write("новый\n")
+    _time.sleep(0.01)
+
+    act = agent.propose_action_fast("Какая версия у файла todo.md?")
+    assert act is not None and act.verb.value == "version"
+    result = agent.tools.execute(act.verb, act.domain, act.object,
+                                 act.parameters or {}).output
+    assert "todo.md" in result, result
+    assert "по дате создания" in result, result
+    # Новее тот, что в корне песочницы, а не тот, что в подкаталоге.
+    assert os.path.join(tmp, "todo.md") in result, result
+    assert older not in result, result
+
+
 def test_pronoun_without_referent_is_not_an_action():
     """«Сделай с этим что-нибудь полезное» — вопрос, а не команда.
 
