@@ -57,4 +57,8 @@ def csc_filter(signal_data: np.ndarray,
         for freq in neurotransmitter_freqs.values():
             phase_shift = 2 * np.pi * freq / fs
             neuro_correction += 0.1 * np.sin(i * phase_shift)
-        # CSC-к 
+        # CSC-комбинированная поправка к приращению сигнала
+        filtered[i] = (filtered[i - 1] +
+                         dv_dt * thermal_factor * fractal_factor * neuro_correction)
+    return filtered
+
