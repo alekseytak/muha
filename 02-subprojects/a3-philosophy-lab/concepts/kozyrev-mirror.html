@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+title>Океан-зеркало — МУХА Лаборатория</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+#mirror-canvas { width: 100%; height: 320px; background: #0a0704; border: 1px solid var(--bezel); border-radius: 4px; display: block; }
+.control-row { display: flex; gap: 12px; margin-top: 12px; align-items: center; }
+.paradox-display { font-family: var(--font-mono); font-size: 1.2rem; color: var(--magenta); background: rgba(255,0,255,0.1); border: 1px solid var(--magenta); border-radius: 4px; padding: 8px 12px; display: inline-block; margin-top: 10px; }
+</style>
+</head>
+<body>
+<nav class="top">
+  <h1>Океан-зеркало</h1>
+  <div>
+    <a href="../index.html" class="nav-link">← Лаборатория</a>
+    <a href="../../presentation.html" class="nav-link">Презентация</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h2>Не ответ, а отражение</h2>
+  <div class="philosopher">С. Лем • «Солярис» / Н. Козырев</div>
+  <div class="code-module">kozyrev_mirror.py → paradox > 0.66 → эскалация</div>
+  <p>Зеркало не даёт ответов — оно отражает. paradox > 0.66 вызывает эскалацию. Временная асимметрия: эхо из будущего влияет на настоящее.</p>
+
+  <div class="widget-area">
+    <h3 style="color:var(--amber);margin-bottom:10px;">Виджет: зеркальное отражение и парадокс</h3>
+    <canvas id="mirror-canvas"></canvas>
+    <div class="control-row">
+      <label style="font-family:var(--font-lcd);font-size:0.8rem;color:var(--ink);">Уровень парадокса:</label>
+      <input type="range" id="paradox-slider" min="0" max="100" step="1" value="30" class="range-slider" style="width:200px;">
+      <span id="paradox-val" style="font-family:var(--font-mono);font-size:0.8rem;color:var(--ink);">0.30</span>
+    </div>
+    <div class="paradox-display" id="paradox-display">Парадокс: 0.30 — стабильно</div>
+    <div class="code-block">def kozyrev_mirror(state):
+    reflection = reflect(state)  # не ответ, а отражение
+    paradox = compute_paradox(reflection)
+    if paradox > 0.66:
+        return escalate(state)  # зеркало ломается
+    return reflection</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('mirror-canvas');
+const ctx = canvas.getContext('2d');
+const slider = document.getElementById('paradox-slider');
+const valDisplay = document.getElementById('paradox-val');
+const paradoxDisplay = document.getElementById('paradox-display');
+let width, height;
+let time = 0;
+
+function resize() {
+  width = canvas.parentElement.clientWidth;
+  height = 320;
+  canvas.width = width;
+  canvas.height = height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function draw() {
+  const paradox = slider.value / 100;
+  valDisplay.textContent = paradox.toFixed(2);
+  
+  ctx.fillStyle = '#0a0704';
+  ctx.fillRect(0, 0, width, height);
+  
+  const cx = width / 2, cy = height / 2;
+  const t = time * 0.002;
+  
+  // "Реальность" - внешний круг
+  ctx.beginPath();
+  ctx.arc(cx, cy, 100 + Math.sin(t) * 10, 0, Math.PI * 2);
+  ctx.strokeStyle = 'var(--ink)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  // "Отражение" - внутреннее зеркальное изображение
+  ctx.beginPath();
+  ctx.arc(cx, cy, 60 + Math.sin(t * 1.3) * 8, 0, Math.PI * 2);
+  ctx.strokeStyle = paradox > 0.66 ? 'var(--magenta)' : 'var(--amber)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  
+  // Пульсация парадокса
+  if (paradox > 0.66) {
+    const pulse = Math.sin(time * 0.01) * 10;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 120 + pulse, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,0,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    paradoxDisplay.textContent = `Парадокс: ${paradox.toFixed(2)} — ЭСКАЛЯЦИЯ`;
+    paradoxDisplay.style.color = 'var(--magenta)';
+    paradoxDisplay.style.textShadow = '0 0 15px var(--magenta)';
+  } else {
+    paradoxDisplay.textContent = `Парадокс: ${paradox.toFixed(2)} — стабильно`;
+    paradoxDisplay.style.color = 'var(--ink)';
+    paradoxDisplay.style.textShadow = 'none';
+  }
+  
+  // Волны между реальностью и отражением
+  for (let r = 70; r <= 95; r += 5) {
+    const wave = Math.sin(time * 0.005 + r * 0.1) * 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + wave, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(171,176,188,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  
+  time++;
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

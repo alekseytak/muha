@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Коллективное бессознательное — МУХА Лаборатория</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+#registry-canvas { width: 100%; height: 320px; background: #0a0704; border: 1px solid var(--bezel); border-radius: 4px; display: block; }
+.trace-item { font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink); margin: 4px 0; padding: 4px 8px; background: rgba(255,176,0,0.05); border-left: 2px solid var(--amber); }
+.trace-item.canonical { border-left-color: var(--green-ok); background: rgba(90,255,138,0.1); color: var(--green-ok); }
+</style>
+</head>
+<body>
+<nav class="top">
+  <h1>Коллективное бессознательное</h1>
+  <div>
+    <a href="../index.html" class="nav-link">← Лаборатория</a>
+    <a href="../../presentation.html" class="nav-link">Презентация</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h2>Registry как общая память роя</h2>
+  <div class="philosopher">К. Юнг</div>
+  <div class="code-module">Registry (append-only, sha256 chain)</div>
+  <p>Каждое действие агента оставляет след в append-only Registry. Следы не удаляются — они только дописываются. Каждый след — кандидат в золотые яблоки.</p>
+
+  <div class="widget-area">
+    <h3 style="color:var(--amber);margin-bottom:10px;">Виджет: поток следов в Registry</h3>
+    <canvas id="registry-canvas"></canvas>
+    <div style="margin-top:12px;max-height:150px;overflow-y:auto;font-family:var(--font-mono);font-size:0.75rem;color:var(--ink);background:#0a0704;border:1px solid var(--bezel);border-radius:4px;padding:10px;" id="trace-log">
+      <div class="trace-item">Registry инициализирован…</div>
+      <div class="trace-item">Первый след записан</div>
+    </div>
+    <div class="code-block">class Registry:
+    def __init__(self):
+        self.traces = []  # append-only
+        self.chain = sha256()
+    
+    def record(self, action, agent_id):
+        trace = {
+            'action': action,
+            'agent': agent_id,
+            'timestamp': now(),
+            'hash': self.chain.hash(action + str(agent_id))
+        }
+        self.traces.append(trace)  # нельзя удалить
+        return trace</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('registry-canvas');
+const ctx = canvas.getContext('2d');
+const log = document.getElementById('trace-log');
+let width, height, traces = [];
+
+function resize() {
+  width = canvas.parentElement.clientWidth;
+  height = 320;
+  canvas.width = width;
+  canvas.height = height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const actions = ['спайк', 'голосование', 'медитация', 'феромон', 'яблоко', 'вето', 'эскалация'];
+const agents = ['A-01', 'A-07', 'A-12', 'S-03', 'T-05', 'Ω-01'];
+
+function addTrace() {
+  const action = actions[Math.floor(Math.random() * actions.length)];
+  const agent = agents[Math.floor(Math.random() * agents.length)];
+  const canonical = Math.random() < 0.2;
+  
+  traces.unshift({ action, agent, canonical, t: Date.now() });
+  if (traces.length > 40) traces.pop();
+  
+  // Добавить в лог
+  const div = document.createElement('div');
+  div.className = 'trace-item' + (canonical ? ' canonical' : '');
+  div.textContent = new Date().toLocaleTimeString() + ' • агент ' + agent + ' • ' + action;
+  log.insertBefore(div, log.firstChild);
+  if (log.children.length > 12) log.removeChild(log.lastChild);
+  
+  // Запустить добавление снова случайно
+  if (Math.random() < 0.7) setTimeout(addTrace, Math.random() * 800 + 200);
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0704';
+  ctx.fillRect(0, 0, width, height);
+  
+  // Рисуем следы как точки, стремящиеся к центру (канонизация)
+  const cx = width / 2, cy = height / 2;
+  traces.forEach((t, i) => {
+    const angle = (i / traces.length) * Math.PI * 2;
+    const radius = 60 + (i % 3) * 40;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    
+    ctx.beginPath();
+    ctx.arc(x, y, t.canonical ? 6 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = t.canonical ? 'var(--green-ok)' : 'var(--amber)';
+    ctx.shadowColor = t.canonical ? 'var(--green-ok)' : 'var(--amber)';
+    ctx.shadowBlur = t.canonical ? 12 : 6;
+    ctx.fill();
+    
+    // Линия к центру для канонических
+    if (t.canonical) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(cx, cy);
+      ctx.strokeStyle = 'rgba(90,255,138,0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  });
+  ctx.shadowBlur = 0;
+}
+
+setInterval(() => { draw(); }, 60);
+setTimeout(addTrace, 500);
+</script>
+</body>
+</html>

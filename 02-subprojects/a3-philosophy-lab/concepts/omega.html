@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Точка Омега — МУХА Лаборатория</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+.canvas-wrap { position: relative; }
+#omega-canvas { width: 100%; height: 320px; background: #0a0704; border: 1px solid var(--bezel); border-radius: 4px; display: block; }
+.legend { display: flex; gap: 20px; margin-top: 12px; font-family: var(--font-lcd); font-size: 0.8rem; color: var(--ink); }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<nav class="top">
+  <h1>Точка Омега</h1>
+  <div>
+    <a href="../index.html" class="nav-link">← Лаборатория</a>
+    <a href="../../presentation.html" class="nav-link">Презентация</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h2>Конвергенция сознания</h2>
+  <div class="philosopher">П. Тейяр де Шарден • «Феномен человека»</div>
+  <div class="code-module">omega_registry.py → canonical precedents</div>
+  <p>Точка Омега — граница, в которой всё сознание сходится в единую точку. Registry хранит канонические прецеденты, из которых стартует следующее поколение агентов. Каждый эпизод — кандидат в Омегу.</p>
+
+  <div class="widget-area">
+    <h3 style="color:var(--amber);margin-bottom:10px;">Виджет: сходимость прецедентов к Омеге</h3>
+    <canvas id="omega-canvas"></canvas>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green-ok);box-shadow:0 0 6px var(--green-ok);"></div>Канонический прецедент</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber);"></div>Кандидат в Омегу</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ink);box-shadow:0 0 4px var(--ink);"></div>Обычный эпизод</div>
+    </div>
+    <div class="code-block">class OmegaRegistry:
+    def __init__(self):
+        self.precedents = []  # append-only
+        self.chain = sha256()
+    
+    def propose(self, episode):
+        trace = self.chain.hash(episode)
+        if self.swarm_vote(trace) >= 0.66:
+            self.precedents.append(trace)  # → Омега
+        return trace</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('omega-canvas');
+const ctx = canvas.getContext('2d');
+let width, height, particles = [];
+
+function resize() {
+  width = canvas.parentElement.clientWidth;
+  height = 320;
+  canvas.width = width;
+  canvas.height = height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.size = Math.random() * 3 + 1;
+    this.life = 0;
+    this.maxLife = Math.random() * 100 + 50;
+    this.canonical = Math.random() < 0.15;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life++;
+    const cx = width / 2, cy = height / 2;
+    const dx = cx - this.x, dy = cy - this.y;
+    this.vx += dx * 0.002;
+    this.vy += dy * 0.002;
+    if (this.life > this.maxLife) this.reset();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    if (this.canonical) {
+      ctx.fillStyle = 'var(--green-ok)';
+      ctx.shadowColor = 'var(--green-ok)';
+      ctx.shadowBlur = 10;
+    } else if (this.life > this.maxLife * 0.7) {
+      ctx.fillStyle = 'var(--amber)';
+      ctx.shadowColor = 'var(--amber)';
+      ctx.shadowBlur = 8;
+    } else {
+      ctx.fillStyle = 'var(--ink)';
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 60; i++) particles.push(new Particle());
+
+function animate() {
+  ctx.fillStyle = '#0a0704';
+  ctx.fillRect(0, 0, width, height);
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(171,176,188,0.1)';
+  ctx.lineWidth = 1;
+  const cx = width / 2, cy = height / 2;
+  particles.forEach(p => {
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(cx + (p.x - cx) * 0.3, cy + (p.y - cy) * 0.3);
+  });
+  ctx.stroke();
+  particles.forEach(p => { p.update(); p.draw(); });
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>

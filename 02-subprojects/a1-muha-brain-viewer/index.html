@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>МУХА — 3D Коннектом Роу</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+:root {
+  --bg: #0a0704;
+  --panel: #1a1510;
+  --panel-2: #241d15;
+  --bezel: #3a2f22;
+  --amber: #ffb000;
+  --amber-dim: #8a5c00;
+  --amber-bright: #ffd470;
+  --green-ok: #5aff8a;
+  --red-warn: #ff4422;
+  --magenta: #ff00ff;
+  --font: "Orbitron", "Share Tech Mono", "Courier New", monospace;
+  --font-lcd: "VT323", "DS-Digital", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: radial-gradient(ellipse at center, #1a1510 0%, #0a0704 60%, #000 100%);
+  color: var(--amber);
+  font-family: var(--font);
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,0.4) 2px 3px);
+  pointer-events: none; z-index: 9999;
+}
+body::after {
+  content: ""; position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.8) 100%);
+  pointer-events: none; z-index: 9998;
+}
+#canvas-container {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+}
+#hud {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+  pointer-events: none;
+  display: flex; flex-direction: column; padding: 20px;
+}
+.header-panel {
+  background: var(--panel-2); border: 2px solid var(--bezel);
+  border-radius: 4px; padding: 16px; margin-bottom: 16px;
+  box-shadow: inset 0 0 30px rgba(255,176,0,0.08);
+  pointer-events: auto;
+  max-width: 400px;
+}
+.header-panel h1 {
+  font-family: var(--font); color: var(--amber-bright);
+  text-shadow: 0 0 6px var(--amber); margin-bottom: 8px; font-size: 1.4rem;
+  text-transform: uppercase; letter-spacing: 2px;
+}
+.header-panel h2 {
+  font-family: var(--font); color: var(--amber); font-size: 1rem;
+  margin-bottom: 6px; border-bottom: 1px solid var(--bezel);
+  padding-bottom: 4px; letter-spacing: 1px;
+}
+.header-panel p {
+  font-family: var(--font-lcd); font-size: 0.9rem; color: var(--ink);
+  margin-bottom: 6px; text-transform: none; letter-spacing: 0.3px;
+}
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;
+}
+.stat-card {
+  background: var(--bg); border: 1px solid var(--bezel);
+  border-radius: 4px; padding: 10px; text-align: center;
+}
+.stat-big { font-family: var(--font); font-size: 1.5rem; color: var(--amber-bright); text-shadow: 0 0 6px var(--amber); }
+.stat-label { font-family: var(--font-lcd); font-size: 0.75rem; color: var(--ink); margin-top: 4px; }
+.controls-panel {
+  background: var(--panel-2); border: 2px solid var(--bezel);
+  border-radius: 4px; padding: 14px; pointer-events: auto;
+  max-width: 320px; position: absolute; bottom: 20px; left: 20px; z-index: 11;
+}
+.controls-panel h3 {
+  font-family: var(--font); color: var(--amber); font-size: 0.9rem;
+  margin-bottom: 10px; letter-spacing: 1px;
+}
+.control-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.control-row label {
+  font-family: var(--font-lcd); font-size: 0.8rem; color: var(--ink); flex: 1;
+  text-transform: none;
+}
+.range-slider { flex: 2; accent-color: var(--amber); }
+.btn-group { display: flex; gap: 8px; margin-top: 10px; }
+.btn {
+  flex: 1; font-family: var(--font); font-size: 0.8rem;
+  background: var(--bg); border: 1px solid var(--bezel);
+  color: var(--amber); border-radius: 4px; padding: 6px 10px;
+  cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+  transition: all 0.2s;
+}
+.btn:hover { border-color: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.btn.active { background: var(--amber); color: var(--bg); }
+.status-indicator {
+  position: absolute; bottom: 20px; right: 20px; z-index: 11;
+  background: var(--panel-2); border: 2px solid var(--bezel);
+  border-radius: 4px; padding: 12px 16px; pointer-events: auto;
+  font-family: var(--font-lcd); font-size: 0.85rem; color: var(--ink);
+}
+.status-row { display: flex; justify-content: space-between; margin: 4px 0; }
+.status-label { color: var(--ink); }
+.status-value { font-family: var(--font-mono); color: var(--amber-bright); }
+#loading {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 100; font-family: var(--font); color: var(--amber);
+  font-size: 1.5rem; text-shadow: 0 0 10px var(--amber);
+  display: none;
+}
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div id="hud">
+  <div class="header-panel">
+    <h1>МУХА — 3D Коннектом Роу</h1>
+    <h2>Реальный мозг дрозофилы в реальном времени</h2>
+    <p>1 515 нейронов • 58 674 связи • Спайковая нейросеть</p>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-big" id="stat-neurons">—</div>
+        <div class="stat-label">Нейронов</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-big" id="stat-edges">—</div>
+        <div class="stat-label">Связей</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-big" id="stat-active">0</div>
+        <div class="stat-label">Активных спайков</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-big" id="stat-golden">0</div>
+        <div class="stat-label">Золотых яблок</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="controls-panel">
+  <h3>Управление роем</h3>
+  <div class="control-row">
+    <label>Скорость симуляции</label>
+    <input type="range" id="sim-speed" min="0" max="5" step="0.1" value="1" class="range-slider">
+  </div>
+  <div class="control-row">
+    <label>Порог отображения связей</label>
+    <input type="range" id="edge-threshold" min="0" max="50" step="1" value="5" class="range-slider">
+  </div>
+  <div class="btn-group">
+    <button class="btn active" onclick="setMode('verb-act')">Глагол-Акт</button>
+    <button class="btn" onclick="setMode('gatekeeper')">ГейтКипер</button>
+    <button class="btn" onclick="setMode('registry')">Реестр</button>
+    <button class="btn" onclick="setMode('golden')">Яблоки</button>
+  </div>
+</div>
+
+<div class="status-indicator">
+  <div class="status-row"><span class="status-label">Режим:</span><span class="status-value" id="status-mode">ВЕРБ-АКТ</span></div>
+  <div class="status-row"><span class="status-label">Гейт:</span><span class="status-value" id="status-gate">ALLOW</span></div>
+  <div class="status-row"><span class="status-label">Реестр:</span><span class="status-value" id="status-registry">—</span></div>
+  <div class="status-row"><span class="status-label">Яблоко:</span><span class="status-value" id="status-apple">—</span></div>
+</div>
+
+<div id="loading">ЗАГРУЗКА КОННЕКТОМА...</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
+<script>
+// ============ КОНФИГУРАЦИЯ ============
+const NODES_CSV = 'data/nodes.csv';
+const EDGES_CSV = 'data/edges.csv';
+
+// Нейротрансмиттеры → цвета
+const NEURO_COLORS = {
+  acetylcholine: 0x00ff9d,   // бирюзовый
+  dopamine: 0xff00ff,        // магента
+  serotonin: 0x00d4aa,       // изумруд
+  glutamate: 0xffb000,       // янтарь
+  gaba: 0xff4422,            // красный
+  octopamine: 0x6366f1,      // синий
+  histamine: 0xa855f7,       // фиолетовый
+};
+const DEFAULT_COLOR = 0x94a3b8;
+
+// ============ ГЛОБАЛЫ ============
+let scene, camera, renderer, controls;
+let neuronsMesh, edgesLines;
+let neuronsData = [], edgesData = [];
+let neuronPositions = [], neuronColors = [];
+let activityMap = new Map(); // neuron_id → activity level 0-1
+let goldenApples = [];
+let registry = [];
+let verbActLog = [];
+let gatekeeperDecisions = [];
+let currentMode = 'verb-act';
+let simSpeed = 1;
+let edgeThreshold = 5;
+let frameCount = 0;
+
+// ============ ИНИЦИАЛИЗАЦИЯ ============
+function init() {
+  // Szene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0704);
+  scene.fog = new THREE.FogExp2(0x0a0704, 0.0015);
+
+  // Камера
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
+  camera.position.set(800, 400, 600);
+
+  // Рендерер
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+  // Управление
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.minDistance = 50;
+  controls.maxDistance = 2000;
+
+  // Свет
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+  scene.add(ambientLight);
+  const dirLight = new THREE.DirectionalLight(0x00ff9d, 0.5);
+  dirLight.position.set(500, 500, 500);
+  scene.add(dirLight);
+
+  // Сетка
+  const gridHelper = new THREE.GridHelper(1000, 50, 0x334155, 0x1e293b);
+  scene.add(gridHelper);
+
+  // Оси
+  const axesHelper = new THREE.AxesHelper(200);
+  axesHelper.material.transparent = true;
+  axesHelper.material.opacity = 0.3;
+  scene.add(axesHelper);
+
+  // Обработчики
+  window.addEventListener('resize', onWindowResize);
+
+  // Загрузка данных
+  document.getElementById('loading').style.display = 'block';
+  loadConnectome();
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ============ ЗАГРУЗКА ДАННЫХ ============
+function loadConnectome() {
+  Papa.parse(NODES_CSV, {
+    download: true,
+    header: true,
+    dynamicTyping: true,
+    complete: (results) => {
+      neuronsData = results.data.filter(r => r.neuron_id != null);
+      document.getElementById('stat-neurons').textContent = neuronsData.length.toLocaleString();
+      Papa.parse(EDGES_CSV, {
+        download: true,
+        header: true,
+        dynamicTyping: true,
+        complete: (results) => {
+          edgesData = results.data.filter(r => r.source != null && r.target != null);
+          document.getElementById('stat-edges').textContent = edgesData.length.toLocaleString();
+          document.getElementById('loading').style.display = 'none';
+          buildScene();
+        },
+        error: (err) => { console.error('Edges error:', err); document.getElementById('loading').textContent = 'ОШИБКА ЗАГРУЗКИ СВЯЗЕЙ'; }
+      });
+    },
+    error: (err) => { console.error('Nodes error:', err); document.getElementById('loading').textContent = 'ОШИБКА ЗАГРУЗКИ НЕЙРОНОВ'; }
+  });
+}
+
+function buildScene() {
+  // ---------- Нейроны как InstancedMesh ----------
+  const neuronCount = neuronsData.length;
+  const geometry = new THREE.SphereGeometry(4, 6, 6);
+  const material = new THREE.MeshPhongMaterial({
+    color: 0xffffff,
+    emissive: 0x000000,
+    emissiveIntensity: 1,
+    shininess: 30,
+    vertexColors: false
+  });
+  neuronsMesh = new THREE.InstancedMesh(geometry, material, neuronCount);
+  neuronsMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+
+  neuronsData.forEach((node, i) => {
+    const x = parseFloat(node.x) || 0;
+    const y = parseFloat(node.y) || 0;
+    const z = parseFloat(node.z) || 0;
+    const nx = (x - 500) / 2;   // центрируем и масштабируем
+    const ny = (y - 300) / 2;
+    const nz = (z - 200) / 2;
+
+    dummy.position.set(nx, ny, nz);
+    dummy.updateMatrix();
+    neuronsMesh.setMatrixAt(i, dummy.matrix);
+
+    // Цвет по нейротрансмиттеру
+    const nt = (node.neurotransmitter || '').toLowerCase();
+    color.setHex(NEURO_COLORS[nt] || DEFAULT_COLOR);
+    neuronsMesh.setColorAt(i, color);
+
+    neuronPositions.push({ x: nx, y: ny, z: nz, id: parseInt(node.neuron_id) });
+    activityMap.set(parseInt(node.neuron_id), 0);
+  });
+  neuronsMesh.instanceColor.needsUpdate = true;
+  neuronsMesh.instanceMatrix.needsUpdate = true;
+  scene.add(neuronsMesh);
+
+  // ---------- Связи как LineSegments ----------
+  buildEdges();
+
+  // ---------- Анимация ----------
+  animate();
+}
+
+function buildEdges() {
+  if (edgesLines) scene.remove(edgesLines);
+
+  const positions = [];
+  const colors = [];
+
+  edgesData.forEach(edge => {
+    const s = parseInt(edge.source);
+    const t = parseInt(edge.target);
+    const synCount = parseInt(edge.synapse_count) || 1;
+    if (synCount < edgeThreshold) return;
+
+    const n1 = neuronPositions.find(p => p.id === s);
+    const n2 = neuronPositions.find(p => p.id === t);
+    if (!n1 || !n2) return;
+
+    positions.push(n1.x, n1.y, n1.z);
+    positions.push(n2.x, n2.y, n2.z);
+
+    // Цвет связи по весу/типу
+    const w = parseFloat(edge.weight) || 0;
+    const c = new THREE.Color();
+    c.setHex(w > 0 ? 0x00ff9d : 0xff4422);
+    colors.push(c.r, c.g, c.b);
+    colors.push(c.r, c.g, c.b);
+  });
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+  const mat = new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.15,
+    blending: THREE.AdditiveBlending
+  });
+  edgesLines = new THREE.LineSegments(geo, mat);
+  scene.add(edgesLines);
+
+  document.getElementById('stat-active').textContent = `Рёбер отображено: ${positions.length / 6}`;
+}
+
+// ============ СИМУЛЯЦИЯ АКТИВНОСТИ ============
+function simulateActivity() {
+  // Случайные спайки
+  const spikeCount = Math.floor(Math.random() * 3) + 1;
+  for (let i = 0; i < spikeCount; i++) {
+    const idx = Math.floor(Math.random() * neuronsData.length);
+    const nid = neuronsData[idx].neuron_id;
+    activityMap.set(nid, Math.min(activityMap.get(nid) + 0.8, 1.0));
+
+    // Registry запись
+    if (Math.random() < 0.3) {
+      const trace = {
+        t: Date.now(),
+        neuron: nid,
+        action: 'spike',
+        weight: Math.random().toFixed(3)
+      };
+      registry.unshift(trace);
+      if (registry.length > 50) registry.pop();
+      updateRegistryUI();
+    }
+
+    // Верб-Акт лог
+    if (Math.random() < 0.5) {
+      const verbs = ['блокирует', 'рекомендует', 'эскалирует', 'вето', 'якорит'];
+      const v = verbs[Math.floor(Math.random() * verbs.length)];
+      verbActLog.unshift(`${new Date().toLocaleTimeString()} → нейрон ${nid}: ${v}`);
+      if (verbActLog.length > 30) verbActLog.pop();
+    }
+
+    // Gatekeeper решение
+    if (Math.random() < 0.4) {
+      const decision = Math.random() > 0.3 ? 'ALLOW' : 'DENY';
+      gatekeeperDecisions.unshift(`${new Date().toLocaleTimeString()} → гейт ${nid}: ${decision}`);
+      if (gatekeeperDecisions.length > 30) gatekeeperDecisions.pop();
+    }
+
+    // Золотое яблоко
+    if (Math.random() < 0.05) {
+      const apple = {
+        id: Date.now(),
+        neuron: nid,
+        t: Date.now(),
+        votes: Math.floor(Math.random() * 12) + 1
+      };
+      goldenApples.unshift(apple);
+      if (goldenApples.length > 20) goldenApples.pop();
+      document.getElementById('stat-golden').textContent = goldenApples.length;
+      updateAppleUI(apple);
+    }
+  }
+
+  // Затухание активности
+  activityMap.forEach((val, key) => {
+    activityMap.set(key, Math.max(val - 0.02 * simSpeed, 0));
+  });
+
+  // Обновляем цвета нейронов по активности
+  const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+  neuronsData.forEach((node, i) => {
+    const nid = parseInt(node.neuron_id);
+    const act = activityMap.get(nid) || 0;
+    const base = new THREE.Color(NEURO_COLORS[(node.neurotransmitter || '').toLowerCase()] || DEFAULT_COLOR);
+    // Яркость зависит от активности
+    color.copy(base).lerp(new THREE.Color(0xffffff), act);
+    neuronsMesh.setColorAt(i, color);
+    // Масштаб ligeramente меняется при активности
+    dummy.position.set(neuronPositions[i].x, neuronPositions[i].y, neuronPositions[i].z);
+    const scale = 1 + act * 0.5;
+    dummy.scale.set(scale, scale, scale);
+    dummy.updateMatrix();
+    neuronsMesh.setMatrixAt(i, dummy.matrix);
+  });
+  neuronsMesh.instanceColor.needsUpdate = true;
+  neuronsMesh.instanceMatrix.needsUpdate = true;
+
+  document.getElementById('stat-active').textContent = `Активных: ${[...activityMap.values()].filter(v => v > 0.1).length}`;
+}
+
+function updateRegistryUI() {
+  const el = document.getElementById('status-registry');
+  if (registry.length > 0) {
+    const r = registry[0];
+    el.textContent = `нейрон ${r.neuron} spikes`;
+    el.style.color = varCss('--green-ok');
+  } else {
+    el.textContent = '—';
+  }
+}
+
+function updateAppleUI(apple) {
+  const el = document.getElementById('status-apple');
+  el.textContent = `нейрон ${apple.neuron} ${apple.votes} голосов`;
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('status-mode').textContent = mode.toUpperCase();
+}
+
+// CSS переменные из JS
+function varCss(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#00ff9d';
+}
+
+function updateGateUI() {
+  const el = document.getElementById('status-gate');
+  const decisions = ['ALLOW', 'DENY', 'ESCALATE'];
+  const d = decisions[Math.floor(Math.random() * decisions.length)];
+  el.textContent = d;
+  el.style.color = d === 'ALLOW' ? varCss('--green-ok') : (d === 'DENY' ? varCss('--red-warn') : '#ff00ff');
+}
+
+// ============ ОБРАБОТЧИКИ ============
+document.getElementById('sim-speed').addEventListener('input', (e) => {
+  simSpeed = parseFloat(e.target.value);
+});
+document.getElementById('edge-threshold').addEventListener('input', (e) => {
+  edgeThreshold = parseInt(e.target.value);
+  buildEdges();
+});
+
+// ============ ЦИКЛ АНИМАЦИИ ============
+let lastTime = 0;
+function animate(time = 0) {
+  requestAnimationFrame(animate);
+  const dt = time - lastTime;
+  lastTime = time;
+
+  controls.update();
+
+  if (frameCount % (60 / simSpeed) === 0) {
+    simulateActivity();
+    if (frameCount % 120 === 0) updateGateUI();
+  }
+  frameCount++;
+
+  renderer.render(scene, camera);
+}
+
+init();
+</script>
+</body>
+</html>

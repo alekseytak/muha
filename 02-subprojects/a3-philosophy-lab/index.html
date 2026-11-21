@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>МУХА — Интерактивная философская лаборатория</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<nav class="top">
+  <h1>МУХА • Лаборатория философии</h1>
+  <div>
+    <a href="../../presentation.html" class="nav-link">Презентация</a>
+    <a href="../a1-muha-brain-viewer/index.html" class="nav-link">3D Коннектом</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h1 style="font-family:var(--font);color:var(--amber-bright);text-shadow:0 0 6px var(--amber);margin-bottom:20px;font-size:1.6rem;letter-spacing:2px;">
+    Каждая концепция обязана иметь исполняемый модуль
+  </h1>
+  <p style="font-family:var(--font-lcd);font-size:0.95rem;color:var(--ink);margin-bottom:24px;text-transform:none;line-height:1.6;">
+    Философия без кода — литература. Код без философии — автоматизм.<br>
+    Ниже — карта концепций из <span style="color:#ff00ff;">PHILOSOPHY.md</span>. Каждая概念 связана с кодом-модулем и имеет интерактивный виджет.
+  </p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;">
+
+    <!-- 1. Точка Омега -->
+    <div class="concept-card" onclick="location.href='concepts/omega.html'">
+      <h2>Точка Омега</h2>
+      <div class="philosopher">П. Тейяр де Шарден • «Феномен человека»</div>
+      <div class="code-module">omega_registry.py</div>
+      <p>Конвергенция сознания — общая память, из которой стартует следующее поколение агентов. Канонические прецеденты Registry.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 2. Золотые яблоки -->
+    <div class="concept-card" onclick="location.href='concepts/golden-apples.html'">
+      <h2>Золотые яблоки</h2>
+      <div class="philosopher">Р. Брэдбери</div>
+      <div class="code-module">propose_golden_apple()</div>
+      <p>Чистая энергия звезды. Голосование роя (≥66%) продвигает эпизод в канон. 200 яблок принято, verify_chain()=True.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 3. Коллективное бессознательное -->
+    <div class="concept-card" onclick="location.href='concepts/collective-unconscious.html'">
+      <h2>Коллективное бессознательное</h2>
+      <div class="philosopher">К. Юнг</div>
+      <div class="code-module">Registry</div>
+      <p>Registry как общая память роя. Каждый след — append-only запись, кандидат в золотые яблоки.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 4. Вавилонская библиотека -->
+    <div class="concept-card" onclick="location.href='concepts/babel.html'">
+      <h2>Вавилонская библиотека</h2>
+      <div class="philosopher">Х.Л. Борхес</div>
+      <div class="code-module">reward-функция</div>
+      <p>Поиск смысла в шуме. Reward-функция как «библиотекарь» траекторий агентов.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 5. Диалектика -->
+    <div class="concept-card" onclick="location.href='concepts/dialectic.html'">
+      <h2>Диалектика</h2>
+      <div class="philosopher">Гегель</div>
+      <div class="code-module">teacher_student.py</div>
+      <p>Тезис → антитезис → синтез. Путь продвижения агентов черезshadow → canary → limited → full → registrar_export.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 6. Сверхчеловек -->
+    <div class="concept-card" onclick="location.href='concepts/ubermensch.html'">
+      <h2>Сверхчеловек</h2>
+      <div class="philosopher">Ф. Ницше</div>
+      <div class="code-module">Student → Teacher promotion</div>
+      <p>Преодоление себя. Агент-Student обучается у Teacher (numpy, 90%+ точности) через behavior cloning.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 7. Гиперэмпатия -->
+    <div class="concept-card" onclick="location.href='concepts/empathy.html'">
+      <h2>Гиперэмпатия</h2>
+      <div class="philosopher">О. Батлер • «Притча о сеятеле»</div>
+      <div class="code-module">empathy_bus.py</div>
+      <p>Чувствовать боль других. Шина эмпатии с затуханием 0.5 — агенты «чувствуют» состояния соседей.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 8. Mood organ -->
+    <div class="concept-card" onclick="location.href='concepts/mood-organ.html'">
+      <h2>Mood organ</h2>
+      <div class="philosopher">Ф.К. Дик</div>
+      <div class="code-module">hormone_module.py</div>
+      <p>Коробка настроений. Дофамин/серотонин/кортизол меняют risk_appetite в зависимости от эмоции агента.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 9. Коллективная медитация -->
+    <div class="concept-card" onclick="location.href='concepts/meditation.html'">
+      <h2>Коллективная медитация</h2>
+      <div class="philosopher">О. Хаксли • «Остров»</div>
+      <div class="code-module">collective_meditation.py</div>
+      <p>Мокша на 86.84 Гц. sync_order 0.9831 &gt; 0.8. Зеркало Козырева и Улама как инструменты рефлексии.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 10. Океан-зеркало -->
+    <div class="concept-card" onclick="location.href='concepts/kozyrev-mirror.html'">
+      <h2>Океан-зеркало</h2>
+      <div class="philosopher">С. Лем • «Солярис»</div>
+      <div class="code-module">kozyrev_mirror.py</div>
+      <p>Не ответ, а отражение. Эхо решения. paradox &gt; 0.66 → эскалация в рефлексивном цикле.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 11. Временная асимметрия -->
+    <div class="concept-card" onclick="location.href='concepts/kozyrev-time.html'">
+      <h2>Временная асимметрия</h2>
+      <div class="philosopher">Н. Козырев</div>
+      <div class="code-module">kozyrev_mirror.py</div>
+      <p>Эхо из будущего. Dissonance → paradox. Временная асимметрия как структура_register的反馈.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 12. Управляемый хаос -->
+    <div class="concept-card" onclick="location.href='concepts/ulam.html'">
+      <h2>Управляемый хаос</h2>
+      <div class="philosopher">С. Улам</div>
+      <div class="code-module">ulam_chaos.py</div>
+      <p>Против «Дня Сурка». Perturbation — возмущение системы для предотвращения застревания в локальном оптимуме.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 13. Ризома -->
+    <div class="concept-card" onclick="location.href='concepts/rhizome.html'">
+      <h2>Ризома</h2>
+      <div class="philosopher">Делез / Гваттари</div>
+      <div class="code-module">rhizome_mesh.py</div>
+      <p>Связь, гетерогенность, разрыв. Gossip 3–5 связей, устойчива к удалению 30% узлов, перенос ауры.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 14. Аура -->
+    <div class="concept-card" onclick="location.href='concepts/aura.html'">
+      <h2>Аура</h2>
+      <div class="philosopher">П. Энтони • «Кластер»</div>
+      <div class="code-module">aura_transfer.py</div>
+      <p>Переносимая личность. Аура с подписью Регистратора, АРФА-фильтр. Личность = история + политика.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 15. Анаклеарные нейроны -->
+    <div class="concept-card" onclick="location.href='concepts/arfa.html'">
+      <h2>Анаклеарные нейроны</h2>
+      <div class="philosopher">АРФА-анализ коннектома</div>
+      <div class="code-module">агенты-оболочки в Проекте III</div>
+      <p>Функция без ядра. Нейроны без традиционного ядра, agentes-оболочки с обёрткой политики.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 16. Dasein -->
+    <div class="concept-card" onclick="location.href='concepts/dasein.html'">
+      <h2>Dasein</h2>
+      <div class="philosopher">М. Хайдеггер</div>
+      <div class="code-module">агент не существует без роя и среды</div>
+      <p>Бытие-в-мире через взаимодействие. Агент определяется своей средой и связями, не изолированно.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 17. Языковые игры -->
+    <div class="concept-card" onclick="location.href='concepts/wittgenstein.html'">
+      <h2>Языковые игры</h2>
+      <div class="philosopher">Л. Витгенштейн</div>
+      <div class="code-module">один глагол ≠ одно действие</div>
+      <p>Значение = употребление. Домен определяет смысл. Gatekeeper — это грамматика действий.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 18. Процесс важнее бытия -->
+    <div class="concept-card" onclick="location.href='concepts/whitehead.html'">
+      <h2>Процесс важнее бытия</h2>
+      <div class="philosopher">А. Уайтхед</div>
+      <div class="code-module">verb-act</div>
+      <p>Существовать = становиться. Агент = траектория актов. verb-act: каждое действие проходит проверку.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 19. Ноосфера -->
+    <div class="concept-card" onclick="location.href='concepts/vernadsky.html'">
+      <h2>Ноосфера</h2>
+      <div class="philosopher">В. Вернадский</div>
+      <div class="code-module">рой, феромоны</div>
+      <p>Разум как сила, меняющая среду. Рой изменяет окружающее через феромонное поле и следы в Registry.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 20. Élan vital -->
+    <div class="concept-card" onclick="location.href='concepts/elan.html'">
+      <h2>Элан виталь</h2>
+      <div class="philosopher">Анри Бергсон</div>
+      <div class="code-module">эмерджентность из 3 локальных правил</div>
+      <p>Жизненный порыв. Эмерджентное поведение возникает из простых локальных правил взаимодействия агентов.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 21. Паноптикум -->
+    <div class="concept-card" onclick="location.href='concepts/foucault.html'">
+      <h2>Паноптикум → переосмыслен</h2>
+      <div class="philosopher">М. Фуко</div>
+      <div class="code-module">trace для истории становления</div>
+      <p>Trace НЕ для надзора, а для истории. Append-only журнал без UPDATE/DELETE — память, не наказание.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 22. Великое Кольцо -->
+    <div class="concept-card" onclick="location.href='concepts/efremov.html'">
+      <h2>Великое Кольцо</h2>
+      <div class="philosopher">И. Ефремов</div>
+      <div class="code-module">межроевой обмен золотыми яблоками</div>
+      <p>Обмен знанием между роями. Золотые яблоки как валюта прецедентов, передаваемых между агентами.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 23. Паттерн -->
+    <div class="concept-card" onclick="location.href='concepts/zelazny.html'">
+      <h2>Паттерн</h2>
+      <div class="philosopher">Р. Желязны • «Амбер»</div>
+      <div class="code-module">promotion path</div>
+      <p>Прохождение даёт силу. Путь агента через стадии — как прохождение Паттерна в Амбер.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 24. Буквоедство ИИ -->
+    <div class="concept-card" onclick="location.href='concepts/sheckley.html'">
+      <h2>Буквоедство ИИ</h2>
+      <div class="philosopher">Р. Шекли</div>
+      <div class="code-module">policy gate</div>
+      <p>Буква vs дух. Policy gate проверяет контекст действия, не только сам глагол. Домен — языковая игра.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 25. Октавы реальности -->
+    <div class="concept-card" onclick="location.href='concepts/budanov.html'">
+      <h2>Октавы реальности</h2>
+      <div class="philosopher">В.Г. Буданов</div>
+      <div class="code-module">budanov_octaves.py</div>
+      <p>Ритмокаскады. Множественные уровни реальности с различными частотами взаимодействия агентов.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+    <!-- 26. Амплитоэдр -->
+    <div class="concept-card" onclick="location.href='concepts/amplituhedron.html'">
+      <h2>Амплитоэдр</h2>
+      <div class="philosopher">Аркани-Хамед / Трнка</div>
+      <div class="code-module">KEM 4.2</div>
+      <p>Объём = вероятность истины. Синтез голосов роя в единственное решение через геометрию прецедентов.</p>
+      <button class="btn">Исследовать виджет</button>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    МУХА — гуманитарный слой, переведённый в код.<br>
+    Каждая концепция из PHILOSOPHY.md имеет исполняемый модуль.<br>
+    <span style="color:var(--amber);">Открыто для модификации и расширения.</span>
+  </div>
+</div>
+</body>
+</html>

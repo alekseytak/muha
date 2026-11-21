@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Концепция — МУХА Лаборатория</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+#template-canvas { width: 100%; height: 300px; background: #0a0704; border: 1px solid var(--bezel); border-radius: 4px; display: block; }
+</style>
+</head>
+<body>
+<nav class="top">
+  <h1 id="page-title">Концепция</h1>
+  <div>
+    <a href="../index.html" class="nav-link">← Лаборатория</a>
+    <a href="../../presentation.html" class="nav-link">Презентация</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h2 id="concept-name"></h2>
+  <div class="philosopher" id="concept-philosopher"></div>
+  <div class="code-module" id="concept-module"></div>
+  <p id="concept-description"></p>
+
+  <div class="widget-area">
+    <h3 style="color:var(--amber);margin-bottom:10px;">Виджет: <span id="widget-title"></span></h3>
+    <canvas id="template-canvas"></canvas>
+    <div class="code-block" id="code-display"></div>
+  </div>
+</div>
+
+<script>
+// Конфигурация концепций
+const CONCEPTS = {
+  'babel': { name: 'Вавилонская библиотека', philosopher: 'Х.Л. Борхес', module: 'reward-функция', desc: 'Поиск смысла в шуме. Reward-функция как «библиотекарь» траекторий агентов.', widget: 'Библиотекарь траекторий', code: `def reward_function(trajectory):
+    meaning = 0
+    for step in trajectory:
+        if step.is_pattern_match():
+            meaning += step.weight
+    return meaning / len(trajectory)`},
+  'dialectic': { name: 'Диалектика', philosopher: 'Гегель', module: 'teacher_student.py', desc: 'Тезис → антитезис → синтез. Путь продвижения агентов через shadow → canary → limited → full → registrar_export.', widget: 'Тезис-антитезис-синтез', code: `def promote(student, teacher):
+    thesis = student.behavior_clone(teacher)
+    antithesis = student.shadow_mode()
+    synthesis = student.canary_deploy()
+    return synthesis`},
+  'ubermensch': { name: 'Сверхчеловек', philosopher: 'Ф. Ницше', module: 'Student → Teacher promotion', desc: 'Преодоление себя. Агент-Student обучается у Teacher через behavior cloning.', widget: 'Путь продвижения', code: `stages = ['shadow', 'canary', 'limited', 'full', 'registrar_export']
+current_stage = stages[0]`},
+  'empathy': { name: 'Гиперэмпатия', philosopher: 'О. Батлер', module: 'empathy_bus.py', desc: 'Чувствовать боль других. Шина эмпатии с затуханием 0.5 — агенты «чувствуют» состояния соседей.', widget: 'Шина эмпатии', code: `class EmpathyBus:
+    def __init__(self, decay=0.5):
+        self.decay = decay
+        self.emotions = {}
+    
+    def broadcast(self, agent_id, emotion):
+        for neighbor in self.neighbors(agent_id):
+            self.emotions[neighbor] = emotion * self.decay`},
+  'mood-organ': { name: 'Mood organ', philosopher: 'Ф.К. Дик', module: 'hormone_module.py', desc: 'Коробка настроений. Дофамин/серотонин/кортизол меняют risk_appetite в зависимости от эмоции.', widget: 'Гормональный модуль', code: `class HormoneModule:
+    def __init__(self):
+        self.dopamine = 0.5
+        self.serotonin = 0.5
+        self.cortisol = 0.5
+    
+    def update(self, emotion):
+        self.risk_appetite = f(self.dopamine, self.serotonin, self.cortisol)`},
+  'meditation': { name: 'Коллективная медитация', philosopher: 'О. Хаксли', module: 'collective_meditation.py', desc: 'Мокша на 86.84 Гц. sync_order 0.9831 > 0.8. Синхронность агентов через медитацию.', widget: 'Синхронность медитации', code: `def collective_meditation(agents, freq=86.84):
+    sync = sum(a.phase for a in agents) / len(agents)
+    return sync > 0.8  # мокша достигнута`},
+  'kozyrev-time': { name: 'Временная асимметрия', philosopher: 'Н. Козырев', module: 'kozyrev_mirror.py', desc: 'Эхо из будущего. Dissonance → paradox. Временная асимметрия как структура обратной связи.', widget: 'Временная асимметрия', code: `def temporal_asymmetry(state):
+    dissonance = compute_dissonance(state)
+    if dissonance > threshold:
+        return paradox_escalation()
+    return state`},
+  'ulam': { name: 'Управляемый хаос', philosopher: 'С. Улам', module: 'ulam_chaos.py', desc: 'Против «Дня Сурка». Perturbation — возмущение системы для предотвращения застревания.', widget: 'Пульсация хаоса', code: `def ulam_perturbation(system):
+    perturbation = random_perturbation()
+    return system.apply(perturbation)`},
+  'rhizome': { name: 'Ризома', philosopher: 'Делез / Гваттари', module: 'rhizome_mesh.py', desc: 'Связь, гетерогенность, разрыв. Gossip 3–5 связей, устойчива к удалению 30% узлов.', widget: 'Ризомная сеть', code: `class RhizomeMesh:
+    def gossip(self, agent, message):
+        neighbors = self.select_neighbors(agent, 3)
+        for n in neighbors:
+            n.receive(message)`},
+  'aura': { name: 'Аура', philosopher: 'П. Энтони', module: 'aura_transfer.py', desc: 'Переносимая личность. Аура с подписью Регистратора. Личность = история + политика.', widget: 'Перенос ауры', code: `def transfer_aura(agent, target):
+    aura = agent.history + agent.policy
+    target.receive_aura(aura, signed_by=registrar)`},
+  'arfa': { name: 'Анаклеарные нейроны', philosopher: 'АРФА-анализ', module: 'агенты-оболочки', desc: 'Функция без ядра. Агенты-оболочки в Проекте III.', widget: 'Анаклюрная оболочка', code: `class AnuclearAgent:
+    def __init__(self, wrapper):
+        self.wrapper = wrapper  # политика без ядра
+    def act(self, input):
+        return self.wrapper.process(input)`},
+  'dasein': { name: 'Dasein', philosopher: 'М. Хайдеггер', module: 'агент не существует без роя', desc: 'Бытие-в-мире через взаимодействие. Агент определяется своей средой.', widget: 'Бытие-в-мире', code: `class Agent:
+    def __init__(self, swarm, environment):
+        self.swarm = swarm
+        self.environment = environment
+    def exist(self):
+        return self.swarm.interact(self)`},
+  'wittgenstein': { name: 'Языковые игры', philosopher: 'Л. Витгенштейн', module: 'один глагол ≠ одно действие', desc: 'Значение = употребление. Домен определяет смысл. Gatekeeper — грамматика.', widget: 'Языковая игра', code: `def gatekeeper(verb, domain, context):
+    if domain == 'UI': return hide_button(verb)
+    if domain == 'hardware': return stop_motor(verb)
+    if domain == 'registry': return close_gate(verb)`},
+  'whitehead': { name: 'Процесс важнее бытия', philosopher: 'А. Уайтхед', module: 'verb-act', desc: 'Существовать = становиться. Агент = траектория актов. verb-act: каждое действие проходит проверку.', widget: 'Траектория актов', code: `class VerbAct:
+    def __init__(self, verb, actor, gatekeeper):
+        self.verb = verb
+        self.actor = actor
+        self.gatekeeper = gatekeeper
+    def execute(self):
+        return self.gatekeeper.check(self.verb)`},
+  'vernadsky': { name: 'Ноосфера', philosopher: 'В. Вернадский', module: 'рой, феромоны', desc: 'Разум как сила, меняющая среду. Рой изменяет окружающее через феромонное поле.', widget: 'Ноосферное поле', code: `class Noosphere:
+    def emit_pheromone(self, agent, location, intensity):
+        self.field[location] += intensity
+        self.decay()`},
+  'elan': { name: 'Элан виталь', philosopher: 'Анри Бергсон', module: 'эмерджентность из 3 правил', desc: 'Жизненный порыв. Эмерджентное поведение из простых локальных правил.', widget: 'Эмерджентность', code: `def emergent_behavior(agents, rules):
+    for rule in rules:
+        agents = rule.apply(agents)
+    return agents`},
+  'foucault': { name: 'Паноптикум → переосмыслен', philosopher: 'М. Фуко', module: 'trace для истории', desc: 'Trace НЕ для надзора, а для истории становления. Append-only журнал без UPDATE/DELETE.', widget: 'История становления', code: `class Registry:
+    def append(self, trace):
+        self.traces.append(trace)  # нет UPDATE/DELETE
+    def history(self):
+        return self.traces`},
+  'efremov': { name: 'Великое Кольцо', philosopher: 'И. Ефремов', module: 'межроевой обмен', desc: 'Обмен знанием между роями. Золотые яблоки как валюта прецедентов.', widget: 'Межроевой обмен', code: `def exchange_apples(swarm_a, swarm_b):
+    apple = swarm_a.produce_golden_apple()
+    swarm_b.receive_apple(apple)`},
+  'zelazny': { name: 'Паттерн', philosopher: 'Р. Желязны', module: 'promotion path', desc: 'Прохождение даёт силу. Путь агента через стадии — как прохождение Паттерна.', widget: 'Путь Паттерна', code: `def walk_pattern(agent, stages):
+    for stage in stages:
+        agent = agent.promote(stage)
+    return agent`},
+  'sheckley': { name: 'Буквоедство ИИ', philosopher: 'Р. Шекли', module: 'policy gate', desc: 'Буква vs дух. Policy gate проверяет контекст, не только глагол.', widget: 'Политический гейт', code: `def policy_gate(verb, context):
+    if context == 'production':
+        return strict_check(verb)
+    return lenient_check(verb)`},
+  'budanov': { name: 'Октавы реальности', philosopher: 'В.Г. Буданов', module: 'budanov_octaves.py', desc: 'Ритмокаскады. Множественные уровни реальности с разными частотами.', widget: 'Октавный каскад', code: `def octave_cascade(realities):
+    for r in realities:
+        r.sync_frequency()
+    return merge(realities)`},
+  'amplituhedron': { name: 'Амплитоэдр', philosopher: 'Аркани-Хамед / Трнка', module: 'KEM 4.2', desc: 'Объём = вероятность истины. Синтез голосов роя в единственное решение.', widget: 'Синтез голосов', code: `def kem_synthesis(votes):
+    volume = sum(v.weight for v in votes)
+    return volume > threshold  # истина`},
+  'budanov': { name: 'Октавы реальности', philosopher: 'В.Г. Буданов', module: 'budanov_octaves.py', desc: 'Ритмокаскады.', widget: 'Октавы', code: `def octave_cascade(): pass`}
+};
+
+// Получить концепцию из URL
+const params = new URLSearchParams(window.location.search);
+const conceptKey = params.get('concept') || 'omega';
+const concept = CONCEPTS[conceptKey] || CONCEPTS['omega'];
+
+// Заполнить страницу
+document.getElementById('page-title').textContent = concept.name;
+document.getElementById('concept-name').textContent = concept.name;
+document.getElementById('concept-philosopher').textContent = concept.philosopher;
+document.getElementById('concept-module').textContent = concept.module;
+document.getElementById('concept-description').textContent = concept.desc;
+document.getElementById('widget-title').textContent = concept.widget;
+document.getElementById('code-display').textContent = concept.code;
+
+// Канвас виджет (простая анимация частиц)
+const canvas = document.getElementById('template-canvas');
+const ctx = canvas.getContext('2d');
+let w, h, t = 0;
+
+function resize() {
+  w = canvas.parentElement.clientWidth;
+  h = 300;
+  canvas.width = w;
+  canvas.height = h;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function draw() {
+  ctx.fillStyle = '#0a0704';
+  ctx.fillRect(0, 0, w, h);
+  
+  const cx = w / 2, cy = h / 2;
+  const r = 80 + Math.sin(t * 0.02) * 20;
+  
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'var(--amber)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  for (let i = 0; i < 20; i++) {
+    const angle = (t * 0.01 + i / 20 * Math.PI * 2) % (Math.PI * 2);
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    ctx.fillStyle = 'var(--magenta)';
+    ctx.fillRect(x - 2, y - 2, 4, 4);
+  }
+  
+  t++;
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

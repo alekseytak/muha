@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Золотые яблоки — МУХА Лаборатория</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+.apple-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 12px; margin-top: 16px; }
+.apple { width: 70px; height: 70px; border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%; border: 2px solid var(--bezel); display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--font-lcd); font-size: 0.7rem; color: var(--ink); background: var(--bg); transition: all 0.3s; position: relative; overflow: hidden; }
+.apple.canonical { border-color: var(--green-ok); background: rgba(90,255,138,0.15); color: var(--green-ok); box-shadow: 0 0 15px var(--green-ok); }
+.apple.candidate { border-color: var(--amber); background: rgba(255,176,0,0.15); color: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.apple.voted::after { content: '✓'; position: absolute; top: 4px; right: 4px; font-size: 0.6rem; }
+.vote-bar { width: 100%; height: 8px; background: #1a1a2e; border-radius: 4px; margin-top: 8px; overflow: hidden; border: 1px solid var(--bezel); }
+.vote-fill { height: 100%; background: linear-gradient(90deg, var(--green-ok), var(--amber)); width: 0%; transition: width 0.5s; }
+</style>
+</head>
+<body>
+<nav class="top">
+  <h1>Золотые яблоки</h1>
+  <div>
+    <a href="../index.html" class="nav-link">← Лаборатория</a>
+    <a href="../../presentation.html" class="nav-link">Презентация</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h2>Чистая энергия звезды</h2>
+  <div class="philosopher">Р. Брэдбери</div>
+  <div class="code-module">propose_golden_apple() → swarm_vote ≥ 66%</div>
+  <p>Каждый эпизод может стать «золотым яблоком» — каноническим прецедентом. Голосование роя должно набрать ≥66% голосов. Принято 200 яблок, verify_chain()=True.</p>
+
+  <div class="widget-area">
+    <h3 style="color:var(--amber);margin-bottom:10px;">Виджет: голосование роя за яблоко</h3>
+    <div id="apple-grid" class="apple-grid"></div>
+    <div class="vote-bar"><div class="vote-fill" id="vote-fill"></div></div>
+    <div style="font-family:var(--font-lcd);font-size:0.8rem;color:var(--ink);margin-top:8px;" id="vote-text">Голосов: 0 / 12 (требуется ≥ 66%)</div>
+    <button class="btn" onclick="voteApple()" style="margin-top:12px;">Голосовать за яблоко</button>
+    <button class="btn" onclick="resetApples()" style="margin-top:12px;margin-left:8px;">Сброс</button>
+    <div class="code-block">def propose_golden_apple(episode):
+    trace = registry.hash(episode)
+    votes = swarm_vote(trace)  # ≥ 66% для canon
+    if votes >= 0.66:
+        registry.canon.append(trace)  # → Золотое яблоко
+    return votes</div>
+  </div>
+</div>
+
+<script>
+const grid = document.getElementById('apple-grid');
+const voteFill = document.getElementById('vote-fill');
+const voteText = document.getElementById('vote-text');
+let votes = 0;
+const total = 12;
+const threshold = 0.66;
+const apples = [];
+
+function createApples() {
+  grid.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const apple = document.createElement('div');
+    apple.className = 'apple';
+    apple.id = 'apple-' + i;
+    apple.textContent = 'Яблоко ' + (i + 1);
+    grid.appendChild(apple);
+    apples.push({ id: i, voted: false, canonical: false });
+  }
+}
+
+function voteApple() {
+  const available = apples.filter(a => !a.voted);
+  if (available.length === 0) return;
+  const apple = available[Math.floor(Math.random() * available.length)];
+  apple.voted = true;
+  votes++;
+  updateUI();
+}
+
+function resetApples() {
+  votes = 0;
+  apples.forEach(a => { a.voted = false; a.canonical = false; });
+  updateUI();
+}
+
+function updateUI() {
+  const pct = Math.min((votes / total) / threshold, 1);
+  voteFill.style.width = (pct * 100) + '%';
+  voteText.textContent = `Голосов: ${votes} / ${total} (требуется ≥ ${Math.floor(threshold * 100)}%)`;
+  
+  apples.forEach((a, i) => {
+    const el = document.getElementById('apple-' + i);
+    if (a.voted) {
+      el.classList.add('voted');
+      if (votes / total >= threshold) {
+        el.classList.add('canonical');
+        a.canonical = true;
+      } else {
+        el.classList.add('candidate');
+      }
+    }
+  });
+  
+  if (votes / total >= threshold) {
+    voteText.textContent = `✓ Яблоко станет каноном! (${votes}/${total})`;
+    voteText.style.color = 'var(--green-ok)';
+  }
+}
+
+createApples();
+</script>
+</body>
+</html>
