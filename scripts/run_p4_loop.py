@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import dataclasses
 import hashlib
 import json
 import math
@@ -324,7 +325,12 @@ def main() -> int:
     seeds = [int(s) for s in args.seeds.split(",") if s.strip()]
     os.makedirs(args.out, exist_ok=True)
 
-    settings = dict(episodes=args.episodes, window_steps=args.window_steps,
+    # Настройки контура берутся из LoopSettings (единый источник дефолтов),
+    # CLI-переопределения накладываются поверх. Иначе поля без CLI-флага
+    # (tau_eligibility, policy_penalty, m_max, heading, shaping_scale) не
+    # попадают в cell .meta.json и G7 падает на float(None).
+    loop_defaults = {f.name: f.default for f in dataclasses.fields(LoopSettings)}
+    settings = dict(loop_defaults, episodes=args.episodes, window_steps=args.window_steps,
                     i_drive=args.drive, gain=args.gain, sigma=args.sigma,
                     eta=args.eta, pool_contrast=args.kappa,
                     neuron_credit=args.neuron_credit,
