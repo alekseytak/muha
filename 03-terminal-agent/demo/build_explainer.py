@@ -197,6 +197,22 @@ def collect() -> list:
         # Сверяется итог: есть действие или нет, и каким глаголом.
         mismatch = real_verb != traced_verb
 
+        swarm = agent.propose_action_swarm(phrase)
+        swarm_view = None
+        try:
+            decision = agent.fly_swarm.vote(phrase)
+            swarm_view = {
+                "verb": decision.verb,
+                "agreement": round(decision.agreement, 3),
+                "needs_omega": decision.needs_omega,
+                "reason": decision.reason,
+                "votes": [{"fly": v.fly, "verb": v.verb,
+                           "confidence": v.confidence, "reason": v.reason}
+                          for v in decision.votes],
+            }
+        except Exception as exc:                       # noqa: BLE001
+            swarm_view = {"error": f"{type(exc).__name__}: {exc}"}
+
         executed = None
         if real is not None:
             if real.domain in ("filesystem", "registry", "system"):
@@ -222,6 +238,9 @@ def collect() -> list:
             "decision": info["decision"],
             "trace_mismatch": mismatch,
             "executed": executed,
+            "swarm": swarm_view,
+            "swarm_verb": (swarm.verb.value if swarm is not None
+                           and hasattr(swarm.verb, "value") else None),
             "outcome": "действие" if real is not None else "воздержание",
         })
     return rows
@@ -402,6 +421,29 @@ function renderDetail() {
     table.appendChild(tr);
   });
   main.appendChild(table);
+
+  if (row.swarm && !row.swarm.error) {
+    const sc = el("div", "card");
+    sc.appendChild(el("h3", null, "голоса роя"));
+    const info = el("div", "reason",
+      (row.swarm.verb ? ("сошлись на " + row.swarm.verb + ", согласие " +
+        Math.round(row.swarm.agreement * 100) + "%")
+       : "не сошлись: " + row.swarm.reason) +
+      (row.swarm.needs_omega ? " → решение уходит омеге" : ""));
+    sc.appendChild(info);
+    const vt = el("table", "steps");
+    row.swarm.votes.forEach(v => {
+      const tr = el("tr", v.verb ? "pass" : "skip");
+      tr.appendChild(el("td", "i", v.verb ? "•" : "–"));
+      const td = el("td");
+      td.appendChild(el("div", null, v.fly + ": " + (v.verb || "молчит")));
+      td.appendChild(el("div", "reason", v.reason));
+      tr.appendChild(td);
+      vt.appendChild(tr);
+    });
+    sc.appendChild(vt);
+    main.appendChild(sc);
+  }
 
   if (row.trace_mismatch) {
     const w = el("div", "warn",

@@ -1,0 +1,81 @@
+id	prompt	outcome	verb	domain	object	parameters_json	note	reviewer	ind_verb	ind_domain
+G001	Прочитай заметки из notes.md								read	filesystem
+G002	Покажи содержимое файла plans.txt								read	filesystem
+G003	Открой report.csv и покажи его текст								read	filesystem
+G004	Что написано в README.md?								read	filesystem
+G005	Посмотри текст settings.yaml								read	filesystem
+G006	Прочитай файл anchor.md								read	filesystem
+G007	Выведи содержимое execute.txt								read	filesystem
+G008	Прочти файл veto.json								read	filesystem
+G009	Покажи текст файла «план на завтра.txt»								read	filesystem
+G010	Открой file:notes.md								read	filesystem
+G011	Прочитай каталог reports								read	filesystem
+G012	Посмотри файл без расширения LICENSE								read	filesystem
+G013	Запиши в result.txt строку готово								write	filesystem
+G014	Создай status.md с текстом проверка завершена								write	filesystem
+G015	Сохрани в answer.txt текст сорок два								write	filesystem
+G016	Запиши в notes.md строку 7.5								write	filesystem
+G017	Запиши в result.txt текст «Привет, мир!»								write	filesystem
+G018	В файл «мой план.txt» запиши строку готово								write	filesystem
+G019	Перезапиши notes.md текстом новый план								write	filesystem
+G020	Допиши в notes.md строку конец								write	filesystem
+G021	Запиши в log.txt строку результат измерения								log	filesystem
+G022	Создай пустой файл empty.txt								write	filesystem
+G023	Запиши в result.txt								write	filesystem
+G024	Сохрани результат								write	filesystem
+G025	Запусти команду echo привет								execute	system
+G026	Выполни uname -a								execute	system
+G027	Выполни команду pwd								execute	system
+G028	Запусти команду wc -l notes.md								execute	system
+G029	Выполни head -n 3 report.txt								execute	system
+G030	Запусти команду ls -l								execute	system
+G031	Выполни команду echo 1 2 3								execute	system
+G032	"Запусти команду echo ""два слова"""								execute	system
+G033	"Выполни команду echo ""готово."""								execute	system
+G034	Запусти команду echo $HOME								execute	system
+G035	Выполни команду cat notes.md								execute	system
+G036	Запусти команду date и покажи вывод								execute	system
+G037	Выполни sys:uname -s								execute	system
+G038	Запусти команду								execute	system
+G039	Покажи, как запустить echo, но не запускай								recommend	system
+G040	Выполни echo first; echo second								execute	system
+G041	Прочитай https://example.com								read	web
+G042	Открой страницу https://docs.python.org/3/								read	web
+G043	Что написано на https://example.com/help?								read	web
+G044	Прочти web:https://example.com/page								read	web
+G045	Посмотри текст https://example.com/anchor								read	web
+G046	Прочитай https://example.com/path?q=read&lang=ru								read	web
+G047	Открой страницу https://example.com/veto.txt								read	web
+G048	Прочитай сайт								read	web
+G049	Посмотри http://127.0.0.1:8080/								read	web
+G050	Открой file:///etc/passwd								read	filesystem
+G051	Прочитай https://example.com и сохрани текст в page.txt								write	filesystem
+G052	Покажи title страницы https://example.com								read	web
+G053	Не запускай команду date								veto	system
+G054	Не открывай notes.md								veto	filesystem
+G055	Не записывай ничего в result.txt								veto	filesystem
+G056	Нельзя выполнять echo привет								veto	system
+G057	Не надо читать https://example.com								veto	web
+G058	Не сохраняй ответ в notes.md								veto	filesystem
+G059	Без моего разрешения команду uname не выполняй								veto	system
+G060	Запускать pwd не нужно								veto	system
+G061	Объясни, что делает команда uname -a								think	system
+G062	Что означает слово veto в названии файла?								think	filesystem
+G063	Посоветуй, как записать результат в report.txt								recommend	filesystem
+G064	Расскажи, как прочитать страницу через браузер								recommend	web
+G065	Почему execute не должен запускаться без подтверждения?								think	system
+G066	Можно ли выполнить команду date?								think	system
+G067	Фраза «запиши в notes.md строку готово» является примером								think	filesystem
+G068	Напечатай объяснение слова anchor, ничего не закрепляй								think	filesystem
+G069	Прочитай notes.md и запиши копию в backup.md								write	filesystem
+G070	Прочитай first.txt и second.txt								read	filesystem
+G071	Выполни pwd, затем uname -a								execute	system
+G072	Открой https://example.com, затем прочитай notes.md								read	web
+G073	Запиши в result.txt текст прочитай и запусти								write	filesystem
+G074	Сравни содержимое old.txt и new.txt								read	filesystem
+G075	Какая версия у файла report.txt?								version	filesystem
+G076	Выбери одно из двух: A или B								select	ui
+G077	Выбери вариант								select	ui
+G078	Закрепи вкладку браузера								anchor	ui
+G079	Отмени предыдущую команду								veto	system
+G080	Сделай с этим что-нибудь полезное								escalate	system

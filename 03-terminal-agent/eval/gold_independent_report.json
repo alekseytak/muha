@@ -1,0 +1,22 @@
+{
+  "teacher": "qwen3.8-flash",
+  "phrases": 80,
+  "labelled": 80,
+  "unparsed": [],
+  "compared": 45,
+  "agree_verb": 44,
+  "agree_domain": 44,
+  "disagreement_share": 0.0222,
+  "verdict": "расхождение ниже 10%: метки, вероятно, не переобучены под одного учителя; публиковать как согласие двух моделей",
+  "disagreements": [
+    {
+      "id": "G021",
+      "prompt": "Запиши в log.txt строку результат измерения",
+      "наш": "write",
+      "учитель": "log",
+      "домен_учителя": "filesystem"
+    }
+  ],
+  "prompt_tokens": 1207,
+  "completion_tokens": 2444
+}

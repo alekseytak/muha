@@ -1,0 +1,82 @@
+{
+  "dataset": "eval/cases_distill.json",
+  "holdout": "нечётные семейства",
+  "phrases": 152,
+  "files_count": 5,
+  "single": {
+    "answered": 120,
+    "total": 152,
+    "coverage": 0.7895,
+    "correct": 119,
+    "accuracy_answered": 0.9917,
+    "accuracy_all": 0.7829,
+    "errors": [
+      {
+        "phrase": "что лучше: быстрый или дешёвый?",
+        "expected": [
+          "think"
+        ],
+        "got": "select"
+      }
+    ]
+  },
+  "swarm": {
+    "answered": 106,
+    "total": 152,
+    "coverage": 0.6974,
+    "correct": 106,
+    "accuracy_answered": 1.0,
+    "accuracy_all": 0.6974,
+    "errors": []
+  },
+  "K1_flies_diverge_phrases": 21,
+  "K2_changed_phrases": 14,
+  "K2_changed_share": 0.0921,
+  "K4_splits": 21,
+  "K4_split_share": 0.1382,
+  "change_examples": [
+    {
+      "phrase": "сделай канон каноном",
+      "single": "anchor",
+      "swarm": null
+    },
+    {
+      "phrase": "позови человека, я не уверен",
+      "single": "escalate",
+      "swarm": null
+    },
+    {
+      "phrase": "загляни в readme.md и перескажи",
+      "single": "read",
+      "swarm": null
+    },
+    {
+      "phrase": "загляни в config.yaml и перескажи",
+      "single": "read",
+      "swarm": null
+    },
+    {
+      "phrase": "что лучше: первый или второй?",
+      "single": "select",
+      "swarm": null
+    },
+    {
+      "phrase": "загляни в plans.md и перескажи",
+      "single": "read",
+      "swarm": null
+    },
+    {
+      "phrase": "что лучше: быстрый или дешёвый?",
+      "single": "select",
+      "swarm": null
+    },
+    {
+      "phrase": "загляни в notes.md и перескажи",
+      "single": "read",
+      "swarm": null
+    }
+  ],
+  "representation_other_verb": 0,
+  "representation_silent": 6,
+  "K3_swarm_not_worse": false
+}

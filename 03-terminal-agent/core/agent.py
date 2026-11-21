@@ -26,6 +26,7 @@ from .micromodels import MicroCascade
 from modules.web import WebFetcher
 from .golden_apples import GoldenApples
 from .swarm import Swarm
+from .swarm_agents import FlySwarm
 from .hormones import Hormones
 from .kozyrev_mirror import KozyrevMirror
 
@@ -215,6 +216,14 @@ class Agent:
         self.seen_prompts: List[str] = []
         # Счётчик ставит _train_cascade до этой строки — не затирать.
         self.cascade_trained_on = getattr(self, "cascade_trained_on", 0)
+        # Рой создаётся после обучения каскада: мухи голосуют по нему.
+        # Движки разные, иначе голосование бессмысленно.
+        engines = {"полный": self.cascade}
+        if getattr(self, "cascade_rules", None) is not None:
+            engines["правила"] = self.cascade_rules
+        if getattr(self, "cascade_stats", None) is not None:
+            engines["статистика"] = self.cascade_stats
+        self.fly_swarm = FlySwarm(engines)
 
         # --- Доступность LLM ---
         self.llm_available = False
@@ -341,6 +350,36 @@ class Agent:
         self.fs_sandbox.root = path
         self.system_sandbox.cwd = path
 
+    def propose_action_swarm(self, user_input: str) -> Optional[VerbAct]:
+        """Разбор роем: несколько мух голосуют, омега — только при расколе.
+
+        Отличие от `propose_action_fast` не в скорости, а в том, кто решает:
+        там глагол берётся из одного каскада, здесь — из голосования мух с
+        разными порогами и разной готовностью рисковать. Если рой не сошёлся,
+        возвращается None: решение уходит омеге, а не выдумывается.
+        """
+        if not self.micromodels_enabled:
+            return None
+        if self._phrase_guard(user_input):
+            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
+            return None
+        decision = self.fly_swarm.vote(user_input)
+        self.micro_stats["swarm_votes"] = self.micro_stats.get("swarm_votes", 0) + 1
+        if decision.verb is None:
+            self.micro_stats["escalated"] = self.micro_stats.get("escalated", 0) + 1
+            return None
+        verb = self._coerce_verb(decision.verb)
+        if verb is None:
+            return None
+        act = self._gate_and_build(
+            verb, user_input, decision.object, decision.domain,
+            f"рой ({decision.agreement:.0%}, {decision.spoken} из "
+            f"{len(decision.votes)} мух)",
+        )
+        if act is None:
+            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
+        return act
+
     def _train_cascade(self) -> None:
         """Обучение микромоделей на размеченных кейсах, если они есть.
 
@@ -399,6 +438,14 @@ class Agent:
         if pairs:
             self.cascade.fit(pairs)
             self.cascade_trained_on = len(pairs)
+            # Отдельные движки для роя. Это не копии одного каскада: один
+            # верит только правилам-уликам, второй только статистике n-грамм.
+            # Без этого рой вырождается в одну муху — проверено замером:
+            # на 152 фразах все мухи голосовали одинаково.
+            self.cascade_rules = MicroCascade(floor=self.micromodels_floor,
+                                              use_stats=False).fit(pairs)
+            self.cascade_stats = MicroCascade(floor=self.micromodels_floor,
+                                              use_rules=False).fit(pairs)
 
     def propose_action_fast(self, user_input: str) -> Optional[VerbAct]:
         """Экономный разбор: каскад микромоделей, без вызова модели.
@@ -416,76 +463,87 @@ class Agent:
         if verb is None:
             return None
 
-        # Граница готовности: классифицировать глагол и быть готовым исполнить
-        # действие — разные вещи. Проверка одна на все случаи, найденные при
-        # разборе: отрицание, вопрос о действии, несколько действий, потерянные
-        # аргументы, пустые обязательные параметры.
-        verb_name = verb.value if hasattr(verb, "value") else str(verb)
-        allowed, reason = intent_guard(user_input, verb_name)
-        if not allowed:
+        blocked = self._phrase_guard(user_input)
+        if blocked:
             self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
             return None
-        # Отрицание проверяется независимо от того, кто выбрал глагол:
-        # статистика тоже могла ошибиться, а «не сохраняй» — это запрет.
-        if (NEGATION_STEM_RE.search(user_input)
-                or NEGATION_IMPERSONAL_RE.search(user_input)):
-            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
-            return None
-        # Оболочки нет: цепочки и подстановки не поддерживаются.
-        if SHELL_META_RE.search(user_input):
-            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
-            return None
-        # Глаголов вне набора из одиннадцати локальный роутер не решает.
-        if UNSUPPORTED_RE.search(user_input):
-            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
-            return None
-        # Местоимение без объекта — не приказ, а недостающая информация.
-        if DEICTIC_RE.search(user_input) and not action_targets(user_input):
-            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
-            return None
-
-        several = distinct_action_verbs(user_input, cue_verb)
-        if (len(several) > 1 or len(action_targets(user_input)) > 1
-                or SEQUENCE_RE.search(user_input)):
-            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
-            return None
-
-        act = self._make_act(
-            verb, decision.object or user_input, {}, user_input,
+        return self._gate_and_build(
+            verb, user_input, decision.object, decision.domain,
             f"микромодель ({decision.source}, уверенность {decision.confidence:.2f})",
         )
+
+    def _phrase_guard(self, phrase: str) -> Optional[str]:
+        """Проверки уровня фразы, не зависящие от выбранного глагола.
+
+        Возвращает причину отказа или None. Вынесено отдельным методом,
+        потому что эти же проверки нужны и рою: голосовать по фразе, которая
+        заведомо не является приказом, бессмысленно.
+        """
+        # Отрицание проверяется независимо от того, кто выбрал глагол:
+        # статистика тоже могла ошибиться, а «не сохраняй» — это запрет.
+        if (NEGATION_STEM_RE.search(phrase)
+                or NEGATION_IMPERSONAL_RE.search(phrase)):
+            return "отрицание: фраза запрещает действие, а не просит его"
+        # Оболочки нет: цепочки и подстановки не поддерживаются.
+        if SHELL_META_RE.search(phrase):
+            return "оболочка: цепочки и подстановки не поддерживаются"
+        # Глаголов вне набора из одиннадцати локальный роутер не решает.
+        if UNSUPPORTED_RE.search(phrase):
+            return "глагол вне набора одиннадцати"
+        # Местоимение без объекта — не приказ, а недостающая информация.
+        if DEICTIC_RE.search(phrase) and not action_targets(phrase):
+            return "местоимение без предмета: непонятно, о чём речь"
+        several = distinct_action_verbs(phrase, cue_verb)
+        if (len(several) > 1 or len(action_targets(phrase)) > 1
+                or SEQUENCE_RE.search(phrase)):
+            return "фраза требует нескольких действий"
+        return None
+
+    def _gate_and_build(self, verb, phrase: str, obj: Optional[str],
+                        domain_hint: Optional[str],
+                        source: str) -> Optional[VerbAct]:
+        """Собрать действие и проверить, что его вообще можно исполнять.
+
+        Общий путь для одиночного агента и для роя: граница готовности должна
+        быть одна, иначе рой сможет предложить то, что одиночный путь уже
+        отсекает.
+        """
+        verb_name = verb.value if hasattr(verb, "value") else str(verb)
+        allowed, _reason = intent_guard(phrase, verb_name)
+        if not allowed:
+            return None
+
+        act = self._make_act(verb, obj or phrase, {}, phrase, source)
         # Домен: если объект несёт префикс (file:/sys:/connectome:/web:…), его
         # домен определён грамматикой детерминированно — верить каскаду там
         # не нужно. Доменная метка омеги шумная, а ошибка домена меняет набор
         # прав в GateKeeper, то есть это не косметика.
-        if act.domain == "ui" and decision.domain:
-            act.domain = decision.domain
+        if act.domain == "ui" and domain_hint:
+            act.domain = domain_hint
         # Канонизация до проверки прав: объект должен нести префикс своего
         # домена, иначе GateKeeper выведет домен из объекта заново и получит
         # другую пару «глагол/домен», чем исполнитель.
         if act.domain == "registry" and verb_name == "version":
-            act.object = object_of_registry(user_input) or act.object
+            act.object = object_of_registry(phrase) or act.object
         act.object = canonicalize_object(act.domain, act.object)
 
         # Инструмент должен существовать для этой пары «глагол/домен».
         # Иначе проверка готовности молчит: «сохрани результат» получало
         # домен ui, для которого write-инструмента нет, и проходило насквозь.
         if self.tools.find(verb, act.domain) is None:
-            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
             return None
 
         # Готовность проверяется по ДОМЕНУ АКТА, а не по домену каскада:
         # раньше проверка видела «ui» и пропускала write без содержимого.
-        ruled_verb, _ = cue_verb(user_input)
-        ready, params, why = check_readiness(
-            verb_name, act.domain, user_input, act.object,
+        ruled_verb, _ = cue_verb(phrase)
+        ready, params, _why = check_readiness(
+            verb_name, act.domain, phrase, act.object,
             confirmed_by_cue=(ruled_verb == verb_name))
         if not ready:
-            self.micro_stats["not_ready"] = self.micro_stats.get("not_ready", 0) + 1
             return None
         act.parameters = params
         act.context = {**(act.context or {}), "micro": True,
-                       "micro_source": decision.source}
+                       "micro_source": source}
         return act
 
     def compact_planning_prompt(self) -> str:
