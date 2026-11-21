@@ -110,6 +110,28 @@ class AutonomousRunner:
         # замер на контрольной выборке дал 60% точности разбора против 100%.
         # По умолчанию выключен: тонкий промпт ломает разбор глаголов.
         self.compact_prompt = compact_prompt
+        # Пороги ZaLoop. Без файла порогов контроллер не работает: значения
+        # выводятся из пилота, а не берутся с потолка.
+        self.zaloop_thresholds = None
+        self.zaloop_model = ""
+        self.last_ticket = None
+
+    def load_zaloop(self, path: str, model: str = "") -> None:
+        """Подключить пороги ZaLoop. Бросает ZaLoopError, если файл плох."""
+        from .zaloop import Thresholds
+
+        self.zaloop_thresholds = Thresholds.load(path)
+        self.zaloop_model = model or getattr(
+            getattr(self.agent, "llm", None), "model", "")
+
+    def _make_zaloop(self):
+        """Контроллер на задачу. Без порогов — None, и работает старый тормоз."""
+        if self.zaloop_thresholds is None:
+            return None
+        from .zaloop import ZaLoop
+
+        return ZaLoop(self.zaloop_thresholds,
+                      expected_model=self.zaloop_model)
 
     # ---------- контекст для модели ----------
 
@@ -171,6 +193,9 @@ class AutonomousRunner:
         last_signature: Optional[str] = None
         repeats = 0
         failures_in_a_row = 0
+        zaloop = self._make_zaloop()
+        zaloop_decision = None
+        shadow_steps = 0
         format_failures = 0
         nudge = ""
 
@@ -249,6 +274,28 @@ class AutonomousRunner:
                 raw_answer=answer[:400],
             )
             steps.append(record)
+
+            if zaloop is not None:
+                zaloop_decision = zaloop.supervise(
+                    steps, budget_left=max(0, max_steps - len(steps)),
+                    task_id=task.id)
+                if zaloop_decision.stage == "stop":
+                    stop_reason = f"ZaLoop: {zaloop_decision.reason}"
+                    if zaloop_decision.ticket is not None:
+                        self.last_ticket = zaloop_decision.ticket
+                    status = PENDING
+                    break
+                if zaloop_decision.stage == "shadow":
+                    # Теневой режим: исполнение запрещено, шаг не тратит
+                    # бюджет инструментов. Здесь просто не идём дальше.
+                    shadow_steps += 1
+                    if shadow_steps >= 2:
+                        stop_reason = (
+                            f"ZaLoop: теневой режим не вывел из петли "
+                            f"({zaloop_decision.reason})")
+                        break
+                if zaloop_decision.nudge:
+                    nudge = zaloop_decision.nudge
 
             signature = record.signature()
             if signature == last_signature:

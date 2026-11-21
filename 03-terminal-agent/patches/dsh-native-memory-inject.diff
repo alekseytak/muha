@@ -1,0 +1,11 @@
+--- до
++++ после
+@@ -843,7 +843,7 @@
+ //#endregion
+ //#region src/index.ts
+ const name = "dsh-native-memory";
+-const inject = ["tools"];
++const inject = ["tools", "storageDomain"];
+ function apply(ctx, config) {
+ 	const resolved = Config.parse(config ?? {});
+ 	const storageDomain = ctx.get("storageDomain");

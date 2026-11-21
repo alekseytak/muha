@@ -363,6 +363,17 @@ class Agent:
             raise RuntimeError("зрение требует модели: llm не настроен")
         return _perceive(self.llm, image, model or VISION_MODEL)
 
+    def see(self, image: str):
+        """Локальное зрение: вектор признаков без сети и без денег.
+
+        Это не пересказ картинки словами, а её измерение: контраст, края,
+        полосы текста, монохром. Дёшево настолько, что можно звать на каждом
+        шаге, и не требует ни одной модели.
+        """
+        from .retina import look
+
+        return look(image)
+
     def propose_from_image(self, image: str, model: Optional[str] = None):
         """Увидеть картинку и предложить действие. (наблюдение, действие)."""
         observation = self.perceive(image, model)
