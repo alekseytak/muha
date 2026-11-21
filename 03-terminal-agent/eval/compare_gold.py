@@ -151,7 +151,14 @@ def main() -> int:
             problems.append((rid, "лишнее предложение", phrase,
                              f"ждали {outcome}", f"предложено {verb}"))
 
-    print(f"строк с ожидаемым действием: {stats['act_rows']}")
+    # Для read/version параметров нет по определению, поэтому «полное
+    # совпадение» на них — это глагол+домен+объект, а не поблажка.
+    with_params = sum(1 for row in rows
+                      if row["outcome"] == "act"
+                      and (row["parameters_json"] or "{}") != "{}")
+    print(f"строк с ожидаемым действием: {stats['act_rows']} "
+          f"(из них с параметрами {with_params}, "
+          f"остальные read/recommend/version без обязательных параметров)")
     print(f"  полное совпадение (глагол+домен+объект+параметры): "
           f"{stats['full_match']}")
     print(f"  пропущено (воздержание там, где нужно действие): {stats['missed']}")
