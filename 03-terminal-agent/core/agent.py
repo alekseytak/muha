@@ -167,7 +167,11 @@ class Agent:
             privileged_roles=tuple(
                 tools_cfg.get("privileged_roles", ("guardian", "registrar"))
             ),
-            cwd=self.project_root,
+            # Команды и файловые инструменты должны смотреть в ОДИН корень.
+            # Раньше здесь стоял project_root, а FsSandbox — filesystem_root:
+            # «прочитай file:notes.md» находил файл, а «wc -l notes.md» нет,
+            # потому что процесс стартовал в другом каталоге.
+            cwd=self.fs_sandbox.root,
         )
 
         conn_cfg = self.config.get("connectome", {}) or {}
@@ -209,6 +213,8 @@ class Agent:
         self.confirm_policy = (confirm_policy or gate_cfg.get("confirm", "ask")).lower()
         self.confirm_callback: Optional[ConfirmCallback] = None
         self.seen_prompts: List[str] = []
+        # Счётчик ставит _train_cascade до этой строки — не затирать.
+        self.cascade_trained_on = getattr(self, "cascade_trained_on", 0)
 
         # --- Доступность LLM ---
         self.llm_available = False
@@ -323,24 +329,76 @@ class Agent:
 5. «Журнал», «реестр», «отметь», «запиши в лог» — это LOG, а не WRITE.
 6. Отвечай по-русски."""
 
+    def set_sandbox_root(self, root) -> None:
+        """Один корень для файлов И для команд.
+
+        Две песочницы легко расходятся: файловые инструменты читают из
+        `fs_sandbox.root`, а процесс стартует в `system_sandbox.cwd`. Если
+        двигать только первую, «прочитай file:x» работает, а «wc -l x» — нет.
+        """
+        from pathlib import Path as _Path
+        path = _Path(root)
+        self.fs_sandbox.root = path
+        self.system_sandbox.cwd = path
+
     def _train_cascade(self) -> None:
-        """Обучение микромоделей на размеченных кейсах, если они есть."""
-        cases_path = self.project_root / "eval" / "cases.json"
-        if not cases_path.exists():
-            return
-        try:
-            payload = json.loads(cases_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return
-        cases = payload.get("cases") or payload
+        """Обучение микромоделей на размеченных кейсах, если они есть.
+
+        Корпус задаётся `micromodels.training_corpus`. Раньше путь был
+        зашит на `eval/cases.json` (39 фраз), а все замеры делались на
+        `eval/cases_distill.json` — то есть опубликованное качество
+        описывало не тот каскад, который запускается.
+
+        Берутся ЧЁТНЫЕ семейства: нечётные остаются контрольными, поэтому
+        замеры на 152 фразах остаются замерами, а не подгонкой.
+        """
+        micro_cfg = self.config.get("micromodels", {}) or {}
+        corpus = str(micro_cfg.get("training_corpus")
+                     or "./eval/cases_distill.json")
+        cases_path = self._resolve(corpus)
         pairs = []
-        for case in cases:
-            phrase = case.get("prompt") or case.get("phrase") or ""
-            verbs = case.get("verbs") or case.get("expected_verbs") or []
-            if phrase and verbs:
+        if cases_path.exists():
+            try:
+                payload = json.loads(cases_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                payload = {}
+            cases = payload.get("cases") or payload or []
+            labeled = [c for c in cases
+                       if (c.get("prompt") or c.get("phrase"))
+                       and (c.get("verbs") or c.get("expected_verbs"))]
+            # Деление ПО СЕМЕЙСТВАМ, а не по индексам. При делении по
+            # индексам половина фраз каждого шаблона попадала в обучение, и
+            # «контроль» на 96% состоял из родственников обучающих фраз.
+            families = sorted({c.get("family") for c in labeled
+                               if c.get("family")})
+            if families:
+                train_families = {name for index, name in enumerate(families)
+                                  if index % 2 == 0}
+                chosen = [c for c in labeled
+                          if c.get("family") in train_families]
+            else:
+                chosen = labeled[::2]
+            for case in chosen:
+                phrase = case.get("prompt") or case.get("phrase")
+                verbs = case.get("verbs") or case.get("expected_verbs")
                 pairs.append((phrase, verbs[0]))
+
+        # Регрессионный набор добавляется всегда: он маленький и содержит
+        # формулировки, на которых каскад уже ошибался.
+        regression = self.project_root / "eval" / "cases.json"
+        if regression.exists():
+            try:
+                payload = json.loads(regression.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                payload = {}
+            for case in (payload.get("cases") or payload or []):
+                phrase = case.get("prompt") or case.get("phrase") or ""
+                verbs = case.get("verbs") or case.get("expected_verbs") or []
+                if phrase and verbs:
+                    pairs.append((phrase, verbs[0]))
         if pairs:
             self.cascade.fit(pairs)
+            self.cascade_trained_on = len(pairs)
 
     def propose_action_fast(self, user_input: str) -> Optional[VerbAct]:
         """Экономный разбор: каскад микромоделей, без вызова модели.

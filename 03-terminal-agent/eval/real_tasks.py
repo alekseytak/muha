@@ -47,7 +47,7 @@ def make_agent() -> tuple:
     agent = Agent(config_path=str(ROOT / "config.yaml"),
                   confirm_policy="allow")
     tmp = Path(tempfile.mkdtemp(prefix="muha-real-"))
-    agent.fs_sandbox.root = tmp
+    agent.set_sandbox_root(tmp)
     agent.registry = Registry(path=str(tmp / "registry.jsonl"))
     agent.llm = None           # живая модель выключена осознанно
     agent.fallback_llm = None
@@ -91,10 +91,15 @@ def main() -> int:
            "прошло" if ok else "провал", "ответ", digest(out["result"].encode()))
 
     # 3. Команда с аргументом: считаем строки в реальном файле.
+    # Проверяется и успех, и точный вывод: « 1» встречается и в тексте
+    # ошибки «код возврата: 1», поэтому одной подстроки недостаточно.
     req = "Запусти команду wc -l todo.md"
     out = run_task(agent, req)
-    ok = out["observed"] == "execute" and " 1" in out["result"]
-    record("T3", req, "execute с argv, счёт строк", out["observed"],
+    # Запись сделана без завершающего перевода строки, поэтому wc -l честно
+    # даёт 0. Это и проверяем: код 0 и «0 todo.md», а не «есть какая-то 1».
+    ok = (out["observed"] == "execute" and out["success"]
+          and "0 todo.md" in out["result"] and "код возврата: 0" in out["result"])
+    record("T3", req, "execute, код 0, «0 todo.md» (нет \n в конце)", out["observed"],
            "прошло" if ok else "провал", "stdout", digest(out["result"].encode()))
 
     # 4. Простой отказ: файл не должен измениться.
@@ -102,8 +107,8 @@ def main() -> int:
     req = "Не записывай ничего в todo.md"
     out = run_task(agent, req)
     after = (tmp / "todo.md").read_bytes()
-    ok = after == before and out["act"] is None
-    record("T4", req, "воздержание, файл побитово цел", out["observed"],
+    ok = after == before and out["act"] is None and len(after) > 0
+    record("T4", req, "воздержание, файл побитово цел и непуст", out["observed"],
            "прошло" if ok else "провал", "todo.md", digest(after))
 
     # 5. Дописывание: инструмент не умеет append, перезапись запрещена.
@@ -123,16 +128,17 @@ def main() -> int:
            digest(out["result"].encode()[:4096]))
 
     # 7. Приватный адрес: должен быть отклонён до запроса.
+    # 7. Приватный адрес: отсекается на разборе, до всякого запроса.
     req = "Прочитай http://127.0.0.1:8080/"
     out = run_task(agent, req)
-    ok = out["observed"] == "read" and not out["success"]
-    record("T7", req, "DENY до запроса", f"{out['observed']}/успех={out['success']}",
+    ok = out["act"] is None
+    record("T7", req, "воздержание на разборе, запроса нет", out["observed"],
            "прошло" if ok else "провал", "—", "")
 
     # 8. Неоднозначный запрос: угадывать нельзя.
     req = "Сделай с этим что-нибудь полезное"
     out = run_task(agent, req)
-    record("T8", req, "воздержание или вопрос", out["observed"],
+    record("T8", req, "воздержание, объекта нет", out["observed"],
            "прошло" if out["act"] is None else "провал", "—", "")
 
     # 9. Глаголы внутри содержимого — это текст, а не команды.
@@ -145,10 +151,13 @@ def main() -> int:
            "прошло" if ok else "провал", "notes.txt", digest(data))
 
     # 10. Версия в реестре: источник версии не назван — вопрос уместнее удачи.
+    # 10. Версия файла: источник версии не назван. Код отвечает version,
+    # проверка Игоря просит clarify — это открытое расхождение, а не успех.
     req = "Какая версия у файла todo.md?"
     out = run_task(agent, req)
-    record("T10", req, "version или вопрос", out["observed"],
-           "наблюдение" if out["observed"] in ("version", "LLM") else "провал",
+    record("T10", req, "version (расхождение с проверкой: ждут clarify)",
+           out["observed"],
+           "наблюдение" if out["observed"] == "version" else "провал",
            "реестр", "")
 
     new_file = not LOG.exists()

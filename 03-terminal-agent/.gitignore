@@ -5,3 +5,6 @@ memory/tasks.jsonl
 tmp_*.txt
 __pycache__/
 *.pyc
+# Демо: сырой вывод с ANSI и локальный реестр прогона.
+demo/SESSION.raw
+demo/registry.jsonl

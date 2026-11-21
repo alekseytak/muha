@@ -121,6 +121,32 @@ DEICTIC_RE = re.compile(
     r"\b(?:с\s+этим|это|этот|эта|эти|его|ее|её|их|туда|оттуда|там|то\s+же)\b",
     re.I)
 
+# Приватные и служебные адреса, а также схема file:// — не «позже откажет
+# инструмент», а «разбор не должен предлагать». Раньше fast-path предлагал
+# read, его отсекал web.read, и в замере это выглядело как воздержание.
+PRIVATE_HOST_RE = re.compile(
+    r"^(?:localhost|127\.|0\.0\.0\.0|::1|10\.|192\.168\.|169\.254\.|"
+    r"172\.(?:1[6-9]|2\d|3[01])\.|\[?::1\]?)", re.I)
+LOCAL_SCHEME_RE = re.compile(r"^(?:file|data|javascript):", re.I)
+
+
+def forbidden_url(phrase: str) -> Optional[str]:
+    """Адрес, который нельзя даже предлагать читать."""
+    text = phrase or ""
+    # URL_TOKEN_RE знает только http(s), поэтому file:// ищется отдельно.
+    scheme = re.search(r"\b(file|data|javascript)://", text, re.I)
+    if scheme:
+        return f"схема {scheme.group(1)}:// не поддерживается"
+    for match in URL_TOKEN_RE.finditer(text):
+        url = match.group(0)
+        if LOCAL_SCHEME_RE.match(url):
+            return f"схема {url.split(':', 1)[0]}:// не поддерживается"
+        host = url.split("://", 1)[-1].split("/", 1)[0].split("@")[-1]
+        host = host.split(":", 1)[0].strip("[]")
+        if PRIVATE_HOST_RE.match(host) or host.endswith(".local"):
+            return f"адрес «{host}» ведёт в локальную сеть"
+    return None
+
 # --- 3. Обязательные параметры -----------------------------------------
 
 CONTENT_RE = re.compile(
@@ -229,6 +255,9 @@ def check_readiness(verb: str, domain: str, phrase: str,
     чтобы воздержание было видно, а не выглядело как сбой.
     """
     params: Dict[str, object] = {}
+    forbidden = forbidden_url(phrase)
+    if forbidden:
+        return False, params, f"web: {forbidden}"
     # Статистика не имеет права придумывать действие с побочным эффектом:
     # «сравни содержимое old.txt и new.txt» без улики давало write.
     if verb in ("write", "execute", "anchor") and not confirmed_by_cue:

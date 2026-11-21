@@ -1,0 +1,42 @@
+{
+ "cases.json (39) — как сейчас": {
+  "holdout": {
+   "cases": 152,
+   "answered": 120,
+   "coverage": 0.789,
+   "verb_accuracy_of_all": 0.783,
+   "domain_accuracy_of_all": 0.697,
+   "joint_of_all": 0.697
+  },
+  "proposals": {
+   "act_rows": 47,
+   "full_match": 44,
+   "dangerous": 0,
+   "no_act_rows": 33
+  },
+  "review": {
+   "rows": 34,
+   "matched": 33
+  }
+ },
+ "cases_distill train split (177)": {
+  "holdout": {
+   "cases": 152,
+   "answered": 120,
+   "coverage": 0.789,
+   "verb_accuracy_of_all": 0.783,
+   "domain_accuracy_of_all": 0.697,
+   "joint_of_all": 0.697
+  },
+  "proposals": {
+   "act_rows": 47,
+   "full_match": 44,
+   "dangerous": 0,
+   "no_act_rows": 33
+  },
+  "review": {
+   "rows": 34,
+   "matched": 33
+  }
+ }
+}

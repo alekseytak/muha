@@ -11,7 +11,9 @@ llm:
   api_key_env: ONEPROVIDER_API_KEY
   credentials_file: ~/.dsh/.credentials.yaml
   temperature: 0.1          # для жёсткого формата глаголов нужна низкая
-  max_tokens: 512
+  # 512 не хватало: рассуждающая модель тратила весь бюджет на
+# reasoning, ответ приходил пустым (finish_reason=length).
+  max_tokens: 2500
   timeout: 60
   # Запасной провайдер, если основной недоступен (сеть/ключ/лимит).
   # Фолбэк выключен осознанно. Проверено 2026-11-13 (см. AUDIT.md, раздел 16):

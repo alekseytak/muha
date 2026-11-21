@@ -47,7 +47,7 @@ def make_agent(policy: str = "allow") -> Agent:
     agent = Agent(config_path=CONFIG, confirm_policy=policy)
     tmp = tempfile.mkdtemp(prefix="muha-test-")
     agent.registry = Registry(path=os.path.join(tmp, "registry.jsonl"))
-    agent.fs_sandbox.root = Path(tmp)
+    agent.set_sandbox_root(tmp)
     return agent
 
 

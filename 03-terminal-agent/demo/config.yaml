@@ -1,0 +1,156 @@
+# Конфигурация ДЕМО. Отличия от боевой: песочница ./sandbox,
+# реестр и очередь лежат рядом с демо, корпус обучения — из eval/.
+# Ключи не вписаны: берутся из окружения или ~/.dsh/.credentials.yaml.
+# Конфигурация терминального агента МУХА
+
+llm:
+  # Провайдер: oneprovider | literouter | openrouter | ollama
+  # Первые три — [OI]-совместимые (POST /chat/completions).
+  provider: oneprovider
+  model: deepseek-v4.1-flash
+  base_url: https://api.oneprovider.dev/v1
+  # Ключ берётся из переменной окружения, затем из credentials_file.
+  # В файл конфигурации ключи НЕ вписывать.
+  api_key_env: ONEPROVIDER_API_KEY
+  credentials_file: ~/.dsh/.credentials.yaml
+  temperature: 0.1          # для жёсткого формата глаголов нужна низкая
+  # 512 не хватало: рассуждающая модель тратила весь бюджет на
+# reasoning, ответ приходил пустым (finish_reason=length).
+  max_tokens: 2500
+  timeout: 60
+  # Запасной провайдер, если основной недоступен (сеть/ключ/лимит).
+  # Фолбэк выключен осознанно. Проверено 2026-11-13 (см. AUDIT.md, раздел 16):
+  #   literouter        — ключ отклонён: HTTP 401 на /models и на /chat/completions;
+  #   deepseek (офиц.)  — ключ отклонён: HTTP 401 "api key is invalid";
+  #   claude-n-codex    — ключ валиден, /models отвечает 200, но генерация: HTTP 402
+  #                       "insufficient available balance";
+  #   ollama (локально) — модель qwen2.5:3b падает в llama.cpp (NewSentencePieceModel).
+  # Перепроверено 2026-11-13 16:5x через сам LLMClient (короткий запрос):
+  #   literouter      — HTTP 403 "error code: 1010": Cloudflare режет по отпечатку
+  #                     клиента ещё до проверки ключа; с браузерным User-Agent
+  #                     ответ становится 401 (ключ отклонён);
+  #   claude-n-codex  — домен вообще не разрешается в DNS (gaierror);
+  #   oneprovider     — работает, единственный рабочий путь на сегодня.
+  # Мёртвый фолбэк хуже отсутствующего: он тратит таймаут и создаёт иллюзию
+  # отказоустойчивости. Чтобы включить — раскомментируйте блок и проверьте
+  # командой `providers` в CLI, которая делает реальный короткий запрос.
+  # fallback:
+  #   provider: literouter
+  #   model: deepseek-v3.2:free
+  #   base_url: https://api.literouter.com/v1
+  #   api_key_env: LITEROUTER_API_KEY
+
+agent:
+  name: Муха-Агент
+  version: 1.1.0
+  # Режим работы:
+  #   interactive — спрашивает подтверждение на опасные действия (по умолчанию);
+  #   read-only   — запрещены write/execute/anchor/veto, журналирование работает;
+  #   autonomous  — подтверждений нет и спросить некого: всё, что требует
+  #                 подтверждения, запрещается, а не подтверждается молча.
+  mode: interactive
+
+# Автономный режим: очередь задач и бюджеты. Расход считается в вызовах
+# модели; проверка идёт ДО запроса, поэтому превысить лимит нельзя.
+# Микромодели действий: каскад μ1 (глагол) → μ2 (домен) → μ3 (рой) → омега.
+# Экономит вызовы модели на уверенных случаях. Воздерживается, когда данных
+# мало, фраза незнакома или нет запаса над вторым кандидатом.
+micromodels:
+  enabled: true
+  confidence_floor: 0.55
+  training_corpus: ../eval/cases_distill.json
+
+autonomous:
+  tasks_path: ./tasks.jsonl
+  max_tasks: 3           # задач за один прогон
+  max_steps: 8           # шагов на задачу
+  max_llm_calls: 6       # вызовов модели на прогон — главный тормоз расходов
+  # Разрешить автономно выполнять действия, требующие подтверждения
+  # (write/execute/anchor/veto). false — только чтение и журнал; true —
+  # агент меняет состояние без человека, и это видно в реестре (auto_approved).
+  pre_approved: false
+  # Компактный промпт на шагах-продолжениях экономит 70% токенов промпта
+  # (263 против 876), НО замер на контрольной выборке дал 60% точности разбора
+  # против 100% с полным промптом. По умолчанию ВЫКЛЮЧЕН.
+  compact_prompt: false
+
+gatekeeper:
+  default_mode: ALLOW
+  default_role: decider
+  # Политика подтверждения опасных действий: ask | allow | deny
+  #   ask   — спрашивать в терминале (по умолчанию; EOF = отказ)
+  #   allow — выполнять без вопроса (только для доверенных сценариев/тестов)
+  #   deny  — всегда отказывать
+  confirm: ask
+  roles:
+    observer: [read, list, think, select, escalate]
+    analyst: [read, write, log, think, select, escalate]
+    decider: [read, write, execute, log, think, recommend, select, escalate]
+    guardian: [read, write, execute, veto, escalate, log, think, select]
+    registrar: [read, write, execute, version, anchor, escalate, log, think, select]
+
+registry:
+  path: ./registry.jsonl
+  hash_algorithm: sha256
+  append_only: true
+
+tools:
+  # Корень, за пределы которого файловые операции не выходят.
+  # Относительный путь считается от каталога проекта.
+  filesystem_root: ./sandbox
+  max_read_bytes: 65536
+  max_write_bytes: 262144
+  # Наблюдательные команды (первое слово). Всё остальное — DENY.
+  allowed_commands: [uname, ls, pwd, whoami, date, cat, head, wc, echo]
+  # Интерпретаторы и инструменты с обходными каналами запуска. Формально
+  # «одна команда», фактически — произвольное исполнение кода:
+  #   python3 -c "print(__import__('os').getcwd())"
+  # проходит любой фильтр подстрок. Поэтому отдельный список и отдельные роли.
+  privileged_commands: [python3, git, node, bash, sh, perl, ruby]
+  privileged_roles: [guardian, registrar]
+  command_timeout: 10
+  web_timeout: 15            # секунд на загрузку страницы
+  web_max_bytes: 2000000     # сколько байт страницы читать
+  web_max_chars: 20000       # сколько символов текста отдавать модели
+  # Браузер для страниц, где текст появляется только после JS.
+  # Пусто = путь по умолчанию из modules/browser.py, либо переменная OBSCURA_BIN.
+  browser_binary: ~/obscura-x86_64-macos/obscura
+  browser_timeout: 30
+  # Исполнение команд. Бэкенд posix (fork+exec) не импортирует subprocess,
+  # поэтому работает даже там, где _posixsubprocess зависает в dlopen.
+  # Альтернатива: commands_backend: subprocess.
+  commands_enabled: true
+  commands_backend: posix
+  # Запрещённые подстроки — режутся до запуска, даже если команда в allowlist.
+  denied_patterns: ["rm -rf", "sudo", "chmod 777", "> /dev/sd", "mkfs", ":(){", "curl ", "wget ", "ssh "]
+
+connectome:
+  # Реальные данные: <repo>/var/flywire-role (1515 узлов, 58674 связи).
+  path: ../../var/flywire-role/
+  enabled: true
+
+golden_apples:
+  vote_threshold: 0.66
+  min_votes: 3
+
+swarm:
+  pheromone_decay: 0.95
+  min_agents: 3
+
+hormones:
+  dopamine_base: 0.5
+  serotonin_base: 0.5
+  cortisol_base: 0.1
+  risk_appetite_base: 0.5
+
+kozyrev:
+  paradox_threshold: 0.66
+
+cli:
+  theme: cassette_futurism
+  colors:
+    primary: "#ffb000"
+    secondary: "#ff00ff"
+    success: "#5aff8a"
+    warning: "#ff4422"
+    info: "#94a3b8"

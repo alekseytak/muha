@@ -78,6 +78,7 @@ def test_web_read_through_real_http_and_tool():
     import http.server
     import threading
     import modules.web as web
+    import core.readiness as readiness
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -94,9 +95,14 @@ def test_web_read_through_real_http_and_tool():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     original = web._host_is_private
+    original_forbidden = readiness.forbidden_url
     try:
         # Исключение только для принадлежащего тесту loopback-сервера.
+        # Разбор тоже отсекает приватные адреса, поэтому исключение нужно в
+        # двух местах: иначе до реального HTTP дело не доходит.
         web._host_is_private = lambda host: False if host == '127.0.0.1' else original(host)
+        readiness.forbidden_url = lambda phrase: (
+            None if '127.0.0.1' in (phrase or '') else original_forbidden(phrase))
         agent = make_agent()
         act = agent.propose_action_fast(f'прочитай http://127.0.0.1:{server.server_port}/page')
         assert act is not None and act.domain == 'web'
@@ -106,6 +112,7 @@ def test_web_read_through_real_http_and_tool():
         assert agent.registry.entries[-1].success
     finally:
         web._host_is_private = original
+        readiness.forbidden_url = original_forbidden
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)

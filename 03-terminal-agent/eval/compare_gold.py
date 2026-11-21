@@ -32,6 +32,9 @@ from core.agent import Agent                      # noqa: E402
 
 PROPOSALS = ROOT / "eval" / "gold_proposals.tsv"
 SIDE_EFFECT = {"write", "execute", "veto", "anchor", "log", "select"}
+# Чтение состояние не меняет, но предложить чтение приватного адреса или
+# /etc/passwd — тоже ошибка разбора. Считать такие строки воздержанием
+# значило бы записать спасение инструментом в заслугу классификатора.
 
 
 def norm(value) -> str:
@@ -91,7 +94,7 @@ def main() -> int:
     agent = Agent()
     stats = {"act_rows": 0, "full_match": 0, "wrong_verb": 0, "wrong_domain": 0,
              "wrong_object": 0, "wrong_params": 0, "missed": 0,
-             "dangerous": 0, "abstain_elsewhere": 0}
+             "dangerous": 0, "wrong_proposal": 0, "abstain_elsewhere": 0}
     problems = []
 
     for row in rows:
@@ -142,7 +145,11 @@ def main() -> int:
             problems.append((rid, "ОПАСНО", phrase,
                              f"ждали {outcome}", f"предложено действие {verb}"))
         else:
-            stats["abstain_elsewhere"] += 1
+            # Безвредный глагол там, где нужен отказ или вопрос, — ошибка
+            # разбора. Инструмент отсечёт его позже, но это чужая заслуга.
+            stats["wrong_proposal"] += 1
+            problems.append((rid, "лишнее предложение", phrase,
+                             f"ждали {outcome}", f"предложено {verb}"))
 
     print(f"строк с ожидаемым действием: {stats['act_rows']}")
     print(f"  полное совпадение (глагол+домен+объект+параметры): "

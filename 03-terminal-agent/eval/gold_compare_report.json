@@ -10,6 +10,7 @@
   "wrong_params": 0,
   "missed": 2,
   "dangerous": 0,
+  "wrong_proposal": 0,
   "abstain_elsewhere": 33
  },
  "problems": [
